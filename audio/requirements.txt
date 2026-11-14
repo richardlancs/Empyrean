@@ -1,0 +1,4 @@
+# Person 4 audio dependencies, tested on Python 3.11.18, Windows 11, 2026-11-14.
+# Move these into the root requirements file once it exists.
+pyttsx3==2.99
+pygame==2.6.1
