@@ -113,6 +113,20 @@ class LastSeenQuery:
 
     ts: float  # when asked
     text: str  # what to search for
+    request_id: str | None = None  # optional; set to get a LastSeenResult back
+
+
+@dataclass
+class LastSeenResult:
+    """Storage to dashboard: the outcome of one LastSeenQuery that had a request_id."""
+
+    ts: float  # when answered
+    request_id: str  # copied from the LastSeenQuery
+    status: Literal["found", "not_found", "unavailable"]
+    answer: str  # the sentence published as a SpeakRequest, or empty if unavailable
+    matched_at: float | None = None  # ts of the matching touch, None unless found
+    label: str = ""  # name or class label of the match, empty unless found
+    neighbours: list[str] = field(default_factory=list)  # recorded with the match
 
 
 @dataclass
@@ -123,3 +137,32 @@ class SpeakRequest:
     text: str  # what to say
     priority: Literal["normal"]
     source: str  # folder name of the sender
+
+
+@dataclass
+class SpeechStatus:
+    """Audio to dashboard: one step in the life of one spoken phrase.
+
+    completed means the speech engine returned, not that anyone heard it.
+    """
+
+    ts: float  # when the step happened
+    speech_id: int  # the same for every step of one phrase
+    text: str  # what is, was, or would have been said
+    status: Literal["queued", "speaking", "completed", "interrupted", "failed"]
+    mode: Literal["real", "fake", "unavailable"]  # real = a speech engine on a device
+    kind: Literal["touch", "answer", "hazard"]
+    object_id: int | None = None  # set for touch speech
+    source: str = ""  # folder name of whoever asked for it
+    detail: str = ""  # why it was interrupted or failed
+
+
+@dataclass
+class ModuleStatus:
+    """Any module to dashboard: an explicit lifecycle or availability change."""
+
+    ts: float  # when the status changed
+    module: str  # folder name: vision, scene, namer, storage, audio, hazard
+    status: Literal["starting", "active", "degraded", "offline", "unknown"]
+    mode: Literal["real", "fake", "unknown"] = "unknown"
+    detail: str = ""  # short plain reason; never a key or connection string

@@ -335,6 +335,21 @@ These are the contract between modules. Field names, types and units are fixed.
 |---|---|---|
 | `ts` | number | When asked |
 | `text` | text | What to search for |
+| `request_id` | text or empty | Optional. When set, storage also publishes a `LastSeenResult` with the same value |
+
+### `LastSeenResult` (storage to dashboard)
+
+Added for the dashboard redesign. Published only for a `LastSeenQuery` that has a `request_id`; the spoken `SpeakRequest` answer is unchanged.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When answered |
+| `request_id` | text | Copied from the `LastSeenQuery` |
+| `status` | text | `found`, `not_found` or `unavailable`. A database error or outage is `unavailable`, never `not_found` |
+| `answer` | text | The spoken sentence, or empty when `unavailable` |
+| `matched_at` | number or empty | `ts` of the matching touch row, only when `found` |
+| `label` | text | Name or class label of the match, empty unless `found` |
+| `neighbours` | list of text | Neighbours recorded with the match |
 
 ### `SpeakRequest` (anyone to audio)
 
@@ -344,6 +359,34 @@ These are the contract between modules. Field names, types and units are fixed.
 | `text` | text | What to say |
 | `priority` | text | `normal` only. Alarms come from `HazardEvent`, never from here |
 | `source` | text | Folder name of the sender |
+
+### `SpeechStatus` (audio to dashboard)
+
+Added for the dashboard redesign. One message per step of one phrase. `completed` means the speech engine returned; it does not prove anyone heard it.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When the step happened |
+| `speech_id` | integer | The same for every step of one phrase |
+| `text` | text | What is, was, or would have been said |
+| `status` | text | `queued`, `speaking`, `completed`, `interrupted` or `failed` |
+| `mode` | text | `real` (a speech engine), `fake` (printed by the fake) or `unavailable` (logged only) |
+| `kind` | text | `touch`, `answer` or `hazard` |
+| `object_id` | integer or empty | Object spoken about, for touch speech |
+| `source` | text | Folder name of whoever asked for it |
+| `detail` | text | Why it was interrupted or failed |
+
+### `ModuleStatus` (any module to dashboard)
+
+Added for the dashboard redesign. Explicit lifecycle and availability changes. A module that never sends one is shown as unknown, not healthy.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When the status changed |
+| `module` | text | Folder name of the module described |
+| `status` | text | `starting`, `active`, `degraded`, `offline` or `unknown` |
+| `mode` | text | `real`, `fake` or `unknown` |
+| `detail` | text | Short plain reason. Never a key or connection string |
 
 ---
 
@@ -428,6 +471,9 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 | `HAZARD_GROK_TIMEOUT_SECONDS` | 3.0 | hazard |
 | `HAZARD_COOLDOWN_SECONDS` | 3.0 | hazard |
 | `DASHBOARD_PORT` | 8000 | dashboard |
+| `CAMERA_STALE_SECONDS` | 2.0 | dashboard |
+| `LAST_SEEN_TIMEOUT_SECONDS` | 8.0 | dashboard |
+| `THUMBNAIL_MAX_AGE_SECONDS` | 30.0 | dashboard |
 
 ---
 

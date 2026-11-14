@@ -12,11 +12,14 @@ from contracts import (
     Hand,
     HazardEvent,
     LastSeenQuery,
+    LastSeenResult,
+    ModuleStatus,
     NameRequest,
     NameResult,
     SceneObject,
     SceneSnapshot,
     SpeakRequest,
+    SpeechStatus,
     TouchEvent,
     TrackedObject,
 )
@@ -91,8 +94,29 @@ def _all_messages() -> list[object]:
             neighbours=["cup"],
         ),
         HazardEvent(ts=TS, type="stairs_down", source="grok", confidence=0.8),
-        LastSeenQuery(ts=TS, text="keys"),
+        LastSeenQuery(ts=TS, text="keys", request_id="r1"),
+        LastSeenResult(
+            ts=TS,
+            request_id="r1",
+            status="found",
+            answer="Keys, just now.",
+            matched_at=TS,
+            label="keys",
+            neighbours=["cup"],
+        ),
         SpeakRequest(ts=TS, text="Heinz ketchup", priority="normal", source="audio"),
+        SpeechStatus(
+            ts=TS,
+            speech_id=1,
+            text="Heinz ketchup",
+            status="completed",
+            mode="fake",
+            kind="touch",
+            object_id=3,
+            source="scene",
+            detail="",
+        ),
+        ModuleStatus(ts=TS, module="audio", status="active", mode="fake", detail=""),
     ]
 
 
@@ -153,8 +177,16 @@ def test_list_fields_default_to_empty() -> None:
 def test_config_matches_spec_section_9() -> None:
     """config has every section 9 name with the spec's value and type, and nothing else."""
     spec = _spec_thresholds()
-    assert len(spec) == 27
+    assert len(spec) == 30  # 27 original + 3 dashboard redesign values
     assert set(config.__all__) == set(spec)
     for name, value in spec.items():
         actual = getattr(config, name)
         assert actual == value and type(actual) is type(value), name
+
+
+def test_old_last_seen_query_constructor_still_works() -> None:
+    """LastSeenQuery(ts, text) from before the redesign builds with no request_id."""
+    query = LastSeenQuery(TS, "keys")
+    assert query.request_id is None
+    result = LastSeenResult(TS, "r1", "unavailable", "")
+    assert result.matched_at is None and result.neighbours == [] and result.label == ""

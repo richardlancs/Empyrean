@@ -31,9 +31,13 @@ HAZARD_GROK_MIN_CONFIDENCE = 0.6  # hazard
 HAZARD_GROK_TIMEOUT_SECONDS = 3.0  # hazard
 HAZARD_COOLDOWN_SECONDS = 3.0  # hazard
 DASHBOARD_PORT = 8000  # dashboard
+CAMERA_STALE_SECONDS = 2.0  # dashboard: no frame for this long means stale
+LAST_SEEN_TIMEOUT_SECONDS = 8.0  # dashboard: longer than storage connect timeout
+THUMBNAIL_MAX_AGE_SECONDS = 30.0  # dashboard
 
 __all__ = [
     "BOX_SHRINK_FRACTION",
+    "CAMERA_STALE_SECONDS",
     "DASHBOARD_PORT",
     "DET_MIN_AREA_FRACTION",
     "DET_MIN_CONFIDENCE",
@@ -47,6 +51,7 @@ __all__ = [
     "HELD_LOST_SECONDS",
     "HELD_MERGE_IOU",
     "HELD_MOVE_FRACTION",
+    "LAST_SEEN_TIMEOUT_SECONDS",
     "LATE_NAME_WINDOW_SECONDS",
     "LOST_KEEP_SECONDS",
     "NAME_CROP_PADDING",
@@ -58,6 +63,7 @@ __all__ = [
     "PROCESS_HEIGHT",
     "PROCESS_WIDTH",
     "STABLE_FRAMES",
+    "THUMBNAIL_MAX_AGE_SECONDS",
     "TOUCH_ENTER_FRAMES",
     "TOUCH_EXIT_FRAMES",
 ]
