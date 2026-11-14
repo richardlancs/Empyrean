@@ -27,6 +27,18 @@ function check(name, ok, info = "") {
 
 async function open(viewport = { width: 1440, height: 1000 }, options = {}) {
   const context = await browser.newContext({ viewport, ...options });
+  // Record every message written to the shell's live regions.
+  await context.addInitScript(() => {
+    window.__announcements = [];
+    new MutationObserver(() => {
+      for (const region of document.querySelectorAll("[data-announcer]")) {
+        const t = region.textContent.trim();
+        const last = region.__last || "";
+        if (t && t !== last) window.__announcements.push(`${region.dataset.announcer}: ${t}`);
+        region.__last = t;
+      }
+    }).observe(document, { subtree: true, childList: true, characterData: true });
+  });
   const page = await context.newPage();
   const errors = [];
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
@@ -38,6 +50,59 @@ async function open(viewport = { width: 1440, height: 1000 }, options = {}) {
 }
 
 const text = (page, id) => page.locator(`#${id}`).innerText();
+const emphasis = (page) => page.evaluate(() => document.getElementById("warning-panel")?.dataset.emphasis ?? null);
+const announcements = (page) => page.evaluate(() => window.__announcements.slice());
+
+/** WCAG contrast ratio of two rgb()/rgba() strings. */
+function contrast(fg, bg) {
+  const lum = (c) => {
+    const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map(Number).map((v) => {
+      const x = v / 255;
+      return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+  return (a + 0.05) / (b + 0.05);
+}
+
+/** Computed colours of feature elements next to the shell's own token values. */
+function themeSample(page) {
+  return page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const probe = document.createElement("div");
+    document.body.append(probe);
+    const resolve = (name) => {
+      probe.style.color = `var(${name})`;
+      return getComputedStyle(probe).color;
+    };
+    const tokens = Object.fromEntries(
+      ["--color-text", "--color-accent", "--color-border-control", "--color-surface", "--color-page"].map(
+        (n) => [n, resolve(n)],
+      ),
+    );
+    probe.remove();
+    const css = (sel, prop) => {
+      const el = document.querySelector(sel);
+      return el ? getComputedStyle(el)[prop] : null;
+    };
+    return {
+      theme: document.documentElement.dataset.theme,
+      tokens,
+      touchText: css("#touch-panel .experience-card", "color"),
+      touchBg: css("#touch-panel .experience-card", "backgroundColor"),
+      searchButton: css("#find-panel .experience-button-primary", "backgroundColor"),
+      searchButtonText: css("#find-panel .experience-button-primary", "color"),
+      inputBorder: css("#find-panel .experience-input", "borderTopColor"),
+      inputBorderWidth: css("#find-panel .experience-input", "borderTopWidth"),
+      filterOn: css('#events-panel .operations-filter[aria-pressed="true"]', "backgroundColor"),
+      healthText: css("#health-panel .operations-status", "color"),
+      mutedText: css("#find-panel .experience-muted", "color"),
+      pageBg: getComputedStyle(document.body).backgroundColor,
+      rootAccentDeclared: root.getPropertyValue("--color-accent").trim(),
+    };
+  });
+}
 const overflow = (page) =>
   page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const api = async (page, p) => page.evaluate(async (u) => (await fetch(u)).json(), p);
@@ -90,6 +155,7 @@ if (scenario === "normal") {
   await field.press("Enter");
   const found = await waitText(a.page, "find-panel", /Recorded at/, 10000);
   check("last-touch search through the UI is found with its touch time", found !== null, label);
+  check("the found result lists the recorded neighbours", /Recorded next to: /.test(found || ""), label);
   await a.page.locator("#find-panel").screenshot({ path: `${shots}/last-touch-found-1440.png` });
   await field.fill("zebra");
   await field.press("Enter");
@@ -119,6 +185,65 @@ if (scenario === "normal") {
   check("simulated warning is shown and labelled", simA !== null);
   check("simulation leaves latest_real_warning empty", simState.latest_real_warning === null);
   await a.page.screenshot({ path: `${shots}/simulated-warning-1440.png` });
+
+  // Simulation only: emphasis "simulated", removed when it expires.
+  const simEmphasis = await emphasis(a.page);
+  check("simulation alone sets warning emphasis to simulated", simEmphasis === "simulated", String(simEmphasis));
+  await a.page.waitForTimeout((simState.hazard_active_seconds + 1.5) * 1000);
+  check("emphasis is removed once nothing is active", (await emphasis(a.page)) === null);
+
+  // Item 3: features follow the shell's tokens in both themes.
+  const t = await open();
+  for (const sel of [
+    "#touch-panel .experience-card",
+    "#find-panel .experience-button-primary",
+    "#find-panel .experience-input",
+    '#events-panel .operations-filter[aria-pressed="true"]',
+    "#health-panel .operations-status",
+  ]) {
+    await t.page.waitForSelector(sel, { timeout: 10000 });
+  }
+  const light = await themeSample(t.page);
+  await t.page.getByRole("button", { name: "High contrast" }).click();
+  await t.page.waitForTimeout(200);
+  const high = await themeSample(t.page);
+  check("high contrast is applied through data-theme", light.theme === "light" && high.theme === "high-contrast");
+  for (const [label, sample] of [["light", light], ["high contrast", high]]) {
+    check(`${label}: touch card text uses --color-text`, sample.touchText === sample.tokens["--color-text"], sample.touchText);
+    check(`${label}: search button uses --color-accent`, sample.searchButton === sample.tokens["--color-accent"], sample.searchButton);
+    check(`${label}: active filter uses --color-accent`, sample.filterOn === sample.tokens["--color-accent"], sample.filterOn);
+    check(`${label}: input border uses --color-border-control`,
+      sample.inputBorder === sample.tokens["--color-border-control"], sample.inputBorder);
+    check(`${label}: status strip text uses --color-text`, sample.healthText === sample.tokens["--color-text"], sample.healthText);
+    for (const [fg, bg, name] of [
+      [sample.touchText, sample.touchBg, "card text"],
+      [sample.mutedText, sample.touchBg, "secondary text"],
+      [sample.searchButtonText, sample.searchButton, "button text"],
+    ]) {
+      const ratio = contrast(fg, bg);
+      check(`${label}: ${name} contrast ≥ 4.5`, ratio >= 4.5, ratio.toFixed(2));
+    }
+  }
+  check("high contrast changes the feature colours", light.searchButton !== high.searchButton && light.inputBorderWidth !== high.inputBorderWidth,
+    `${light.searchButton} → ${high.searchButton}, border ${light.inputBorderWidth} → ${high.inputBorderWidth}`);
+  await t.page.screenshot({ path: `${shots}/high-contrast-1440.png` });
+  await t.page.getByRole("button", { name: "High contrast" }).click(); // leave the saved theme on light
+  await t.context.close();
+
+  // Item 4: hanging POST and GET end at the search deadline in the real UI.
+  for (const [what, hang] of [
+    ["POST", (route) => (route.request().method() === "POST" ? null : route.continue())],
+    ["GET", (route) => (route.request().method() === "GET" ? null : route.continue())],
+  ]) {
+    const h = await open();
+    await h.page.route(/\/api\/last-seen(\/.*)?$/, (route) => hang(route)); // null = never answered
+    const box = h.page.getByLabel("What are you looking for?");
+    await box.fill("bottle");
+    await box.press("Enter");
+    const timedOut = await waitText(h.page, "find-panel", /No answer arrived in time/, 14000);
+    check(`a hanging ${what} ends with the timeout message`, timedOut !== null);
+    await h.context.close();
+  }
 
   // Keyboard and widths.
   const fresh = await open();
@@ -155,6 +280,7 @@ if (scenario === "hazard") {
   const active = await waitText(a.page, "warning-panel", /Active warning/, 15000);
   check("a real HazardEvent becomes an active warning", active !== null);
   await a.page.screenshot({ path: `${shots}/hazard-active-1440.png` });
+  check("an active real warning sets emphasis to urgent", (await emphasis(a.page)) === "urgent");
   const state = await api(a.page, "/api/state");
   check("backend marks it real", state.latest_real_warning && state.latest_real_warning.simulated === false);
   await a.page.locator("#demo-panel summary").first().click();
@@ -164,12 +290,18 @@ if (scenario === "hazard") {
   const panel = await text(a.page, "warning-panel");
   const realFirst = !after.latest_real_warning?.active || panel.indexOf("Simulated") > panel.indexOf("Active warning");
   check("an active real warning keeps priority over a later simulation", realFirst);
+  const both = await emphasis(a.page);
+  check("emphasis stays urgent (not simulated) while the real warning is active",
+    !after.latest_real_warning?.active || both === "urgent", String(both));
   const speech = await waitText(a.page, "touch-panel", /Stop\.|Interrupted|interrupted/, 15000);
   check("hazard speech or interruption is visible in speech status", speech !== null);
   const mobile = await open({ width: 360, height: 800 });
   await waitText(mobile.page, "warning-panel", /Active warning/, 15000);
   await mobile.page.screenshot({ path: `${shots}/hazard-active-360.png` });
   check("no console errors", a.errors.length === 0, a.errors.join("; "));
+  await waitText(a.page, "warning-panel", /Active warning/, 15000);
+  await a.page.evaluate(() => globalThis.empyreanDashboard.destroy());
+  check("cleanup removes the warning emphasis", (await emphasis(a.page)) === null);
 }
 
 if (scenario === "unavailable") {
@@ -197,6 +329,14 @@ if (scenario === "disconnect") {
   check("the page reconnects by itself when the server returns", back !== null);
   const camera = await waitText(a.page, "camera-panel", /Live/, 20000);
   check("the video stream reopens after reconnecting", camera !== null);
+  const said = await announcements(a.page);
+  const lostSaid = said.filter((m) => /connection lost/i.test(m));
+  check("no feature repeats the connection loss (for example the camera)",
+    !said.some((m) => /Camera: Dashboard connection lost/.test(m)), JSON.stringify(said));
+  const restored = said.filter((m) => /connection restored|reconnected/i.test(m));
+  check("connection loss is announced exactly once", lostSaid.length === 1, JSON.stringify(said));
+  check("reconnection is announced exactly once, by the shell", restored.length === 1 && /restored/.test(restored[0]),
+    JSON.stringify(restored));
 }
 
 console.log(results.join("\n"));

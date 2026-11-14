@@ -183,3 +183,17 @@ test("api client lets the caller abort while the body is still arriving", async 
   setTimeout(() => controller.abort(), 10);
   await assert.rejects(pending, (err) => err?.name === "AbortError");
 });
+
+test("a found result carries the recorded neighbours, bounded and cleaned", async () => {
+  const h = harness();
+  h.controller.search("ketchup");
+  h.calls[0].resolve({ request_id: "n1" });
+  await flush();
+  await h.timers.advance(POLL_INTERVAL_MS);
+  h.calls[1].resolve({
+    request_id: "n1", status: "found", answer: "Heinz ketchup, just now, next to mug.",
+    matched_at: 5, neighbours: ["mug", "", 7, "cereal box", "bowl", "plate"],
+  });
+  await flush();
+  assert.deepEqual(h.last().neighbours, ["mug", "cereal box", "bowl"]);
+});

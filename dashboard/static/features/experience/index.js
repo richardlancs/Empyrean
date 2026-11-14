@@ -153,7 +153,10 @@ export function mountExperience(ctx) {
     lastSpeechKey = speechKey;
 
     const cam = selectCamera(snapshot, streamStatus, nowMs);
-    if (cam.kind !== lastCameraKind && lastCameraKind !== null && (cam.kind === "stale" || cam.kind === "disconnected")) {
+    // Integration (Agent 4): a lost dashboard connection is announced by the shell
+    // only; the camera announces only its own problems while the page is connected.
+    const connected = snapshot.connection === "connected";
+    if (connected && cam.kind !== lastCameraKind && lastCameraKind !== null && (cam.kind === "stale" || cam.kind === "disconnected")) {
       const frameTs = state.diagnostics?.camera?.last_frame_ts ?? "none";
       announce(`Camera: ${cam.title}`, { priority: "polite", key: `camera:${cam.kind}:${frameTs}` });
     }

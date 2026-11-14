@@ -50,13 +50,14 @@ export function createFindPanel(root, { onSearch, onRetry }) {
   const resultTitle = el("p", { class: "experience-find-title" });
   const resultAnswer = el("p", { class: "experience-find-answer" });
   const resultMeta = el("p", { class: "experience-muted" });
+  const resultNeighbours = el("p", { class: "experience-muted" });
   const resultCaveat = el("p", {
     class: "experience-muted",
     text: "This is when it was last touched, not a guarantee it is still there.",
   });
   const retry = el("button", { type: "button", class: "experience-button", text: "Try again" });
   retry.addEventListener("click", () => onRetry());
-  const result = el("div", { class: "experience-find-result", role: "status" }, resultTitle, resultAnswer, resultMeta, resultCaveat, retry);
+  const result = el("div", { class: "experience-find-result", role: "status" }, resultTitle, resultAnswer, resultMeta, resultNeighbours, resultCaveat, retry);
 
   const card = el(
     "section",
@@ -98,6 +99,11 @@ export function createFindPanel(root, { onSearch, onRetry }) {
           : "";
     setText(resultMeta, meta);
     setHidden(resultMeta, !meta);
+    // Integration (Agent 4): the recorded neighbours, as data, never an invented place.
+    const near = view.status === "found" && Array.isArray(view.neighbours) ? view.neighbours : [];
+    const nearText = near.length ? `Recorded next to: ${near.join(", ")}.` : "";
+    setText(resultNeighbours, nearText);
+    setHidden(resultNeighbours, !nearText);
     setHidden(resultCaveat, view.status !== "found");
     setHidden(retry, !["timeout", "error", "unavailable"].includes(view.status) || !availability.enabled);
   }

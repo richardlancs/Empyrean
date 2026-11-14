@@ -109,6 +109,9 @@ export function createLastSeenController({
         query,
         answer: result.answer || "",
         matchedAt: typeof result.matched_at === "number" ? result.matched_at : null,
+        neighbours: Array.isArray(result.neighbours)
+          ? result.neighbours.filter((n) => typeof n === "string" && n.trim()).slice(0, 3)
+          : [],
         message: "",
       });
     } else if (result.status === "not_found") {
