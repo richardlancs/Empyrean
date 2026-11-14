@@ -68,6 +68,18 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 4 (audio), Codex
+**Changed:** No audio code changes: requested shared HazardEvent integration cannot be implemented against this checkout because no shared event implementation or contracts folder exists here.
+**Tested:** Confirmed branch voice-dashboard, inspected audio/speak_test.py and repository files. Script contains text playback only, no made-up alarm. Verified Piper 1.3.0 downloader supports --download-dir and creates the voice directory. Python launcher remains unavailable in the agent terminal; no playback or pytest run possible here.
+**Decisions:** Do not invent a replacement HazardEvent or edit shared contracts. User reports Piper 1.3.0 installed under Python 3.11 in their terminal.
+**Teammates need to know:** Need location or branch containing the team's actual HazardEvent definition before adding the requested stairs hazard example. Existing manual sentence test can run after voice download.
+
+### 2026-11-14, Person 4 (audio), Codex
+**Changed:** Added standalone `audio/speak_test.py` for supplied text, pinned Piper in `audio/requirements.txt`, and ignored local environments, voices and generated WAV files under audio.
+**Tested:** Confirmed branch `voice-dashboard` and initially clean working tree. Inspected entire repository: planning documents only, no existing audio, Python setup, Piper or voice models. Reviewed Piper's documented Python API. `git diff --check` passed. Attempted `python -m pytest`; Python is unavailable in this terminal, so tests and audible playback remain unverified.
+**Decisions:** User explicitly requested Piper for this isolated test despite the spec listing pyttsx3. No shared spec, alert format or dashboard changes. Use Windows standard-library playback with the selected system output; voice files are not committed.
+**Teammates need to know:** Python 3.11, Piper and a voice model still need setup, followed by laptop playback confirmation. This is a temporary manual test, not the integrated audio manager. Setup guidance proceeds one PowerShell command at a time.
+
 ### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code: demo validation
 **Changed:**
 
