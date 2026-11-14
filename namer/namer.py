@@ -18,6 +18,7 @@ import httpx
 import config
 from contracts import NameRequest, NameResult
 from namer.grok_client import name_crop
+from namer.questions import SceneQuestions
 
 log = logging.getLogger("namer")
 
@@ -112,6 +113,7 @@ class Namer:
         autostart: bool = True,
     ) -> None:
         """Create the namer; starts its worker thread unless autostart is False."""
+        self.questions: SceneQuestions | None = None
         self._publish = publish
         self._client_factory = client_factory
         self._inbox: queue.SimpleQueue[tuple[NameRequest, float]] = queue.SimpleQueue()
@@ -152,6 +154,8 @@ class Namer:
 
     def stop(self, timeout: float | None = None) -> None:
         """Finish queued and in-flight requests, then stop the worker thread."""
+        if self.questions is not None:
+            self.questions.stop()
         self._stopping.set()
         self._poke()
         if self._started:
