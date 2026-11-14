@@ -68,6 +68,21 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 4 (dashboard), Claude Code
+**Changed:**
+
+- There was no dashboard code on any branch, so this adds a minimal `dashboard/` laid out per SPEC.md 4.9. FastAPI serves one plain HTML page (`dashboard/index.html`), pushes state over the WebSocket at `/ws`, and runs alone with `python -m dashboard` on `DASHBOARD_PORT`. `dashboard/requirements.txt` pins `fastapi==0.162.7` and `uvicorn[standard]==0.54.0`.
+- `register(bus)` subscribes `HazardEvent` and `TouchEvent` (touches only; releases are not logged). The camera feed (`/video`), object list, FPS and last-seen search are placeholders and not built yet.
+- The "Latest warning" card stands in for the spec's red hazard banner and turns red for `HAZARD_COOLDOWN_SECONDS` after a hazard. "Recent events" is the spec's 10-entry event log.
+- A **Simulate alert** button (`POST /api/simulate-alert`) adds one `stairs_down` warning, labelled **Simulated**, to the dashboard only. It publishes nothing on the bus, so no alarm sounds and nothing is stored (AGENTS.md rule 5, SPEC.md 3.1).
+- New `tests/test_dashboard.py` (6 tests).
+
+**Tested:** In a Python 3.11.9 venv: `pytest tests/test_dashboard.py` gave 6 passed. Full `pytest` from the repo root, run twice with the Grok and Tiger Data variables unset: 99 passed, 1 skipped, 1 failed both times, the failure being the known `test_storage.py::test_unreachable_db_never_blocks_and_warns_once`. `ruff check` and `ruff format` are clean on `dashboard/` and `tests/test_dashboard.py`. Ran `python -m dashboard` and opened `http://localhost:8000` in a browser. One click showed "Stairs" with a Simulated tag in the red Latest warning card and exactly 1 entry in Recent events. After 3 s the card turned neutral. A second click made exactly 2 entries. At 375 px wide the layout stacks with no sideways scroll.
+
+**Decisions:** Using `HAZARD_COOLDOWN_SECONDS` for how long the banner stays red is my choice; SPEC.md only says "while a hazard is active". A simulated alert is not a `HazardEvent` because the contract has no field to mark it simulated.
+
+**Teammates need to know:** Install with `py -3.11 -m pip install -r dashboard/requirements.txt`. Person 1: `dashboard.register(bus)` returns the `DashboardState`. `app/` then serves `dashboard.create_app(state)` with Uvicorn on `DASHBOARD_PORT`. All: please confirm or replace the banner-duration choice above.
+
 ### 2026-11-14, Person 4 (audio), Claude Code
 **Changed:**
 
