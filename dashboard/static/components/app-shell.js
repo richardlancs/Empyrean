@@ -103,7 +103,7 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
         h(doc, "span", { className: "ui-chip ui-chip--outline" }, "Prototype"),
       ]),
       h(doc, "div", { className: "app-header__purpose" }, [
-        h(doc, "p", { className: "app-header__tagline" }, "Touch an object. Hear its name."),
+        h(doc, "p", { className: "app-header__tagline" }, "Touch an object. Ask what it is."),
       ]),
       h(doc, "div", { className: "app-header__tools", role: "group", "aria-label": "Display options" }, [
         welcome,
