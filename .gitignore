@@ -1,0 +1,16 @@
+# Secrets (AGENTS.md rule 9)
+.env
+
+# Python and tool caches
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Model weights and large recordings (AGENTS.md rules 7 and 10)
+*.pt
+*.onnx
+*.mp4
+*.avi
+*.mov

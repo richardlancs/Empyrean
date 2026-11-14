@@ -20,9 +20,9 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
-- **Person 3 (`storage/`, `namer/`):** `Box` is now a tuple (PR #2), so `x1, y1, x2, y2 = box` in `storage/db.py` is correct again. What is left: delete the four `_pending.py` shims and import from `contracts/` and `config/`, as `contracts/README.md` says.
+- **Person 3 (`storage/`, `namer/`, their fakes and `tests/test_namer.py`), blocks the demo:** these still import message classes from the four `_pending.py` shims, not from `contracts/`. On the bus, `namer` subscribes to `namer._pending.NameRequest`, while scene publishes `contracts.NameRequest`. They are different classes, so the namer never receives a request, and every touch would speak the COCO class. Same problem for storage with `TouchEvent`, `HazardEvent` and `LastSeenQuery`. Fix: point `namer/namer.py`, `storage/_deps.py`, `fakes/namer/fake_namer.py`, `fakes/storage/fake_store.py` and `tests/test_namer.py` at `contracts` and `config`, then delete the shims. `Box` is a tuple now, so `storage/db.py` box unpacking is already correct.
 - **Person 3 (`tests/test_storage.py`):** `test_unreachable_db_never_blocks_and_warns_once` is flaky on Windows. It failed 2 of 3 runs on Person 2's laptop. `_wait_for` gives up after 3 s, and `CONNECT_TIMEOUT_SECONDS` is also 3 s. On Windows, a refused connection to `127.0.0.1:1` can take about that long, so `dropped` reaches 100 just after the wait ends. Give the wait a longer timeout than the connect timeout. Found by Person 2, 2026-11-14.
-- **Repo root:** `hazardeventsample.py` is not inside any module folder, and `ruff check .` fails on it (F821, `HazardEvent` undefined). Move it under `fakes/hazard/` or add `from contracts import HazardEvent`.
+- **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11.
 - **Person 1 (`app/` bus):** Person 3's `register(bus)` expects `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`. `SceneDatabase` takes `publish(topic_name, msg)`, where the topic is the class name. Wire scene with `SceneDatabase(lambda _topic, msg: bus.publish(msg))`, or tell Person 2 which shape the bus uses.
 
 ## Contract changes
@@ -60,6 +60,15 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 2 (repo housekeeping), Claude Code
+**Changed:** Moved `hazardeventsample.py` from the repo root to a new `samples/` folder. It now imports `HazardEvent` from `contracts` and binds the example to `SAMPLE`, so `ruff check .` passes. Added a root `.gitignore` (`.env`, caches, model weights, video files) and `.env.example` with the four variables from SPEC.md section 6, both required by AGENTS.md rules 7, 9 and 10. Merged `p2-touch` into `main`, so `main` has the tuple `Box` fix for scene.
+
+**Tested:** `python -m ruff check .`: clean across the whole repo. `python -m pytest`: 74 passed, 1 skipped, 1 failed. The failure is the flaky storage timing test under "Needs attention". `samples/hazardeventsample.py` runs and builds a valid `HazardEvent`. `python -m app --fake vision` cannot run yet, because `app/` does not exist.
+
+**Decisions:** `samples/` holds hand-written example messages for teammates. It is not a module and nothing imports it. Person 2 created it at their human's request.
+
+**Teammates need to know:** Person 3, see the shim item under "Needs attention". It is the main thing between `main` and a working touch-to-name demo. Everyone: `git pull`, then delete your local `__pycache__` folders if git shows them.
 
 ### 2026-11-14, Person 2 (scene), Claude Code
 **Changed:** Moved `scene/`, `fakes/scene/` and the scene tests to the tuple `Box` from PR #2. After that merge, `main` failed `pytest` at collection time, because `Box(1, 2, 3, 4)` raises `TypeError` when `Box` is a tuple alias. `scene/touch.py` and `scene/naming.py` now unpack `x1, y1, x2, y2 = box`. The fake and the tests build boxes as plain tuples. No behaviour changed.
