@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import socket
 import threading
 import time
@@ -12,11 +13,20 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, StreamingResponse
+from pydantic import BaseModel, Field
 
 from config import DASHBOARD_PORT
-from contracts import FrameResult, HazardEvent, ModeChange, SceneSnapshot, TouchEvent
+from contracts import (
+    FrameResult,
+    HazardEvent,
+    ModeChange,
+    SceneSnapshot,
+    SpeakRequest,
+    TouchEvent,
+)
+from dashboard.questions import ask_question
 from dashboard.state import DashboardState
 from dashboard.video import BOUNDARY, VideoFeed, mjpeg_stream
 
@@ -24,6 +34,12 @@ LOGGER = logging.getLogger("dashboard")
 INDEX_PATH = Path(__file__).resolve().parent / "index.html"
 DEFAULT_HOST = "127.0.0.1"
 SERVER_STOP_SECONDS = 3.0  # how long stop() waits for the web server thread
+
+
+class Question(BaseModel):
+    """One recognized or typed question."""
+
+    text: str = Field(min_length=1, max_length=500)
 
 
 class Dashboard:
@@ -77,6 +93,8 @@ class Dashboard:
 def _port_is_free(host: str, port: int) -> bool:
     """Return True if nothing is listening on host:port."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        # Match Uvicorn: a previous connection in TIME_WAIT is safe to reuse.
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             probe.bind((host, port))
         except OSError:
@@ -96,6 +114,7 @@ def register(
     """
     dashboard = Dashboard(state or DashboardState(), publish=bus.publish)
     bus.subscribe(ModeChange, dashboard.state.on_mode)
+    bus.subscribe(SpeakRequest, dashboard.state.on_answer)
     bus.subscribe(HazardEvent, dashboard.state.on_hazard)
     bus.subscribe(TouchEvent, dashboard.state.on_touch)
     bus.subscribe(FrameResult, dashboard.video.on_frame)
@@ -160,6 +179,17 @@ def create_app(
     async def get_state() -> dict[str, Any]:
         """Return the current page state."""
         return state.snapshot()
+
+    @app.post("/api/question")
+    async def question(body: Question) -> dict[str, str]:
+        """Route a transcript without blocking camera or hazard processing."""
+        if publish is None:
+            raise HTTPException(503, "Questions require the running app.")
+        if not body.text.strip():
+            raise HTTPException(422, "Please enter a question.")
+        return ask_question(
+            body.text, state, publish, bool(os.environ.get("TIGER_DATABASE_URL"))
+        )
 
     @app.post("/api/simulate-alert")
     async def simulate_alert() -> dict[str, Any]:

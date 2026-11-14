@@ -24,6 +24,7 @@ import os
 import sys
 import threading
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -103,7 +104,10 @@ def _read_frame(camera: Any) -> Any:
     raise RuntimeError(BUSY_HINT)
 
 
-def capture(refs_dir: Path = REFS_DIR, objects: tuple[str, ...] = DEMO_OBJECTS) -> int:
+def capture(
+    refs_dir: Path = REFS_DIR, objects: tuple[str, ...] = DEMO_OBJECTS,
+    camera_index: int | None = None,
+) -> int:
     """Run the capture window; return how many reference pictures are now listed."""
     load_dotenv()
     refs_dir.mkdir(parents=True, exist_ok=True)
@@ -111,12 +115,20 @@ def capture(refs_dir: Path = REFS_DIR, objects: tuple[str, ...] = DEMO_OBJECTS) 
     refs: list[dict[str, Any]] = (
         json.loads(refs_path.read_text(encoding="utf-8")) if refs_path.is_file() else []
     )
-    index = int(os.environ.get("CAMERA_INDEX", "0"))
+    index = camera_index if camera_index is not None else int(os.environ.get("CAMERA_INDEX", "0"))
     log.info("Opening camera %d (close the app and any other capture window first)", index)
     camera = _open_camera(index)
-    camera.set(cv2.CAP_PROP_FRAME_WIDTH, PROCESS_WIDTH * 2)
-    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, PROCESS_HEIGHT * 2)
     try:
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, PROCESS_WIDTH * 2)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, PROCESS_HEIGHT * 2)
+        (refs_dir / "capture_info.json").write_text(json.dumps({
+            "source": "operator's own local webcam", "camera_index": index,
+            "captured_at_utc": datetime.now(UTC).isoformat(),
+            "capture_width": camera.get(cv2.CAP_PROP_FRAME_WIDTH),
+            "capture_height": camera.get(cv2.CAP_PROP_FRAME_HEIGHT),
+            "processed_width": PROCESS_WIDTH, "processed_height": PROCESS_HEIGHT,
+            "items": list(objects), "platform": sys.platform,
+        }, indent=2) + "\n", encoding="utf-8")
         first = True
         for label in objects:
             taken = sum(1 for ref in refs if ref["label"] == label)
@@ -158,11 +170,12 @@ def main() -> None:
     """Capture reference pictures and say what to run next."""
     parser = argparse.ArgumentParser(prog="python -m vision.capture_demo_refs")
     parser.add_argument("--refs", type=Path, default=REFS_DIR)
+    parser.add_argument("--camera-index", type=int, help="your own webcam index; usually 0")
     parser.add_argument("--objects", nargs="+", choices=DEMO_OBJECTS, default=list(DEMO_OBJECTS))
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(name)s: %(message)s")
     try:
-        count = capture(args.refs, tuple(args.objects))
+        count = capture(args.refs, tuple(args.objects), args.camera_index)
     except RuntimeError as exc:
         log.error("%s", exc)
         sys.exit(1)

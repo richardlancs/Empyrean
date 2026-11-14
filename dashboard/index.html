@@ -117,6 +117,10 @@
   .side { grid-area: side; display: grid; gap: 16px; align-content: start; }
   .empty { color: var(--muted); margin: 0; }
 
+  #voice-status { color: var(--muted); font-size: 13px; }
+  #transcripts { list-style: none; margin: 0; padding: 0; }
+  #transcripts li { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; overflow-wrap: anywhere; }
+  #answer { color: var(--muted); }
   #objects { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
   #objects li {
     display: grid;
@@ -195,6 +199,9 @@
   <span class="tag">Prototype</span>
   <span id="mode-tag" class="tag" hidden>Demo mode: detecting the demo objects only</span>
   <span class="spacer"></span>
+  <button id="microphone" type="button" aria-pressed="false"
+          title="Speech recognition may send audio to your browser’s speech service.">Start microphone</button>
+  <span id="voice-status" role="status">Microphone off</span>
   <span id="status" class="status" role="status">Connecting</span>
   <button id="mode" type="button" aria-pressed="false"
           title="Demo mode detects only the fixed set of demo objects on the live camera. Off returns to the standard detector.">
@@ -225,6 +232,12 @@
       <h2>Objects</h2>
       <p id="objects-empty" class="empty">No objects in view.</p>
       <ul id="objects"></ul>
+    </section>
+    <section class="panel">
+      <h2>Voice input</h2>
+      <p id="transcripts-empty" class="empty">Nothing heard yet.</p>
+      <ul id="transcripts"></ul>
+      <p id="answer" aria-live="polite"></p>
     </section>
     <section class="panel">
       <h2>Recent events</h2>
@@ -284,6 +297,7 @@
   }
 
   function render(state) {
+    if (state.answer) showAnswer(state.answer);
     clockOffset = state.now - Date.now() / 1000;
     activeSeconds = state.hazard_active_seconds;
     latest = state.latest_warning;
@@ -407,6 +421,155 @@
       els.mode.disabled = false;
     }
   });
+
+  const microphone = document.getElementById("microphone");
+  const voiceStatus = document.getElementById("voice-status");
+  const transcripts = document.getElementById("transcripts");
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let enabled = false;
+  let listening = false;
+  let starting = false;
+  let pending = false;
+  let resumeTimer = null;
+  let quietUntil = 0;
+  let lastAnswer = "";
+  let networkFailures = 0;
+  let retryDelay = 300;
+
+  // The audio bus has no speech-finished message. Allow a conservative playback
+  // window before listening again; actual playback completion is not observable.
+  function pauseForSpeech(text) {
+    quietUntil = Math.max(quietUntil, Date.now() + 2000 + text.split(/\s+/).length * 500);
+    if (recognition && (listening || starting)) recognition.abort();
+    scheduleListening();
+  }
+  function showAnswer(text) {
+    document.getElementById("answer").textContent = text;
+    if (text !== lastAnswer) {
+      lastAnswer = text;
+      pauseForSpeech(text);
+    }
+  }
+  function scheduleListening() {
+    clearTimeout(resumeTimer);
+    if (!enabled || pending || listening || starting) return;
+    resumeTimer = setTimeout(startListening, Math.max(retryDelay, quietUntil - Date.now()));
+  }
+  function startListening() {
+    if (!enabled || pending || listening || starting) return;
+    if (Date.now() < quietUntil) { scheduleListening(); return; }
+    try {
+      starting = true;
+      voiceStatus.textContent = "Starting microphone…";
+      recognition.start();
+    } catch (_) {
+      starting = false;
+      enabled = false;
+      updateMicrophone();
+      voiceStatus.textContent = "Click Start microphone to enable voice input.";
+    }
+  }
+  function updateMicrophone() {
+    microphone.textContent = enabled ? "Stop microphone" : "Start microphone";
+    microphone.setAttribute("aria-pressed", String(enabled));
+  }
+  async function submitSpeech(text) {
+    if (pending || !text.trim()) return;
+    pending = true;
+    if (recognition && (listening || starting)) recognition.abort();
+    const row = document.createElement("li");
+    row.textContent = text;
+    transcripts.prepend(row);
+    while (transcripts.children.length > 10) transcripts.lastElementChild.remove();
+    document.getElementById("transcripts-empty").hidden = true;
+    voiceStatus.textContent = "Processing…";
+    try {
+      const response = await fetch("/api/question", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({text: text.trim()}),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Question could not be sent.");
+      document.getElementById("answer").textContent = result.answer;
+      // Always pause, including repeated identical answers.
+      lastAnswer = result.answer;
+      pauseForSpeech(result.answer);
+      voiceStatus.textContent = enabled ? "Waiting for spoken answer…" : "Microphone off";
+    } catch (error) {
+      voiceStatus.textContent = error.message || "Could not send the question.";
+    } finally {
+      pending = false;
+      scheduleListening();
+    }
+  }
+  if (!Recognition) {
+    microphone.disabled = true;
+    voiceStatus.textContent = "Voice input needs a supported browser, such as Chrome or Safari.";
+  } else {
+    recognition = new Recognition();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onstart = () => {
+      starting = false;
+      listening = true;
+      if (!enabled || pending || Date.now() < quietUntil) { recognition.abort(); return; }
+      voiceStatus.textContent = "Listening…";
+    };
+    recognition.onresult = (event) => {
+      const result = event.results[event.resultIndex];
+      if (!enabled || pending || Date.now() < quietUntil || !result.isFinal) return;
+      networkFailures = 0;
+      retryDelay = 300;
+      submitSpeech(result[0].transcript);
+    };
+    recognition.onerror = (event) => {
+      if (event.error === "aborted" || event.error === "no-speech") return;
+      if (event.error === "network" && enabled && networkFailures < 3) {
+        networkFailures += 1;
+        retryDelay = 1000 * networkFailures;
+        voiceStatus.textContent = `Speech connection interrupted. Retrying (${networkFailures}/3)…`;
+        return;  // onend schedules the next attempt
+      }
+      enabled = false;
+      clearTimeout(resumeTimer);
+      updateMicrophone();
+      const messages = {
+        "not-allowed": "Allow microphone access, then click Start microphone.",
+        "audio-capture": "No microphone available. Check sound input settings.",
+        "network": "Speech recognition service unavailable in this browser. Open http://localhost:8000 in Google Chrome. If already in Chrome, check your connection.",
+      };
+      voiceStatus.textContent = messages[event.error] || "Voice input stopped. Click Start microphone to retry.";
+    };
+    recognition.onend = () => {
+      starting = false;
+      listening = false;
+      scheduleListening();
+    };
+    microphone.addEventListener("click", () => {
+      enabled = !enabled;
+      updateMicrophone();
+      if (enabled) {
+        networkFailures = 0;
+        retryDelay = 300;
+        startListening();
+      }
+      else {
+        clearTimeout(resumeTimer);
+        recognition.abort();
+        voiceStatus.textContent = "Microphone off";
+      }
+    });
+    window.addEventListener("pagehide", () => {
+      enabled = false;
+      clearTimeout(resumeTimer);
+      recognition.abort();
+    });
+    // Listening is opt-in for this page load. A browser session ending is
+    // retried while enabled; only Stop or an explained error disables it.
+    updateMicrophone();
+  }
 
   els.button.addEventListener("click", async () => {
     els.button.disabled = true;

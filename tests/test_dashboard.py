@@ -10,7 +10,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from config import HAZARD_COOLDOWN_SECONDS
-from contracts import FrameResult, HazardEvent, ModeChange, SceneSnapshot, TouchEvent
+from contracts import (
+    FrameResult,
+    HazardEvent,
+    ModeChange,
+    SceneSnapshot,
+    SpeakRequest,
+    TouchEvent,
+)
 from dashboard import DashboardState, create_app, register
 from dashboard.state import EVENT_LOG_SIZE, HAZARD_LABELS
 
@@ -106,6 +113,7 @@ def test_register_and_real_events_are_not_simulated() -> None:
         FrameResult,
         SceneSnapshot,
         ModeChange,
+        SpeakRequest,
     }
 
     bus.publish(HazardEvent(ts=NOW, type="vehicle", source="yolo", confidence=0.91))

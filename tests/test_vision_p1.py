@@ -386,3 +386,40 @@ def test_windows_camera_uses_directshow_on_open_and_reopen(monkeypatch: Any) -> 
         assert calls == [(1, vision.cv2.CAP_DSHOW), (1, vision.cv2.CAP_DSHOW)]
     finally:
         camera.close()
+
+
+def test_capture_uses_own_explicit_webcam_instead_of_another_laptops_env(
+    monkeypatch: Any, tmp_path: Any,
+) -> None:
+    """A teammate's explicit index 0 overrides the demo laptop's CAMERA_INDEX=1."""
+    import json
+
+    from vision import capture_demo_refs as capture
+
+    opened: list[int] = []
+    released: list[bool] = []
+    device = SimpleNamespace(
+        set=lambda *_args: True,
+        get=lambda prop: 1280 if prop == capture.cv2.CAP_PROP_FRAME_WIDTH else 720,
+        release=lambda: released.append(True),
+    )
+
+    def open_device(index: int) -> Any:
+        opened.append(index)
+        return device
+
+    monkeypatch.setenv("CAMERA_INDEX", "1")
+    monkeypatch.setattr(capture, "load_dotenv", lambda: None)
+    monkeypatch.setattr(capture, "_open_camera", open_device)
+    monkeypatch.setattr(capture, "_read_frame", lambda _camera: np.zeros((360, 640, 3), np.uint8))
+    monkeypatch.setattr(capture.cv2, "imshow", lambda *_args: None)
+    monkeypatch.setattr(capture.cv2, "setWindowProperty", lambda *_args: None)
+    monkeypatch.setattr(capture.cv2, "waitKey", lambda _delay: ord("q"))
+    monkeypatch.setattr(capture.cv2, "destroyAllWindows", lambda: None)
+    assert capture.capture(tmp_path, ("keys",), camera_index=0) == 0
+    assert opened == [0]
+    assert released == [True]
+    info = json.loads((tmp_path / "capture_info.json").read_text())
+    assert info["camera_index"] == 0
+    assert info["items"] == ["keys"]
+    assert (info["processed_width"], info["processed_height"]) == (640, 360)

@@ -25,6 +25,12 @@ two-class replacement and install it globally: that would remove the other six
 classes. Do not try to merge four `.pt` files. Merge reviewed datasets, then
 Person 1 trains/selects the final full eight-class detector.
 
+**Every member must use their own webcam for imaging.** A laptop's built-in
+webcam is acceptable; nobody has to borrow Person 2's Logitech or wait for the
+glasses camera. The shared bootstrap is a starting point, not your contribution.
+Capture your assigned items yourself in both sessions. Camera/lighting variation
+is intentional; the final combined model must also be tested on the glasses camera.
+
 ## What is already included
 
 - `training_data/bootstrap/`: **71 training images, 10 validation images**, YOLO
@@ -75,6 +81,12 @@ The Windows CPU environment is the tested baseline; macOS uses its native
 PyTorch wheels. Microphone input now on `main` uses browser speech recognition,
 not Python SpeechRecognition/PyAudio.
 
+Setup validation: the installer and vision imports succeeded in a fresh Windows
+venv. Windows Application Control blocked the newly downloaded Postgres binary
+in that venv, so its complete database test collection could not run; the existing
+working venv is used for the full suite. If your OS blocks a package, follow its
+normal trust/admin process; do not disable security controls to run training.
+
 Model weights are never committed to Git. The current failed/experimental
 checkpoint is distributed as a **prerelease** for comparison:
 
@@ -89,16 +101,21 @@ YOLOE prompt files are only needed for the old fallback, not the trained path.
 
 ## Capture and label your pair
 
-Stop your own camera app first. Use the actual demo objects, camera, distance,
-angle and lighting. For example, Person 1:
+Stop your own camera app first. Use **your own webcam** and physical examples of
+your assigned items, at realistic demo distances and angles. Include a short
+note if your item differs from the final demo's item. For example, Person 1:
 
 ```bash
-python -m vision.capture_demo_refs --refs training_data/person1/train --objects watch "water bottle"
-python -m vision.capture_demo_refs --refs training_data/person1/eval --objects watch "water bottle"
+python -m vision.capture_demo_refs --camera-index 0 --refs training_data/person1/train --objects watch "water bottle"
+python -m vision.capture_demo_refs --camera-index 0 --refs training_data/person1/eval --objects watch "water bottle"
 ```
 
 Other pairs: Person 2 `--objects charger toothpaste`; Person 3
 `--objects keys phone`; Person 4 `--objects headphones toothbrush`.
+Index 0 is usually the built-in webcam. If the preview is wrong, quit and try
+your actual camera index. The explicit flag overrides any laptop-specific
+`CAMERA_INDEX` in `.env`; do not copy Person 2's index 1 blindly. Each session
+records `capture_info.json` with its source, index, resolution and platform.
 SPACE freezes the image, drag a tight box, ENTER accepts it; N moves to the
 next item, Q finishes. Images and `refs.json` stay in your own folder.
 
@@ -157,7 +174,7 @@ alone is too small to certify quality. Use the separate sessions above.
 
 ## Share results and integrate
 
-Commit your own JPEGs, `refs.json`, evaluation JSON and a short result note on
+Commit your own JPEGs, `refs.json`, `capture_info.json`, evaluation JSON and a short result note on
 your branch, then open a PR. Include every failure, the inference latency,
 watch/charger or keys/phone confusions, and performance on the other six
 classes. Do not commit `.env`, weights, scratch runs or long videos. Attach

@@ -2,10 +2,9 @@
 
 Run:  python -m audio
 
-Plays, in order: a touch with a known name, a touch before its name arrives
-followed by the late name, a retouch, a release (silent), a spoken answer that a
-stairs hazard cuts off, and one more touch after the alarm. No bus, camera or
-network is needed. Set the JBL Go 3 as the system output first.
+Touch, release, late-name and retouch messages stay silent in question-only
+mode. The scripted spoken answer is interrupted by a stairs alarm. No bus,
+camera or network is needed. Uses the system's selected audio output.
 """
 
 from __future__ import annotations
