@@ -1,0 +1,461 @@
+/*
+ * Shared primitives for both features. Prefix: ui-.
+ * Feature styles compose these; they do not restyle them globally.
+ * Every state pairs colour with text, an icon glyph, or a border pattern.
+ */
+
+/* ---- Panel ---- */
+
+.ui-panel {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
+  padding: var(--space-2);
+  min-width: 0;
+}
+
+@media (min-width: 45em) {
+  .ui-panel {
+    padding: var(--space-3);
+  }
+}
+
+.ui-panel--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.ui-panel--accent  { border-color: var(--color-accent);  border-width: 2px; }
+.ui-panel--caution { border-color: var(--color-caution); border-width: 2px; }
+.ui-panel--danger  { border-color: var(--color-danger);  border-width: 2px; background: var(--color-danger-soft); }
+.ui-panel--sim     { border-color: var(--color-sim);     border-width: 2px; border-style: dashed; }
+
+.ui-panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.ui-panel__title {
+  font-size: var(--text-large);
+  font-weight: var(--weight-semibold);
+}
+
+.ui-panel__subtitle,
+.ui-meta {
+  color: var(--color-text-secondary);
+  font-size: var(--text-small);
+}
+
+.ui-stack {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.ui-stack--tight {
+  gap: var(--space-1);
+}
+
+.ui-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ---- Buttons ---- */
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: var(--target-min);
+  min-width: var(--target-min);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width-control) solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing),
+              border-color var(--duration-fast) var(--easing);
+}
+
+.ui-button:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.ui-button--secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border-control);
+}
+
+.ui-button--secondary:hover {
+  background: var(--color-surface-sunken);
+  border-color: var(--color-text);
+}
+
+.ui-button--quiet {
+  background: transparent;
+  color: var(--color-accent-text);
+  border-color: transparent;
+}
+
+.ui-button--quiet:hover {
+  background: var(--color-accent-soft);
+  border-color: transparent;
+}
+
+/* Demo-only actions: purple, dashed, never mistaken for a real control. */
+.ui-button--sim {
+  background: var(--color-sim-soft);
+  color: var(--color-sim);
+  border-color: var(--color-sim);
+  border-style: dashed;
+}
+
+.ui-button--sim:hover {
+  background: var(--color-surface);
+  border-color: var(--color-sim);
+}
+
+.ui-button--danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-on-danger);
+}
+
+.ui-button--danger:hover {
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
+}
+
+.ui-button:disabled,
+.ui-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.ui-button[aria-busy="true"] {
+  cursor: progress;
+}
+
+.ui-button[aria-busy="true"]::before {
+  content: "";
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin 0.9s linear infinite;
+}
+
+/* Two-state toggle button: state is announced by aria-pressed and shown by the box. */
+.ui-toggle[aria-pressed]::before {
+  content: "";
+  width: 1.1em;
+  height: 1.1em;
+  flex: none;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+}
+
+.ui-toggle[aria-pressed="true"]::before {
+  background:
+    linear-gradient(currentColor, currentColor) center / 55% 55% no-repeat;
+}
+
+/* ---- Chips and badges ---- */
+
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-half);
+  max-width: 100%;
+  padding: 2px var(--space-1);
+  border: 1px solid var(--chip-border, var(--color-border-control));
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg, var(--color-neutral-soft));
+  color: var(--chip-fg, var(--color-neutral));
+  font-size: var(--text-badge);
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.ui-chip--touch   { --chip-bg: var(--color-accent-soft);  --chip-fg: var(--color-accent-text); --chip-border: var(--color-accent); }
+.ui-chip--caution { --chip-bg: var(--color-caution-soft); --chip-fg: var(--color-caution);     --chip-border: var(--color-caution); }
+.ui-chip--danger  { --chip-bg: var(--color-danger-soft);  --chip-fg: var(--color-danger);      --chip-border: var(--color-danger); }
+.ui-chip--sim     { --chip-bg: var(--color-sim-soft);     --chip-fg: var(--color-sim);         --chip-border: var(--color-sim); border-style: dashed; }
+.ui-chip--outline { --chip-bg: var(--color-surface); }
+
+/* Glyphs so state never relies on colour alone. Decorative: the label carries meaning. */
+.ui-chip[data-icon]::before {
+  content: attr(data-icon);
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+/* ---- Status indicator (health, connection) ---- */
+
+.ui-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-small);
+  color: var(--color-text);
+}
+
+.ui-status::before {
+  flex: none;
+  width: 1.1em;
+  text-align: center;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+.ui-status[data-status="active"]::before   { content: "\25CF"; color: var(--color-accent); }   /* ● */
+.ui-status[data-status="starting"]::before { content: "\25D4"; color: var(--color-text-secondary); } /* ◔ */
+.ui-status[data-status="degraded"]::before { content: "\25B2"; color: var(--color-caution); }  /* ▲ */
+.ui-status[data-status="offline"]::before  { content: "\25A0"; color: var(--color-danger); }   /* ■ */
+.ui-status[data-status="unknown"]::before  { content: "?";     color: var(--color-text-secondary); }
+
+/* ---- Form fields ---- */
+
+.ui-field {
+  display: grid;
+  gap: var(--space-half);
+  min-width: 0;
+}
+
+.ui-label {
+  font-weight: var(--weight-semibold);
+}
+
+.ui-hint {
+  color: var(--color-text-secondary);
+  font-size: var(--text-small);
+}
+
+.ui-input {
+  width: 100%;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width-control) solid var(--color-border-control);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.ui-input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 1;
+}
+
+.ui-input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+  border-width: 2px;
+}
+
+.ui-field-error {
+  color: var(--color-danger);
+  font-size: var(--text-small);
+  font-weight: var(--weight-semibold);
+}
+
+.ui-field-error::before {
+  content: "\26A0\FE0E  "; /* ⚠ text presentation */
+}
+
+.ui-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: end;
+}
+
+.ui-inline-form > .ui-field {
+  flex: 1 1 14rem;
+}
+
+/* ---- Callouts (inline messages) ---- */
+
+.ui-callout {
+  display: grid;
+  gap: var(--space-half);
+  padding: var(--space-2);
+  border: 1px solid var(--callout-border, var(--color-border));
+  border-inline-start-width: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--callout-bg, var(--color-surface-sunken));
+  color: var(--color-text);
+}
+
+.ui-callout--touch   { --callout-border: var(--color-accent);  --callout-bg: var(--color-accent-soft); }
+.ui-callout--caution { --callout-border: var(--color-caution); --callout-bg: var(--color-caution-soft); }
+.ui-callout--danger  { --callout-border: var(--color-danger);  --callout-bg: var(--color-danger-soft); }
+.ui-callout--sim     { --callout-border: var(--color-sim);     --callout-bg: var(--color-sim-soft); border-style: dashed; }
+
+.ui-callout__title {
+  font-weight: var(--weight-semibold);
+}
+
+/* ---- Lists ---- */
+
+.ui-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+}
+
+.ui-list > li {
+  padding-block: var(--space-1);
+  border-top: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.ui-list > li:first-child {
+  border-top: 0;
+}
+
+/* ---- Empty and loading states ---- */
+
+.ui-empty {
+  display: grid;
+  gap: var(--space-half);
+  padding: var(--space-2);
+  border: 1px dashed var(--color-border-control);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+}
+
+.ui-empty__title {
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+
+.ui-loading {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.ui-loading__bar {
+  height: 0.75rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+  position: relative;
+}
+
+.ui-loading__bar:nth-of-type(2) { width: 80%; }
+.ui-loading__bar:nth-of-type(3) { width: 55%; }
+
+.ui-loading__bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.7), transparent);
+  transform: translateX(-100%);
+  animation: ui-shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-loading__bar::after {
+    display: none;
+  }
+}
+
+.ui-spinner {
+  display: inline-block;
+  width: 1.25em;
+  height: 1.25em;
+  border: 2px solid var(--color-border-control);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin 0.9s linear infinite;
+  vertical-align: -0.2em;
+}
+
+/* Shown when a feature module fails to load or mount. */
+.ui-feature-error {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 2px solid var(--color-danger);
+  border-radius: var(--radius);
+  background: var(--color-danger-soft);
+}
+
+.ui-feature-error__title {
+  font-weight: var(--weight-semibold);
+  color: var(--color-danger);
+}
+
+.ui-feature-error__title::before {
+  content: "\26A0\FE0E  ";
+}
+
+.ui-feature-error details {
+  color: var(--color-text-secondary);
+  font-size: var(--text-small);
+}
+
+.ui-feature-error summary {
+  cursor: pointer;
+  min-height: var(--target-min);
+  display: flex;
+  align-items: center;
+}
+
+.ui-feature-error code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* ---- Key/value pairs ---- */
+
+.ui-dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-half) var(--space-2);
+}
+
+.ui-dl dt {
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 22.5em) {
+  .ui-dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ui-dl dd {
+    margin-bottom: var(--space-1);
+  }
+}
+
+@keyframes ui-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ui-shimmer {
+  to { transform: translateX(100%); }
+}

@@ -1,0 +1,182 @@
+/*
+ * Page frame: header, the eight mount slots and their responsive order.
+ *
+ * DOM order (and therefore reading and tab order) is the mobile order:
+ *   health, warning, touch, camera, objects, find, events, demo.
+ * Wider screens only rearrange columns; they never reorder content with `order`.
+ * Breakpoints are in em so 200% zoom reflows to the narrower layout.
+ */
+
+.app-container {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* ---- Header ---- */
+
+.app-header {
+  background: var(--color-surface);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.app-header__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding-block: var(--space-2);
+}
+
+.app-brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Deliberately modest: the touched object's name is the largest text on the page. */
+.app-brand__name {
+  font-size: var(--text-large);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.app-header__purpose {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.app-header__tagline {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+}
+
+.app-header__explainer {
+  font-size: var(--text-small);
+  color: var(--color-text-secondary);
+}
+
+.app-header__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+
+/* ---- Main grid ---- */
+
+.app-main {
+  padding-block: var(--space-3) var(--space-6);
+}
+
+.app-main:focus {
+  outline: none;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "health"
+    "warning"
+    "touch"
+    "camera"
+    "objects"
+    "find"
+    "events"
+    "demo";
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.app-slot {
+  min-width: 0;          /* lets long names wrap inside grid tracks */
+  scroll-margin-top: var(--space-2);
+}
+
+.app-slot--health  { grid-area: health; }
+.app-slot--warning { grid-area: warning; }
+.app-slot--touch   { grid-area: touch; }
+.app-slot--camera  { grid-area: camera; }
+.app-slot--objects { grid-area: objects; }
+.app-slot--find    { grid-area: find; }
+.app-slot--events  { grid-area: events; }
+.app-slot--demo    { grid-area: demo; }
+
+.app-slot:focus {
+  outline: none;
+}
+
+/* Empty mounts take no space: no blank boxes while a feature has nothing to show. */
+.app-slot:empty {
+  display: none;
+}
+
+/*
+ * Warning emphasis hook. The operations feature sets data-emphasis="urgent" on the
+ * warning mount while a real warning is active, and removes it when it expires.
+ * The slot then stays pinned in view while scrolling, without taking extra space
+ * the rest of the time. Simulations use "simulated" and are never pinned.
+ */
+.app-slot--warning[data-emphasis="urgent"] {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding-block: var(--space-1);
+  margin-block: calc(-1 * var(--space-1));
+  background: var(--color-page);
+}
+
+.app-slot--warning[data-emphasis="urgent"] > * {
+  box-shadow: var(--shadow-sticky);
+}
+
+/* Medium: objects and last-touch search share a row under the camera. */
+@media (min-width: 45em) {
+  .app-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "health  health"
+      "warning warning"
+      "touch   touch"
+      "camera  camera"
+      "objects find"
+      "events  events"
+      "demo    demo";
+    gap: var(--space-3) var(--space-2);
+  }
+}
+
+/*
+ * Wide: a substantial camera on the left and a 360-420px information column
+ * (touch first). Activity sits under the camera, beside search and demo tools.
+ */
+@media (min-width: 64em) {
+  .app-layout {
+    grid-template-columns: minmax(0, 1fr) var(--info-column);
+    grid-template-areas:
+      "health  health"
+      "warning warning"
+      "camera  touch"
+      "camera  objects"
+      "events  find"
+      "events  demo";
+    /* When the camera is taller than touch + objects, the spare height goes to
+       the objects row (below the list), never between the touch and the list. */
+    grid-template-rows: auto auto auto 1fr auto auto;
+    gap: var(--space-3);
+  }
+  /* The camera is deliberately not sticky: sticky grid items are bounded by the
+     whole grid, not their area, so it would slide over the activity panel. */
+}
+
+/* ---- Footer ---- */
+
+.app-footer {
+  border-top: var(--border-width) solid var(--color-border);
+  padding-block: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--text-small);
+}
