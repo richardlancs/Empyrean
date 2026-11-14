@@ -660,8 +660,14 @@ class Vision:
                         self._request_id = None
             return
         candidate = ready
-        if candidate is None and cached is not None and cached.stamp == checkpoint_stamp(
-            Path(cached.stamp[0]) if cached.stamp else TRAINED_DEMO_WEIGHTS
+        if (
+            candidate is None
+            and cached is not None
+            # A fallback is stale once the preferred trained checkpoint has been installed.
+            and not (cached.kind == "prompt-fallback" and TRAINED_DEMO_WEIGHTS.is_file())
+            and cached.stamp == checkpoint_stamp(
+                Path(cached.stamp[0]) if cached.stamp else TRAINED_DEMO_WEIGHTS
+            )
         ):
             candidate = cached  # validated earlier and the file is unchanged
         if candidate is not None:
