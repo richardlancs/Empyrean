@@ -90,7 +90,14 @@ function themeSample(page) {
       theme: document.documentElement.dataset.theme,
       tokens,
       touchText: css("#touch-panel .experience-card", "color"),
-      touchBg: css("#touch-panel .experience-card", "backgroundColor"),
+      // The background actually behind the text: modules may be transparent on the page grid.
+      touchBg: (() => {
+        for (let n = document.querySelector("#touch-panel .experience-card"); n; n = n.parentElement) {
+          const c = getComputedStyle(n).backgroundColor;
+          if (c && c !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(c)) return c;
+        }
+        return getComputedStyle(document.body).backgroundColor;
+      })(),
       searchButton: css("#find-panel .experience-button-primary", "backgroundColor"),
       searchButtonText: css("#find-panel .experience-button-primary", "color"),
       inputBorder: css("#find-panel .experience-input", "borderTopColor"),
@@ -119,11 +126,16 @@ async function waitText(page, id, pattern, timeout = 20000) {
 
 if (scenario === "normal") {
   const a = await open();
-  const theme = await a.page.evaluate(() => [
-    document.documentElement.dataset.theme,
-    getComputedStyle(document.body).backgroundColor,
-  ]);
-  check("light mode is the default", theme[0] === "light" && theme[1] === "rgb(245, 247, 250)", theme.join(" "));
+  const theme = await a.page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.style.color = "var(--color-page)";
+    document.body.append(probe);
+    const page = getComputedStyle(probe).color;
+    probe.remove();
+    return [document.documentElement.dataset.theme, getComputedStyle(document.body).backgroundColor, page];
+  });
+  // Compared with the shell's own --color-page token, not a literal, so a palette change stays valid.
+  check("light mode is the default", theme[0] === "light" && theme[1] === theme[2], theme.join(" "));
 
   // Engine -> read model -> /ws -> store -> touch card.
   await waitText(a.page, "camera-panel", /Live/, 15000);
@@ -254,8 +266,15 @@ if (scenario === "normal") {
   });
   check("first Tab reaches the skip link", first.tag === "A" && /skip/i.test(first.text || ""),
     JSON.stringify(first));
-  const ring = await fresh.page.evaluate(() => getComputedStyle(document.activeElement).outlineColor);
-  check("focused control shows the focus ring colour", ring === "rgb(29, 78, 216)", ring);
+  const ring = await fresh.page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.style.color = "var(--color-focus)";
+    document.body.append(probe);
+    const token = getComputedStyle(probe).color;
+    probe.remove();
+    return [getComputedStyle(document.activeElement).outlineColor, token];
+  });
+  check("focused control shows the focus ring colour", ring[0] === ring[1], ring.join(" vs "));
   await fresh.context.close();
   for (const width of [360, 768, 1440]) {
     const v = await open({ width, height: 900 });
@@ -329,6 +348,10 @@ if (scenario === "disconnect") {
   check("the page reconnects by itself when the server returns", back !== null);
   const camera = await waitText(a.page, "camera-panel", /Live/, 20000);
   check("the video stream reopens after reconnecting", camera !== null);
+  // Polite messages are delayed by the announcer; give "restored" a moment to land.
+  for (let i = 0; i < 30 && !(await announcements(a.page)).some((m) => /restored/.test(m)); i++) {
+    await a.page.waitForTimeout(100);
+  }
   const said = await announcements(a.page);
   const lostSaid = said.filter((m) => /connection lost/i.test(m));
   check("no feature repeats the connection loss (for example the camera)",
