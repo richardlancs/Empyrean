@@ -49,6 +49,9 @@ def build_payload(model: str, jpeg: bytes, class_label: str) -> dict[str, Any]:
     return {
         "model": model,
         "store": False,
+        # No "reasoning" field: set GROK_MODEL to a non-reasoning model, which rejects it.
+        # Measured 2026-11-13 on a 320 px crop: grok-4.20-0309-non-reasoning ~0.6 s;
+        # grok-4.7 and other reasoning models 3-12 s, often past NAME_TIMEOUT_SECONDS.
         "input": [
             {
                 "role": "user",

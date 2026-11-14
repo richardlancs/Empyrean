@@ -106,6 +106,7 @@ def test_reply_is_trimmed_and_cut() -> None:
     body = json.loads(seen[0].content)
     assert seen[0].headers["authorization"] == "Bearer test-key"
     assert body["model"] == "test-model" and body["store"] is False
+    assert "reasoning" not in body  # non-reasoning models reject it
     image, text = body["input"][0]["content"]
     assert image["type"] == "input_image"
     assert image["image_url"].startswith("data:image/jpeg;base64,")
