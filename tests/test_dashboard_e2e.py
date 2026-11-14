@@ -51,6 +51,8 @@ def _run_app(monkeypatch: pytest.MonkeyPatch, fakes: list[str]) -> Iterator[tupl
         return original(self, host, port)
 
     monkeypatch.setattr(dashboard_server.Dashboard, "serve", serve_on_free_port)
+    # start() loads .env, which would restore the keys deleted below and reach real services.
+    monkeypatch.setattr(app_main, "load_dotenv", lambda *args, **kwargs: False)
     monkeypatch.delenv("TIGER_DATABASE_URL", raising=False)
     monkeypatch.delenv("GROK_API_KEY", raising=False)
     started = app_main.start(fakes=fakes)
@@ -206,7 +208,13 @@ def test_unavailable_history_is_spoken_and_shown_the_same(
     running_real_storage: tuple[Any, int],
 ) -> None:
     """Real storage with no database: the page and the speaker both say unavailable."""
-    _, port = running_real_storage
+    started, port = running_real_storage
+    from contracts import SpeechStatus
+
+    # Listen on the bus: the page keeps only the newest phrase, and the fake hazard
+    # alarms that keep firing can replace the answer before a poll sees it.
+    answers: list[SpeechStatus] = []
+    started.bus.subscribe(SpeechStatus, lambda m: answers.append(m) if m.kind == "answer" else None)
     base = f"http://127.0.0.1:{port}"
     request_id = httpx.post(f"{base}/api/last-seen", json={"query": "bottle"}).json()["request_id"]
 
@@ -218,10 +226,6 @@ def test_unavailable_history_is_spoken_and_shown_the_same(
     assert shown["status"] == "unavailable"
     assert shown["answer"] == "Touch history is unavailable right now."
 
-    def spoken() -> dict[str, Any] | None:
-        speech = (_get(port, "/api/state") or {}).get("speech")
-        return speech if speech and speech["kind"] == "answer" else None
-
-    speech = _wait(spoken, 5)
-    assert speech["text"] == shown["answer"]
-    assert "I have not seen that" not in speech["text"]
+    assert _wait(lambda: answers, 5), "no answer was spoken"
+    assert all(m.text == shown["answer"] for m in answers)
+    assert not any("I have not seen that" in m.text for m in answers)
