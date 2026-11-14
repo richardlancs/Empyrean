@@ -21,7 +21,8 @@ Copy this template. Keep it short. Never include keys or connection strings.
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
-- **Person 4 (`dashboard/`):** audio is now on the agreed stack (`pyttsx3`, `pygame`) on branch `p4-output` and replaces the Piper test in PR #4. No dashboard code exists yet. Updated by Person 4, 2026-11-14.
+- **Person 1 (`app/` start order):** with `--fake hazard`, the fake hazard starts publishing as soon as it is registered, before audio and dashboard have subscribed, so its first `HazardEvent` (vehicle, yolo) reaches nobody. Start the fake's thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
+- **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` fails on Person 4's Windows laptop, on a clean copy of `main` as well. Run directly, `python -m app --fake vision` starts fine, but audio startup (pyttsx3 and pygame) takes longer than the test's 1.4 s wait before vision publishes its first frame. Wait for the expected output line instead of a fixed sleep. Found by Person 4, 2026-11-14.
 - **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
 - **Person 1 (`app/` bus):** Person 3's modules are ready to be registered. Requests for `app/`:
   1. **Bus shape.** `namer.register(bus)`, `storage.register(bus)`, `fakes.namer.fake_namer.register(bus)` and `fakes.storage.fake_store.register(bus)` call only `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, keyed on the `contracts` class. If the bus uses a different shape, tell Person 3 before building against it.
@@ -66,6 +67,79 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 4 (dashboard), Claude Code: page starts inside the app
+**Changed:**
+
+- `dashboard.register(bus)` now returns a `Dashboard` and starts the web page on a background thread on `DASHBOARD_PORT`, so `python -m app` serves it at `http://localhost:8000`. `stop()` shuts the server down. If the port is busy it logs a warning and the app carries on without the page. `register(bus, serve=False)` skips the server; the tests use it.
+- New tests: the page starts on a thread, answers, and stops; a busy port is skipped without crashing.
+
+**Tested:** `pytest tests/test_dashboard.py`: 8 passed. Full `pytest` twice: 171 passed, 1 skipped, 1 failed, the same `test_cli_fake_vision_starts` timing failure as on `main`; port 8000 was free afterwards. Ran `python -m app --fake vision hazard audio` for 12 s, so nothing was played aloud. The app logged "Dashboard page at http://localhost:8000". Each fake hazard reached fake audio (`BEEP BEEP BEEP`, then `say: Stop. Stairs.`) and the page at the same time; `/api/state` showed it as "Stairs, grok, 91%", not simulated. One `POST /api/simulate-alert` added exactly one simulated entry, and fake audio printed nothing for it.
+
+**Decisions:** Simulate alert stays page-only. To see and hear hazards together, run the app with `--fake hazard`, which publishes real `HazardEvent`s.
+
+**Teammates need to know:** Person 1: `dashboard.register(bus)` now starts the page itself; nothing else is needed in `app/`. The returned object has `stop()`.
+
+**Later, by hand (Person 4):** Ran `py -3.11 -m dashboard` on Windows and clicked Simulate alert once: one "Stairs SIMULATED" warning and one Recent events entry, no sound, as intended. Ran the audio on the JBL Go 3 speaker and it played.
+
+### 2026-11-14, Person 4 (audio, dashboard), Claude Code: rebase onto PR #10
+**Changed:**
+
+- Rebased `voice-dashboard` onto `main` after PR #10 (Anshi's audio manager, `app/` bus, vision and hazard). Where both added the same file, `main`'s version is kept: `audio/__init__.py`, `audio/requirements.txt`, `fakes/audio/__init__.py`, `fakes/audio/fake_audio.py` and `tests/test_audio.py`. This branch's `fakes/audio/__main__.py` was dropped because it used the replaced fake.
+- The `audio/speak_test.py` tests moved to a new `tests/test_speak_test.py`, because `main`'s `tests/test_audio.py` does not cover it.
+- PR #4 now adds only `audio/speak_test.py`, `audio/.gitignore`, `dashboard/`, `tests/test_speak_test.py`, `tests/test_dashboard.py` and these notes. Reworded the second commit to match.
+- A local backup of the branch before this rebase is kept as `backup/voice-dashboard-before-main-audio` (not pushed).
+
+**Tested:** Python 3.11.9 venv with `pygame==2.6.1` added. Full `pytest` from the repo root with the Grok and Tiger Data variables unset: 169 passed, 1 skipped, 1 failed. The failure is `tests/test_app_p1.py::test_cli_fake_vision_starts`, which also fails 3 of 3 times on a clean copy of `main` on this laptop (see "Needs attention"). `python -m app --fake vision` with `SDL_AUDIODRIVER=dummy` logged "Started dashboard" along with the other modules, and fake frames flowed. `ruff check` is clean on `tests/test_speak_test.py`. Nothing was played aloud.
+
+**Decisions:** Anshi's audio manager replaces this branch's fake and audio tests, as Person 4 decided.
+
+**Teammates need to know:** Install audio with `py -3.11 -m pip install -r audio/requirements.txt`, then `py -3.11 -m audio` plays the scripted demo, including the stairs alarm.
+
+### 2026-11-14, Person 4 (dashboard), Claude Code
+**Changed:**
+
+- There was no dashboard code on any branch, so this adds a minimal `dashboard/` laid out per SPEC.md 4.9. FastAPI serves one plain HTML page (`dashboard/index.html`), pushes state over the WebSocket at `/ws`, and runs alone with `python -m dashboard` on `DASHBOARD_PORT`. `dashboard/requirements.txt` pins `fastapi==0.162.7` and `uvicorn[standard]==0.54.0`.
+- `register(bus)` subscribes `HazardEvent` and `TouchEvent` (touches only; releases are not logged). The camera feed (`/video`), object list, FPS and last-seen search are placeholders and not built yet.
+- The "Latest warning" card stands in for the spec's red hazard banner and turns red for `HAZARD_COOLDOWN_SECONDS` after a hazard. "Recent events" is the spec's 10-entry event log.
+- A **Simulate alert** button (`POST /api/simulate-alert`) adds one `stairs_down` warning, labelled **Simulated**, to the dashboard only. It publishes nothing on the bus, so no alarm sounds and nothing is stored (AGENTS.md rule 5, SPEC.md 3.1).
+- New `tests/test_dashboard.py` (6 tests).
+
+**Tested:** In a Python 3.11.9 venv: `pytest tests/test_dashboard.py` gave 6 passed. Full `pytest` from the repo root, run twice with the Grok and Tiger Data variables unset: 99 passed, 1 skipped, 1 failed both times, the failure being the known `test_storage.py::test_unreachable_db_never_blocks_and_warns_once`. `ruff check` and `ruff format` are clean on `dashboard/` and `tests/test_dashboard.py`. Ran `python -m dashboard` and opened `http://localhost:8000` in a browser. One click showed "Stairs" with a Simulated tag in the red Latest warning card and exactly 1 entry in Recent events. After 3 s the card turned neutral. A second click made exactly 2 entries. At 375 px wide the layout stacks with no sideways scroll.
+
+**Decisions:** Using `HAZARD_COOLDOWN_SECONDS` for how long the banner stays red is my choice; SPEC.md only says "while a hazard is active". A simulated alert is not a `HazardEvent` because the contract has no field to mark it simulated.
+
+**Teammates need to know:** Install with `py -3.11 -m pip install -r dashboard/requirements.txt`. Person 1: `dashboard.register(bus)` now also starts the page (see the later entry above). All: please confirm or replace the banner-duration choice above.
+
+### 2026-11-14, Person 4 (audio), Claude Code
+**Update (later):** The `fakes/audio/` fake and `tests/test_audio.py` described below were replaced by PR #10's versions on `main`; the speak_test tests now live in `tests/test_speak_test.py`. See the rebase entry above.
+**Changed:**
+
+- Rebased `voice-dashboard` onto `origin/main`. The only conflict was this file; both the Person 4 entries and the team's entries are kept.
+- `audio/speak_test.py` now uses `pyttsx3` (the approved speech engine) instead of Piper. It runs on any OS, needs no voice download, and takes `main(argv)` so tests can drive it. `audio/requirements.txt` pins `pyttsx3==2.99`; Piper is removed. Added `audio/__init__.py`.
+- `audio/.gitignore` no longer ignores every `*.wav`, so the prerecorded alarm WAV can be committed. Generated audio goes in `audio/generated/`, which is ignored. `voices/` stays ignored for the leftover local Piper files.
+- New `fakes/audio/`: `FakeAudio` and `register(bus)` subscribe to `HazardEvent`, `TouchEvent`, `NameResult` and `SpeakRequest`, record what would be played (SPEC.md 4.8 phrases, 4.5 late-name rule), and publish nothing. `python -m fakes.audio` prints a scripted run. It does not model timing, the one-item queue or the alarm cut-off.
+- New `tests/test_audio.py` (11 tests). pyttsx3 is replaced with a stub module, so no speaker and no pyttsx3 install are needed.
+
+**Tested:** In a Python 3.11.9 venv without pyttsx3: `pytest tests/test_audio.py` gave 11 passed. Full `pytest` from the repo root, run four times with `TIGER_DATABASE_URL` and `GROK_API_KEY` unset: two runs gave 94 passed, 1 skipped; two runs gave 93 passed, 1 skipped, 1 failed, the failure being `test_storage.py::test_unreachable_db_never_blocks_and_warns_once` (already listed under "Needs attention"). Before these changes the baseline was 82 passed, 1 skipped, the same 1 failed. `ruff check` and `ruff format --check` are clean on `audio/`, `fakes/audio/` and `tests/test_audio.py`. `python -m fakes.audio` printed the expected five lines. `git add --dry-run` accepted `audio/alarm.wav` and skipped `audio/generated/speech.wav`. After installing `pyttsx3==2.99`, `pyttsx3.init()` started on Windows and listed 2 voices. Nothing was spoken aloud; audible playback on the laptop and the JBL is not yet confirmed.
+
+**Decisions:** SPEC.md names no path for the alarm WAV, so no path was chosen. Any WAV under `audio/` outside `generated/` can be committed. The `python -m app --fake audio` wiring is Person 1's; `fakes.audio.fake_audio.register(bus)` uses the same `bus.subscribe(MessageType, handler)` shape as Person 3's fakes.
+
+**Teammates need to know:** Reinstall with `py -3.11 -m pip install -r audio/requirements.txt`. Person 1: `fakes.audio.fake_audio.register(bus)` is ready for `--fake audio`; it returns an object with a no-op `stop()`.
+
+### 2026-11-14, Person 4 (audio), Codex
+**Update (later, Claude Code):** After the rebase onto `main`, `contracts/messages.py` (with `HazardEvent`), `config/thresholds.py` and `samples/hazardeventsample.py` are present, so the blocker below no longer applies.
+**Changed:** No audio code changes: requested shared HazardEvent integration cannot be implemented against this checkout because no shared event implementation or contracts folder exists here.
+**Tested:** Confirmed branch voice-dashboard, inspected audio/speak_test.py and repository files. Script contains text playback only, no made-up alarm. Verified Piper 1.3.0 downloader supports --download-dir and creates the voice directory. Python launcher remains unavailable in the agent terminal; no playback or pytest run possible here.
+**Decisions:** Do not invent a replacement HazardEvent or edit shared contracts. User reports Piper 1.3.0 installed under Python 3.11 in their terminal.
+**Teammates need to know:** Need location or branch containing the team's actual HazardEvent definition before adding the requested stairs hazard example. Existing manual sentence test can run after voice download.
+
+### 2026-11-14, Person 4 (audio), Codex
+**Update (later, Claude Code):** Piper was replaced with `pyttsx3` and the blanket `*.wav` rule removed; see the entry above.
+**Changed:** Added standalone `audio/speak_test.py` for supplied text, pinned Piper in `audio/requirements.txt`, and ignored local environments, voices and generated WAV files under audio.
+**Tested:** Confirmed branch `voice-dashboard` and initially clean working tree. Inspected entire repository: planning documents only, no existing audio, Python setup, Piper or voice models. Reviewed Piper's documented Python API. `git diff --check` passed. Attempted `python -m pytest`; Python is unavailable in this terminal, so tests and audible playback remain unverified.
+**Decisions:** User explicitly requested Piper for this isolated test despite the spec listing pyttsx3. No shared spec, alert format or dashboard changes. Use Windows standard-library playback with the selected system output; voice files are not committed.
+**Teammates need to know:** Python 3.11, Piper and a voice model still need setup, followed by laptop playback confirmation. This is a temporary manual test, not the integrated audio manager. Setup guidance proceeds one PowerShell command at a time.
 
 ### 2026-11-14 03:20, Person 4 (audio, fakes/audio), Claude Code
 **Changed:**
