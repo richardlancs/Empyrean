@@ -14,7 +14,7 @@ from collections.abc import Callable
 from typing import Any
 
 from config import HAZARD_COOLDOWN_SECONDS
-from contracts import HazardEvent, SceneSnapshot, TouchEvent
+from contracts import HazardEvent, SceneSnapshot, SpeakRequest, TouchEvent
 
 EVENT_LOG_SIZE = 10  # SPEC.md 4.9: "last 10 touch and hazard events"
 # SPEC.md 4.9: touched objects are sorted to the top of the object list.
@@ -40,6 +40,8 @@ class DashboardState:
         self._events: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
         self._latest_warning: dict[str, Any] | None = None
         self._objects: list[dict[str, Any]] = []
+        self._scene_ts: float | None = None
+        self._answer: str = ""
         self._listeners: list[Callable[[], None]] = []
 
     def add_listener(self, listener: Callable[[], None]) -> None:
@@ -85,6 +87,15 @@ class DashboardState:
         objects.sort(key=lambda o: (STATE_ORDER.get(o["state"], 9), o["object_id"]))
         with self._lock:
             self._objects = objects
+            self._scene_ts = msg.ts
+        self._notify()
+
+    def on_answer(self, msg: SpeakRequest) -> None:
+        """Display answers from storage and dashboard without speaking twice."""
+        if msg.source not in {"storage", "dashboard"}:
+            return
+        with self._lock:
+            self._answer = msg.text
         self._notify()
 
     def simulate_hazard(self) -> dict[str, Any]:
@@ -101,12 +112,16 @@ class DashboardState:
             latest = dict(self._latest_warning) if self._latest_warning else None
             events = [dict(e) for e in self._events]
             objects = [dict(o) for o in self._objects]
+            answer = self._answer
+            scene_ts = self._scene_ts
         return {
             "now": self._clock(),
             "hazard_active_seconds": HAZARD_COOLDOWN_SECONDS,
             "latest_warning": latest,
             "events": events,
             "objects": objects,
+            "answer": answer,
+            "scene_ts": scene_ts,
         }
 
     def _add_warning(

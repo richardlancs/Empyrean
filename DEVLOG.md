@@ -22,6 +22,8 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
+- **Voice goal audit (Person 4, 2026-11-14):** User requested question-only object speech, explicitly overriding SPEC touch announcements; shared spec is unchanged pending team agreement. Current camera answers are bounded tracked-object/touch summaries, not arbitrary visual QA. GROK_API_KEY, GROK_MODEL and TIGER_DATABASE_URL are absent locally, so brand naming, Grok hazards and history are not live-verified. Speech-finished bus signaling is absent; microphone pause is estimated, so reliable echo suppression remains open. Browser speech service fails in the in-app browser; real Chrome transcription was observed working. No new cross-module contracts were introduced.
+
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
 - **Person 1 (`vision/`, setup):** on a fresh Python 3.11, the first `detector.track()` call made Ultralytics run `pip install lap` itself, from inside the running app, because ByteTrack needs `lap` and nothing pins it. That is a network call on the frame path (AGENTS.md rule 4) and would stall or fail on a laptop with no internet. Pin `lap` (0.5.14 worked) with the vision requirements, and consider setting Ultralytics' `YOLO_AUTOINSTALL=False` so it never installs at run time. Found by Person 4, 2026-11-14.
 - **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
@@ -71,6 +73,25 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 4 (voice PR preparation), Codex
+**Changed:** Committed audio behavior, dashboard voice flow and validation notes separately on `p4-output`. Merged current `origin/main` so the PR preserves the team's latest camera/detection changes; resolved the DEVLOG-only conflict by retaining main's entries and the voice notes without duplicating the earlier coordination entry. PR scope relative to main is only Person 4 runtime files, corresponding tests and DEVLOG.
+
+**Tested:** After merging main: Python 3.11 full suite 190 passed, 1 skipped, existing FastAPI/httpx warning; repository ruff clean; diff whitespace clean. Re-ran `python -m app --fake vision`: processed frames, HTTP 200, no startup errors and clean SIGINT shutdown. Earlier live Chrome recognition and Start/Stop checks are documented above. Remaining credential/browser/echo limits are included in the PR description.
+
+**Teammates need to know:** This PR intentionally makes object speech question-only at the user's request; it does not change shared contracts, thresholds or spec. No model/environment/secret artifacts are included. No merge to main is performed by this session.
+
+
+### 2026-11-14, Person 4 (Git/instructions and final-goal audit), Codex
+**Changed:** Moved the current uncommitted Person 4 work from `codex/p1-startup-crop-recording` to a new local `p4-output`, preserving existing commits and worktree changes. Remote `origin/p4-output` is an ancestor of this branch; nothing rewritten, committed, pushed or merged. Formatted the edited dashboard test. Checked scope: runtime edits are only audio/dashboard/fake audio; other changes are corresponding tests and this log. Shared contracts/config/spec and other owners' runtime files are untouched. Model assets and local Python environment are ignored by Git.
+
+**Tested:** Python 3.11 full pytest: 190 passed, 1 skipped (live database), existing FastAPI/httpx deprecation warning. Repository-wide `ruff check .`, formatting on Person 4 paths and changed tests, and `git diff --check` passed. Bounded subprocess smoke runs of `python -m app --fake vision` and `python -m app --only dashboard --fake vision scene` reached HTTP 200, published frames/scene state, had no startup errors and shut down cleanly on SIGINT. Real app restarted. Chrome UI verified microphone off after reload, Listening after Start, and off after Stop. Left the live dashboard running and microphone off.
+
+**Decisions:** Current user instructions take precedence over legacy touch-triggered speech requirements; record that difference without editing shared spec. No claim of complete product readiness: absent credentials, open-ended visual QA and estimated playback pause remain listed under Needs attention. Existing model code uses YOLO small, unlike the original nano spec; this audit did not change the model or its owner's code. Root dependency pinning is already listed as an owner task.
+
+**Teammates need to know:** Current local branch is `p4-output`; changes remain uncommitted for review. Live process uses `scratch/audio311/bin/python -m app`. Browser end-to-end transcription worked earlier in Chrome; this audit additionally verified actual Start/Stop UI. Tests establish silent default touch/name handling and requested-answer/alarm behavior. Do not claim brand/history/open-ended reasoning works without completing the pending integrations and live checks.
+
+
 
 ### 2026-11-14, Person 4 (demo readiness from the trace), Claude Code
 **Changed:** Notes only. What the tabletop trace below means for the demo.
@@ -745,3 +766,50 @@ Fill this in as you go. It becomes the SpaceXSI section of the Devpost write-up.
 | Cursor | Scene database, touch state machine, and name crops. Touch and naming were written at the same time, then wired into `SceneDatabase`. |
 | Grok Bot | Person 3: `.p3/grokbot.sh` runs Cursor's agent CLI headless with `grok-4.7-high-fast`, read-only, on the Person 3 diff, and saves a contract check, a risk note and a DEVLOG draft. Its 2026-11-13 23:13 run caught the private message-class risk that led to the shared `contracts/`. Reports from 23:13 and 00:26 are in `scratch/grokbot/`, which is local and git-ignored. |
 | Other | Claude Code reviewed Cursor's scene module and fixed the held-merge and release-on-removal bugs. |
+
+### 2026-11-14, audio environment setup, Codex
+**Changed:** Created an isolated, git-ignored Python 3.11 audio environment at `scratch/audio311` using the already-installed Python 3.11. Installed the existing pinned `audio/requirements.txt` plus pytest and numpy for audio tests. No runtime source or dependency pins changed. Laptop system sound output is the current test target; user dropped Google Home Mini.
+
+**Tested:** `scratch/audio311/bin/python -m pytest tests/test_audio.py tests/test_audio_pyttsx3.py tests/test_speak_test.py -q`: 25 passed. Ran `scratch/audio311/bin/python -m audio` on real system output: touch, late name, retouch, spoken answer, hazard beeps/phrase and post-alarm touch. Hazard phrase logged 614 ms after event. First phrase took 2138 ms during cold speech startup; subsequent phrases logged 0 ms queue latency. Audible confirmation remains with the user. Full non-audio suite not run in this audio-only environment.
+
+**Teammates need to know:** Python 3.14 failed to build pygame 2.6.1; Python 3.11 installs its prebuilt wheel successfully. Repeat the audio demo with `scratch/audio311/bin/python -m audio` from the repository root. The existing `.venv` is unchanged by this session.
+
+### 2026-11-14, live camera/audio launch, Codex
+**Changed:** Extended local ignored `scratch/audio311` environment with existing app/vision/dashboard/storage dependencies, downloaded the existing vision code's YOLO11s and MediaPipe hand assets to ignored `vision/models/`, and requested macOS camera access on the main thread. No source, contracts or thresholds changed.
+
+**Tested:** Started real `scratch/audio311/bin/python -m app`. All seven modules registered; real camera FrameResult messages reached scene and the dashboard started on port 8000. Initial background-thread camera permission attempt failed; explicit main-thread AVFoundation request returned granted and restart captured frames. ByteTrack installed its `lap` dependency during initial warmup. No GROK_API_KEY is configured, so brand naming and Grok hazard checks are unavailable; ordinary class labels remain usable. User still needs to perform a real touch and confirm speech. Live process left running for that interaction.
+
+### 2026-11-14, Person 4 (dashboard voice input), Codex
+**Changed:** User confirmed Person 4 ownership and requested both history and camera questions. Added a browser microphone button with one-utterance recognition, editable transcript, explicit Ask submission, permission/network/unsupported-browser feedback, and typed fallback. Browser speech service disclosure appears beside the control. Added `/api/question`: existing `LastSeenQuery` routes history requests to storage; existing `SpeakRequest` speaks scene summaries and touch answers. Current `SceneSnapshot` objects support “What do you see?” and “What am I touching?” without another vision model call. Dashboard shows storage/dashboard spoken answers. No shared contracts, thresholds, dependencies, or other owners' runtime modules changed.
+
+**Tested:** Full Python 3.11 suite: 188 passed, 1 skipped (live DB), one existing FastAPI/httpx deprecation warning. Ruff clean on dashboard and changed tests. New tests cover current/stale scene summaries, one speech publication, history routing and displayed storage answers, absent database, invalid input, and standalone dashboard behavior. Real running app POST `/api/question` with “What do you see?” returned “I can detect tv.” Browser UI verification could not complete: no connected browser tab, native Chrome selection timed out. Live microphone transcription remains to be confirmed by the user; browser API presence alone does not guarantee the recognition service works. JavaScript CLI syntax check unavailable because node is not on PATH.
+
+**Teammates need to know:** App restarted on port 8000 for testing. Open dashboard in a browser supporting SpeechRecognition (Chrome/Safari), click Start microphone, speak, review transcript, press Ask. Browser recognition may send audio to its speech service and require internet. This supports bounded object/touch questions, not arbitrary image reasoning; open-ended camera QA still needs agreed vision request/answer contracts and owner integration. History depends on TIGER_DATABASE_URL; the route explains when it is absent. Recognition is off after each utterance so spoken answers do not automatically feed back as questions.
+
+### 2026-11-14, Person 4 (automatic spoken questions), Codex
+**Changed:** Per user correction, final recognized speech submits immediately through `/api/question`; no transcript review or Ask click is needed for voice. Typed Ask remains available. Interim results are ignored and in-flight submission is guarded. Added “What is this item?”, “What's this?” and related aliases to the current touched/held-object answer path; other visible objects are excluded. Listening still starts with the microphone button and ends after one utterance.
+
+**Tested:** Full suite: 189 passed, 1 skipped, existing FastAPI/httpx warning. Ruff clean. Node REPL parsed the complete dashboard script and executed the voice handlers with mock recognition/HTTP: final speech submitted exactly once without user confirmation, interim speech did not submit. Regression test verifies this-item aliases speak the touched item rather than a neighbouring idle object. Restarted live app for user audio testing.
+
+### 2026-11-14, Person 4 (remove question panel), Codex
+**Changed:** Removed the question form, input field, Ask button, instructional panel and review flow at the user's request. Moved the sole Start/Stop microphone toggle and compact status to the header. Added a ten-item Voice input transcript list styled alongside Objects, plus the latest answer. Recognition attempts startup automatically, processes final transcripts immediately, and restarts between utterances. Permission/service failures stop retrying with concise status; stop/page exit cancels restart timers. Browser speech-service disclosure is retained on the microphone tooltip.
+
+**Tested:** Full suite: 189 passed, 1 skipped, existing FastAPI/httpx warning. Node VM checks parsed the full page script and exercised automatic startup, direct submission, transcript rendering, playback pause, listening restart, manual stop and denied-permission feedback. Verified old question-panel/form strings are absent. Live browser mic flow remains user-verified; HTML is read on each request so refreshing the running dashboard loads the change.
+
+**Limit:** The existing bus has no audio-completion event. Listening resumes after a conservative text-length playback window (2 s plus 0.5 s per word), which reduces answer feedback but does not guarantee echo suppression. True speech-completion synchronization and touch/alarm playback suppression require an agreed cross-module activity contract. Browser policies may still require a click or mic permission approval before automatic recognition works.
+
+### 2026-11-14, Person 4 (live microphone browser diagnosis), Codex
+**Found:** Inspected the user's actual in-app browser dashboard: network speech-service error immediately disabled recognition. Opened the same localhost page in connected Google Chrome: recognition reached Listening, produced a real transcript and automatic answer, then returned to Listening. This verifies real browser transcription and restart rather than mocked API behavior. No microphone permission/settings change was needed. Did not record the user's transcript in this log.
+
+**Changed:** Network-recognition error now explains that this browser's speech service may be unavailable and directs users to open localhost:8000 in Google Chrome, with connection advice for Chrome itself. Kept the working Chrome dashboard tab open. No source change can enable an unavailable embedded-browser speech service.
+
+**Tested:** 14 dashboard/question tests passed; live Chrome speech and automatic question routing observed. Existing recognition still captures surrounding conversation while enabled; use Stop microphone to disable it.
+
+### 2026-11-14, Person 4 (explicit microphone and question-only speech), Codex
+**Changed:** User explicitly requested microphone off on load and object speech only when asked, overriding the earlier touch-announcement behavior for this session. Removed automatic recognition startup. Start enables listening across normal browser session endings; Stop cancels restarts. Transient network errors retry three times with visible status before an explained failure, while permission/device errors remain explicit. Default AudioManager ignores TouchEvent and NameResult for speech; requested SpeakRequest answers and HazardEvent alarms still play. Legacy touch-announcement behavior remains available only via explicit constructor opt-in for regression tests. Fake audio uses the same question-only default. Updated standalone demo documentation.
+
+**Tested:** Full suite: 190 passed, 1 skipped; existing FastAPI/httpx warning. New audio regression drives touch, late name, release and retouch followed by a requested answer and hazard, confirming only answer and hazard speech. Real and fake registration tests check requested answers. Node VM checks confirm no startup recognition, manual start, restart after normal end, transient network retry and Stop canceling timers. Ruff clean. Live app restarted; real microphone/voice interaction still requires user verification in Chrome.
+
+**Teammates need to know:** This is an explicit user-directed runtime behavior change from SPEC 4.5/4.8; shared spec/contracts/config remain unchanged. Keep storage touch logging and scene tracking as-is, since only unsolicited speech was disabled. Browser recognition may still fail if its service is unavailable; the actual error remains visible.
+
+**Restart follow-up:** Restart exposed an existing dashboard port probe rejecting TCP TIME_WAIT sockets despite no listener on port 8000. Probe now uses SO_REUSEADDR to match Uvicorn; existing busy-port and start/stop tests still pass (9 dashboard tests). Restarted again with dashboard serving successfully.

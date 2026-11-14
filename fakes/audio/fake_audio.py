@@ -2,7 +2,7 @@
 
 Used by `python -m app --fake audio`. It subscribes to the same messages as
 audio/ (HazardEvent, TouchEvent, NameResult, SpeakRequest) and prints what would
-be heard, with timing, so teammates can check touch-to-speech and alarm order on
+be heard, with timing, so teammates can check requested answers and alarm order on
 a machine with no speaker, pyttsx3 or pygame. audio/ publishes nothing, so this
 fake publishes nothing either.
 """

@@ -1,6 +1,7 @@
-"""Audio manager: speak touched objects and answers, and sound the alarm first.
+"""Audio manager: speak requested answers and sound the alarm first.
 
-Implements SPEC.md section 4.8 and the late-name rule in section 4.5.
+Object speech is question-only by user request. Legacy touch announcements
+remain available only through an explicit constructor option.
 
 Subscribes to: HazardEvent, TouchEvent, NameResult, SpeakRequest.
 Publishes: nothing. Output is sound on the system speaker (the JBL Go 3).
@@ -100,8 +101,10 @@ class AudioManager:
         *,
         clock: Callable[[], float] = time.monotonic,
         late_name_window: float = LATE_NAME_WINDOW_SECONDS,
+        announce_touches: bool = False,
     ) -> None:
         """Start the speech worker. speaker_factory runs on that worker thread."""
+        self._announce_touches = announce_touches
         self._speaker_factory = speaker_factory
         self._alarm = alarm
         self._clock = clock
@@ -137,7 +140,9 @@ class AudioManager:
         log.info("Alarm: %s (%s, confidence %.2f)", phrase, msg.source, msg.confidence)
 
     def on_touch(self, msg: TouchEvent) -> None:
-        """Speak a touched object's name, or its class label if not yet named."""
+        """Announce a touch only when the legacy touch-announcement mode is enabled."""
+        if not self._announce_touches:
+            return
         with self._cond:
             state = self._state
             if msg.kind != "touch":
@@ -152,7 +157,9 @@ class AudioManager:
             )
 
     def on_name(self, msg: NameResult) -> None:
-        """Speak a late name once if its object is still touched (SPEC.md 4.5)."""
+        """Speak a late name only in legacy touch-announcement mode."""
+        if not self._announce_touches:
+            return
         name = msg.name.strip()
         if not msg.ok or not name:
             return

@@ -5,16 +5,20 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import socket
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, StreamingResponse
+from pydantic import BaseModel, Field
 
 from config import DASHBOARD_PORT
-from contracts import FrameResult, HazardEvent, SceneSnapshot, TouchEvent
+from contracts import FrameResult, HazardEvent, SceneSnapshot, SpeakRequest, TouchEvent
+from dashboard.questions import ask_question
 from dashboard.state import DashboardState
 from dashboard.video import BOUNDARY, VideoFeed, mjpeg_stream
 
@@ -24,12 +28,24 @@ DEFAULT_HOST = "127.0.0.1"
 SERVER_STOP_SECONDS = 3.0  # how long stop() waits for the web server thread
 
 
+class Question(BaseModel):
+    """One recognized or typed question."""
+
+    text: str = Field(min_length=1, max_length=500)
+
+
 class Dashboard:
     """The dashboard as app/ runs it: bus-fed state plus the web page on a thread."""
 
-    def __init__(self, state: DashboardState, video: VideoFeed | None = None) -> None:
+    def __init__(
+        self,
+        state: DashboardState,
+        video: VideoFeed | None = None,
+        publish: Callable[[Any], None] | None = None,
+    ) -> None:
         """Hold state and the camera feed; call serve() to start the web page."""
         self.state = state
+        self.publish = publish
         self.video = video or VideoFeed()
         self._server: Any = None
         self._thread: threading.Thread | None = None
@@ -44,7 +60,7 @@ class Dashboard:
         import uvicorn
 
         config = uvicorn.Config(
-            create_app(self.state, self.video),
+            create_app(self.state, self.video, self.publish),
             host=host,
             port=port,
             log_level="warning",
@@ -69,6 +85,8 @@ class Dashboard:
 def _port_is_free(host: str, port: int) -> bool:
     """Return True if nothing is listening on host:port."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        # Match Uvicorn: a previous connection in TIME_WAIT is safe to reuse.
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             probe.bind((host, port))
         except OSError:
@@ -85,7 +103,8 @@ def register(
     drives the object list, and HazardEvent and TouchEvent drive the warning
     and event log.
     """
-    dashboard = Dashboard(state or DashboardState())
+    dashboard = Dashboard(state or DashboardState(), publish=bus.publish)
+    bus.subscribe(SpeakRequest, dashboard.state.on_answer)
     bus.subscribe(HazardEvent, dashboard.state.on_hazard)
     bus.subscribe(TouchEvent, dashboard.state.on_touch)
     bus.subscribe(FrameResult, dashboard.video.on_frame)
@@ -104,7 +123,9 @@ def _put_latest(queue: asyncio.Queue[dict[str, Any]], item: dict[str, Any]) -> N
 
 
 def create_app(
-    state: DashboardState | None = None, video: VideoFeed | None = None
+    state: DashboardState | None = None,
+    video: VideoFeed | None = None,
+    publish: Callable[[Any], None] | None = None,
 ) -> FastAPI:
     """Build the dashboard web app around state and a camera feed (new empty ones if not given)."""
     state = state or DashboardState()
@@ -144,6 +165,17 @@ def create_app(
     async def get_state() -> dict[str, Any]:
         """Return the current page state."""
         return state.snapshot()
+
+    @app.post("/api/question")
+    async def question(body: Question) -> dict[str, str]:
+        """Route a transcript without blocking camera or hazard processing."""
+        if publish is None:
+            raise HTTPException(503, "Questions require the running app.")
+        if not body.text.strip():
+            raise HTTPException(422, "Please enter a question.")
+        return ask_question(
+            body.text, state, publish, bool(os.environ.get("TIGER_DATABASE_URL"))
+        )
 
     @app.post("/api/simulate-alert")
     async def simulate_alert() -> dict[str, Any]:
