@@ -1,0 +1,222 @@
+[
+  {
+    "file": "headphones_1.jpg",
+    "label": "headphones",
+    "box": [
+      217.5,
+      155.5,
+      434.5,
+      325.5
+    ]
+  },
+  {
+    "file": "headphones_2.jpg",
+    "label": "headphones",
+    "box": [
+      176.5,
+      169.5,
+      402.0,
+      324.0
+    ]
+  },
+  {
+    "file": "headphones_3.jpg",
+    "label": "headphones",
+    "box": [
+      171.0,
+      177.5,
+      402.0,
+      324.0
+    ]
+  },
+  {
+    "file": "headphones_4.jpg",
+    "label": "headphones",
+    "box": [
+      193.0,
+      165.0,
+      446.5,
+      331.0
+    ]
+  },
+  {
+    "file": "headphones_5.jpg",
+    "label": "headphones",
+    "box": [
+      185.5,
+      191.5,
+      405.0,
+      326.0
+    ]
+  },
+  {
+    "file": "headphones_6.jpg",
+    "label": "headphones",
+    "box": [
+      168.5,
+      194.5,
+      392.5,
+      342.5
+    ]
+  },
+  {
+    "file": "headphones_7.jpg",
+    "label": "headphones",
+    "box": [
+      208.5,
+      189.0,
+      378.5,
+      328.5
+    ]
+  },
+  {
+    "file": "headphones_8.jpg",
+    "label": "headphones",
+    "box": [
+      208.5,
+      175.5,
+      399.5,
+      339.0
+    ]
+  },
+  {
+    "file": "headphones_9.jpg",
+    "label": "headphones",
+    "box": [
+      201.0,
+      187.5,
+      420.0,
+      334.5
+    ]
+  },
+  {
+    "file": "headphones_10.jpg",
+    "label": "headphones",
+    "box": [
+      218.5,
+      81.5,
+      393.0,
+      300.0
+    ]
+  },
+  {
+    "file": "headphones_11.jpg",
+    "label": "headphones",
+    "box": [
+      262.5,
+      64.0,
+      484.5,
+      287.5
+    ]
+  },
+  {
+    "file": "headphones_12.jpg",
+    "label": "headphones",
+    "box": [
+      180.5,
+      61.5,
+      393.5,
+      275.0
+    ]
+  },
+  {
+    "file": "toothbrush_1.jpg",
+    "label": "toothbrush",
+    "box": [
+      236.0,
+      20.0,
+      346.5,
+      348.5
+    ]
+  },
+  {
+    "file": "toothbrush_2.jpg",
+    "label": "toothbrush",
+    "box": [
+      110.0,
+      52.0,
+      355.0,
+      339.0
+    ]
+  },
+  {
+    "file": "toothbrush_3.jpg",
+    "label": "toothbrush",
+    "box": [
+      176.0,
+      49.0,
+      480.5,
+      336.0
+    ]
+  },
+  {
+    "file": "toothbrush_4.jpg",
+    "label": "toothbrush",
+    "box": [
+      193.5,
+      83.5,
+      480.5,
+      347.5
+    ]
+  },
+  {
+    "file": "toothbrush_5.jpg",
+    "label": "toothbrush",
+    "box": [
+      201.0,
+      135.0,
+      551.0,
+      338.5
+    ]
+  },
+  {
+    "file": "toothbrush_6.jpg",
+    "label": "toothbrush",
+    "box": [
+      157.5,
+      117.5,
+      472.5,
+      305.0
+    ]
+  },
+  {
+    "file": "toothbrush_7.jpg",
+    "label": "toothbrush",
+    "box": [
+      26.0,
+      141.5,
+      442.0,
+      281.5
+    ]
+  },
+  {
+    "file": "toothbrush_8.jpg",
+    "label": "toothbrush",
+    "box": [
+      257.0,
+      22.0,
+      353.0,
+      317.0
+    ]
+  },
+  {
+    "file": "toothbrush_9.jpg",
+    "label": "toothbrush",
+    "box": [
+      136.5,
+      46.0,
+      392.0,
+      344.0
+    ]
+  },
+  {
+    "file": "toothbrush_10.jpg",
+    "label": "toothbrush",
+    "box": [
+      220.5,
+      76.0,
+      477.0,
+      303.5
+    ]
+  }
+]

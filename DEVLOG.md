@@ -84,6 +84,15 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 4 (headphones and toothbrush captures), Claude Code
+**Changed:** Captured Person 4's training and evaluation data with `vision.capture_demo_refs` on the user's own laptop webcam (index 0, 1280 x 720, Windows). `training_data/person4/train/`: 46 headphones (34 held, 12 on a table) and 36 toothbrush (24 held, 12 on a table, 6 of those standing upright). `training_data/person4/eval/`: 12 headphones and 10 toothbrush, taken at a different table and background from training. One item per photo throughout. The toothbrush is an electric toothbrush; note it if the demo uses a manual one. Three sets were rejected and moved to the git-ignored `scratch/` instead: the first training session (a second headset worn around the neck, unboxed, in all 55 photos), 7 toothbrush photos with the headphones unboxed in the background, and a first eval attempt where 10 toothbrush photos were saved under the headphones label. The remaining toothbrush training files were renumbered 1 to 36 so the capture tool cannot overwrite them; `refs.json` matches the files on disk.
+
+**Tested:** Every box in both sessions drawn onto its photo and checked by eye. Some held toothbrush boxes are loose because they include the hand (train 3 to 6, 11, 12; eval 2, 3, 5). No training run or evaluation yet, so there are no accuracy results. Setup: fresh Python 3.11 `.venv` with `scripts/install_dependencies.py` succeeded; `pytest -q` in it: 207 passed, 1 skipped (existing httpx warning).
+
+**Decisions:** Rejected any photo showing an unboxed demo item, following `demotraining.md`: the tool writes one box per photo and `extend_demo_dataset` rejects a second box for the same file.
+
+**Teammates need to know:** Person 4 data is ready to extend the bootstrap with. Next for Person 4: `extend_demo_dataset`, a candidate training run, then `evaluate_demo_detector` on `training_data/person4/eval`. `capture_info.json` is rewritten each session, so the train copy records only the last of its four sessions (same camera for all).
+
 ### 2026-11-14, Person 4 (second clip: teammate's table video), Claude Code
 **Changed:** Notes only. Ran the same stage-by-stage trace on the table video a teammate sent (`IMG_3646.mov`: 8.6 s, 3840 x 2160, 24 fps, sampled to 42 frames at 5 fps). The clip was not committed.
 
