@@ -90,7 +90,7 @@ def typing_args_hazard_types() -> set[str]:
 def test_simulate_publishes_nothing_on_the_bus() -> None:
     """Simulated alerts stay on the page: no HazardEvent, so no alarm and no storage."""
     bus = TestBus()
-    state = register(bus, DashboardState(clock=lambda: NOW))
+    state = register(bus, DashboardState(clock=lambda: NOW), serve=False).state
     client = TestClient(create_app(state))
     client.post("/api/simulate-alert")
     assert bus.published == []
@@ -99,7 +99,7 @@ def test_simulate_publishes_nothing_on_the_bus() -> None:
 def test_register_and_real_events_are_not_simulated() -> None:
     """Real HazardEvent and touch TouchEvent from the bus are shown without the label."""
     bus = TestBus()
-    state = register(bus)
+    state = register(bus, serve=False).state
     assert set(bus.subscribers) == {HazardEvent, TouchEvent}
 
     bus.publish(HazardEvent(ts=NOW, type="vehicle", source="yolo", confidence=0.91))
@@ -152,3 +152,52 @@ def test_websocket_pushes_state_after_simulate(
         pushed = ws.receive_json()
     assert len(pushed["events"]) == 1
     assert pushed["latest_warning"]["simulated"] is True
+
+
+def _free_port() -> int:
+    """Return a TCP port nothing is listening on right now."""
+    import socket
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def test_serve_starts_the_page_on_a_thread_and_stops() -> None:
+    """Under app/, the page is served on a background thread and stop() ends it."""
+    import time
+
+    import httpx
+
+    from dashboard import Dashboard
+
+    port = _free_port()
+    dashboard = Dashboard(DashboardState(clock=lambda: NOW))
+    assert dashboard.serve(port=port) is True
+    try:
+        deadline = time.monotonic() + 5.0
+        while True:
+            try:
+                reply = httpx.post(f"http://127.0.0.1:{port}/api/simulate-alert")
+                break
+            except httpx.ConnectError:
+                if time.monotonic() > deadline:
+                    raise
+                time.sleep(0.05)
+        assert len(reply.json()["events"]) == 1
+    finally:
+        dashboard.stop()
+    assert not dashboard._thread.is_alive()
+
+
+def test_serve_skips_a_busy_port() -> None:
+    """If the port is taken, serve() logs and returns False instead of crashing."""
+    import socket
+
+    from dashboard import Dashboard
+
+    with socket.socket() as busy:
+        busy.bind(("127.0.0.1", 0))
+        busy.listen()
+        port = busy.getsockname()[1]
+        assert Dashboard(DashboardState()).serve(port=port) is False

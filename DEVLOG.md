@@ -21,7 +21,7 @@ Copy this template. Keep it short. Never include keys or connection strings.
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
-- **Person 4 (`dashboard/`):** dashboard code now exists on `voice-dashboard` (PR #4). Under `python -m app`, `dashboard.register(bus)` subscribes but does not yet start the web server, so the page only appears with `python -m dashboard`. Updated by Person 4, 2026-11-14.
+- **Person 1 (`app/` start order):** with `--fake hazard`, the fake hazard starts publishing as soon as it is registered, before audio and dashboard have subscribed, so its first `HazardEvent` (vehicle, yolo) reaches nobody. Start the fake's thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
 - **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` fails on Person 4's Windows laptop, on a clean copy of `main` as well. Run directly, `python -m app --fake vision` starts fine, but audio startup (pyttsx3 and pygame) takes longer than the test's 1.4 s wait before vision publishes its first frame. Wait for the expected output line instead of a fixed sleep. Found by Person 4, 2026-11-14.
 - **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
 - **Person 1 (`app/` bus):** Person 3's modules are ready to be registered. Requests for `app/`:
@@ -68,6 +68,18 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 4 (dashboard), Claude Code: page starts inside the app
+**Changed:**
+
+- `dashboard.register(bus)` now returns a `Dashboard` and starts the web page on a background thread on `DASHBOARD_PORT`, so `python -m app` serves it at `http://localhost:8000`. `stop()` shuts the server down. If the port is busy it logs a warning and the app carries on without the page. `register(bus, serve=False)` skips the server; the tests use it.
+- New tests: the page starts on a thread, answers, and stops; a busy port is skipped without crashing.
+
+**Tested:** `pytest tests/test_dashboard.py`: 8 passed. Full `pytest` twice: 171 passed, 1 skipped, 1 failed, the same `test_cli_fake_vision_starts` timing failure as on `main`; port 8000 was free afterwards. Ran `python -m app --fake vision hazard audio` for 12 s, so nothing was played aloud. The app logged "Dashboard page at http://localhost:8000". Each fake hazard reached fake audio (`BEEP BEEP BEEP`, then `say: Stop. Stairs.`) and the page at the same time; `/api/state` showed it as "Stairs, grok, 91%", not simulated. One `POST /api/simulate-alert` added exactly one simulated entry, and fake audio printed nothing for it.
+
+**Decisions:** Simulate alert stays page-only. To see and hear hazards together, run the app with `--fake hazard`, which publishes real `HazardEvent`s.
+
+**Teammates need to know:** Person 1: `dashboard.register(bus)` now starts the page itself; nothing else is needed in `app/`. The returned object has `stop()`.
+
 ### 2026-11-14, Person 4 (audio, dashboard), Claude Code: rebase onto PR #10
 **Changed:**
 
@@ -95,7 +107,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 **Decisions:** Using `HAZARD_COOLDOWN_SECONDS` for how long the banner stays red is my choice; SPEC.md only says "while a hazard is active". A simulated alert is not a `HazardEvent` because the contract has no field to mark it simulated.
 
-**Teammates need to know:** Install with `py -3.11 -m pip install -r dashboard/requirements.txt`. Person 1: `dashboard.register(bus)` returns the `DashboardState`. `app/` then serves `dashboard.create_app(state)` with Uvicorn on `DASHBOARD_PORT`. All: please confirm or replace the banner-duration choice above.
+**Teammates need to know:** Install with `py -3.11 -m pip install -r dashboard/requirements.txt`. Person 1: `dashboard.register(bus)` now also starts the page (see the later entry above). All: please confirm or replace the banner-duration choice above.
 
 ### 2026-11-14, Person 4 (audio), Claude Code
 **Update (later):** The `fakes/audio/` fake and `tests/test_audio.py` described below were replaced by PR #10's versions on `main`; the speak_test tests now live in `tests/test_speak_test.py`. See the rebase entry above.
