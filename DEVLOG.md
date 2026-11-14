@@ -60,6 +60,31 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code: shared-class checks
+**Changed:** Added `tests/test_p3_shared_classes.py`, 16 checks that Person 3 code uses the exact `contracts` classes, compared with `is`, not just classes with matching names and fields. No production code changed in this step. The shim migration itself is the entry below.
+
+- All four `_pending` modules are gone (`find_spec` returns `None`).
+- `namer`, `namer.namer`, `storage._deps`, `storage.writer`, `fakes.namer.fake_namer` and `fakes.storage.fake_store` all bind each message name to the `contracts` class.
+- These run on a test bus that delivers only by exact class, like type-based routing:
+  - `namer.register` subscribes with `contracts.NameRequest`.
+  - The real `Namer`, with Grok mocked, publishes a `contracts.NameResult`.
+  - The real `Store`, with no database, answers a `LastSeenQuery` with a `contracts.SpeakRequest`.
+  - `FakeNamer` and `FakeStore` do the same and leave nothing undelivered.
+
+**Tested:**
+
+- New file: 16 passed.
+- The same file run against `main` at `d78eb09`, which still has the shims: 15 failed, 1 passed. The routed checks time out because the messages never reach a subscriber. That is the bug these checks exist to catch. The one pass is the threshold value check; the values were always equal.
+- Full `pytest`: 91 passed, 1 skipped. With `.env` loaded: 92 passed, including the live Tiger Data round trip.
+- `ruff check .` is clean.
+- `fakes.namer.fake_namer`, `fakes.storage.fake_store` and `fakes.scene` run.
+- `test_unreachable_db_never_blocks_and_warns_once` passed 5 of 5 on macOS. It was not checked on Windows.
+- `python -m app --fake vision` fails with "No module named app", because `app/` does not exist yet.
+
+**Decisions:** The checks use their own exact-type test bus instead of waiting for Person 1's bus, so they work now. They would also catch a bus that matched messages by class name.
+
+**Teammates need to know:** Person 1: `storage.register(bus)` does not subscribe yet. Its three subscriptions are a TODO until the bus API is confirmed. Once it is, storage needs `bus.subscribe(contracts.TouchEvent, ...)`, plus `HazardEvent` and `LastSeenQuery`, and these checks already cover the handlers.
+
 ### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code
 **Changed:**
 
