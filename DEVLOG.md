@@ -56,7 +56,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
-### 2026-11-13 23:10, Person 3 (namer, storage, fakes), Claude Code (lead session plus 3 parallel subagents)
+### 2026-11-13 23:10, Person 3 Richard Lan (namer, storage, fakes), Claude Code (lead session plus 3 parallel subagents)
 **Changed:** First build of everything Person 3 owns. `namer/` names objects through Grok vision. `storage/` logs touch and hazard events to Tiger Data and answers last-seen queries. `fakes/namer/` and `fakes/storage/` let teammates run without Grok or Tiger Data. Tests are in `tests/test_namer.py` and `tests/test_storage.py`.
 
 **Tested:** `python -m pytest tests -q` gave 22 passed and 1 skipped (the live Tiger Data round trip, which needs `TIGER_DATABASE_URL`). `ruff check` is clean on all Person 3 paths. Both fake demos run. No live Grok or Tiger Data call has been made yet because there is no `.env` on this machine.
@@ -120,7 +120,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 |---|---|---|
 | 1 | Vision and hazard | |
 | 2 | Touch logic | |
-| 3 | Grok and data | |
+| 3 | Grok and data | Richard Lan |
 | 4 | Audio and dashboard | |
 
 ## Agent usage summary
