@@ -7,6 +7,7 @@ import importlib
 import logging
 import os
 import threading
+import time
 from collections.abc import Sequence
 from typing import Any
 
@@ -14,7 +15,7 @@ from dotenv import load_dotenv
 
 from app.bus import Bus
 from config.thresholds import PROCESS_FPS
-from contracts import FrameResult, NameResult
+from contracts import FrameResult, ModuleStatus, NameResult
 
 log = logging.getLogger("app")
 MODULES = ("hazard", "scene", "namer", "storage", "audio", "dashboard", "vision")
@@ -126,6 +127,17 @@ def _register(name: str, fake: bool, bus: Bus) -> Any:
     return None
 
 
+def _lifecycle(module: str, status: str, mode: str, detail: str) -> ModuleStatus:
+    """Build the ModuleStatus app/ publishes for one module at startup."""
+    return ModuleStatus(
+        ts=time.time(),
+        module=module,
+        status=status,  # type: ignore[arg-type]
+        mode=mode,  # type: ignore[arg-type]
+        detail=detail,
+    )
+
+
 def start(only: str | None = None, fakes: Sequence[str] = ()) -> RunningApp:
     """Load environment settings and register selected modules with a fresh bus."""
     load_dotenv()
@@ -139,18 +151,30 @@ def start(only: str | None = None, fakes: Sequence[str] = ()) -> RunningApp:
     selected.update(fakes)
     bus = Bus()
     instances: list[Any] = []
+    lifecycle: list[ModuleStatus] = []
     # Vision is last, so subscribers are ready before the first camera frame.
     for name in MODULES:
+        mode = "fake" if name in fakes else "real"
         if name not in selected:
+            lifecycle.append(_lifecycle(name, "offline", "unknown", "Not started in this run"))
             continue
         try:
             instance = _register(name, name in fakes, bus)
         except Exception:
             log.exception("Module %s could not start; continuing", name)
+            lifecycle.append(_lifecycle(name, "offline", mode, "Could not start"))
             continue
         if instance is not None:
             instances.append(instance)
             log.info("Started %s%s", name, " (fake)" if name in fakes else "")
+            detail = "Started with a fake" if name in fakes else "Started"
+            lifecycle.append(_lifecycle(name, "starting", mode, detail))
+        else:
+            lifecycle.append(_lifecycle(name, "offline", mode, "Not available"))
+    # Lifecycle facts for the dashboard. A module's own later status wins over these.
+    for message in lifecycle:
+        if message.module != "dashboard":
+            bus.publish(message)
     for instance in instances:
         if isinstance(instance, _FakeScenePlayback):
             instance.start()
