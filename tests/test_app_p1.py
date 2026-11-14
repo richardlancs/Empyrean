@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 from app.__main__ import start
 from app.bus import Bus
@@ -65,23 +66,37 @@ def test_cli_fake_vision_starts() -> None:
     root = Path(__file__).resolve().parents[1]
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
     proc = subprocess.Popen(
-        [sys.executable, "-m", "app", "--fake", "vision"],
+        [sys.executable, "-m", "app", "--only", "scene", "--fake", "vision"],
         cwd=root,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         env=env,
     )
+    ready = threading.Event()
+    lines: list[str] = []
+
+    def read_output() -> None:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            lines.append(line)
+            if "Published synthetic FrameResult" in line:
+                ready.set()
+
+    reader = threading.Thread(target=read_output, daemon=True)
+    reader.start()
     try:
-        time.sleep(1.4)
+        assert ready.wait(timeout=15.0), "".join(lines)
     finally:
         proc.terminate()
         try:
-            output, _ = proc.communicate(timeout=5.0)
+            proc.wait(timeout=5.0)
         except subprocess.TimeoutExpired:
             proc.kill()
-            output, _ = proc.communicate(timeout=5.0)
-    assert "Published synthetic FrameResult" in output, output
+            proc.wait(timeout=5.0)
+        reader.join(timeout=5.0)
+        proc.stdout.close()
+
 
 
 def test_bus_preserves_hazard_event_delivery() -> None:
@@ -94,3 +109,48 @@ def test_bus_preserves_hazard_event_delivery() -> None:
         assert reached.wait(timeout=1.0)
     finally:
         bus.stop()
+
+
+def test_first_fake_hazard_reaches_late_subscriber(monkeypatch: Any) -> None:
+    """Registration completes before the first scripted hazard is published."""
+    import app.__main__ as entry
+
+    original = entry._register
+    received = threading.Event()
+    events = []
+
+    def register(name: str, fake: bool, bus: Bus) -> Any:
+        if name == "scene":
+            def on_hazard(message: HazardEvent) -> None:
+                events.append(message)
+                received.set()
+            bus.subscribe(HazardEvent, on_hazard)
+            return None
+        return original(name, fake, bus)
+
+    monkeypatch.setattr(entry, "_register", register)
+    running = entry.start(only="scene", fakes=("hazard",))
+    try:
+        assert received.wait(1.0)
+        assert (events[0].type, events[0].source) == ("vehicle", "yolo")
+    finally:
+        running.stop()
+
+
+def test_crop_recording_uses_separate_sessions(tmp_path: Path) -> None:
+    """Repeated app runs preserve earlier crops and stop the writer."""
+    from contracts import NameRequest
+
+    for payload in (b"first crop", b"second crop"):
+        running = start(only="scene", record_crops=tmp_path)
+        recorder = running.instances[0]
+        running.bus.publish(NameRequest(time.time(), 1, "bottle", payload))
+        deadline = time.monotonic() + 2.0
+        while recorder.saved == 0 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        running.stop()
+        assert recorder.saved == 1
+        assert not recorder._thread.is_alive()
+    assert {p.read_bytes() for p in tmp_path.glob("session-*/*.jpg")} == {
+        b"first crop", b"second crop",
+    }

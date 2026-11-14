@@ -6,8 +6,10 @@ import argparse
 import importlib
 import logging
 import os
+import tempfile
 import threading
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -119,6 +121,8 @@ def _register(name: str, fake: bool, bus: Bus) -> Any:
 
     register = getattr(module, "register", None)
     if callable(register):
+        if name == "hazard" and fake:
+            return register(bus, autostart=False)
         return register(bus)
     if name == "scene":
         return _FakeScenePlayback(bus) if fake else _scene_adapter(bus)
@@ -126,7 +130,10 @@ def _register(name: str, fake: bool, bus: Bus) -> Any:
     return None
 
 
-def start(only: str | None = None, fakes: Sequence[str] = ()) -> RunningApp:
+def start(
+    only: str | None = None, fakes: Sequence[str] = (),
+    record_crops: Path | None = None,
+) -> RunningApp:
     """Load environment settings and register selected modules with a fresh bus."""
     load_dotenv()
     os.environ.setdefault("CAMERA_INDEX", "0")
@@ -139,6 +146,13 @@ def start(only: str | None = None, fakes: Sequence[str] = ()) -> RunningApp:
     selected.update(fakes)
     bus = Bus()
     instances: list[Any] = []
+    if record_crops is not None:
+        from fakes.namer.crop_recorder import register as register_recorder
+
+        record_crops.mkdir(parents=True, exist_ok=True)
+        session = Path(tempfile.mkdtemp(prefix="session-", dir=record_crops))
+        instances.append(register_recorder(bus, out_dir=session))
+        log.info("Recording naming crops to %s", session)
     # Vision is last, so subscribers are ready before the first camera frame.
     for name in MODULES:
         if name not in selected:
@@ -151,8 +165,10 @@ def start(only: str | None = None, fakes: Sequence[str] = ()) -> RunningApp:
         if instance is not None:
             instances.append(instance)
             log.info("Started %s%s", name, " (fake)" if name in fakes else "")
+    from fakes.hazard.fake_hazard import FakeHazard
+
     for instance in instances:
-        if isinstance(instance, _FakeScenePlayback):
+        if isinstance(instance, (_FakeScenePlayback, FakeHazard)):
             instance.start()
     return RunningApp(bus, instances)
 
@@ -162,10 +178,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run Empyrean")
     parser.add_argument("--only", choices=MODULES)
     parser.add_argument("--fake", nargs="+", metavar="MODULE", default=[])
+    parser.add_argument(
+        "--record-crops", type=Path, nargs="?",
+        const=Path("scratch/camera_crops"),
+        help="Save naming crops in a fresh session folder under this directory",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     try:
-        running = start(only=args.only, fakes=args.fake)
+        running = start(only=args.only, fakes=args.fake, record_crops=args.record_crops)
     except ValueError as exc:
         parser.error(str(exc))
     stop = threading.Event()
