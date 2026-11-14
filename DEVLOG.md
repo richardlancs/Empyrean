@@ -84,6 +84,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 - Full `pytest`: 112 passed, 1 skipped (the live DB test). With `.env` loaded: 113 passed.
 - `ruff check .` is clean.
 - `python -m app --fake vision` is not run, because `app/` does not exist yet.
+- Follow-up before merge (Claude Code, on Windows): the source scan read files with the platform default encoding, so on Windows (cp1252) it failed on the curly quotes in `namer/namer.py`. It now reads with `encoding="utf-8"`. On Windows the file then gave 28 passed.
 
 **Decisions:** Class identity and source checks live here, and bus wiring lives in `tests/test_register.py`, so each behaviour is tested once.
 

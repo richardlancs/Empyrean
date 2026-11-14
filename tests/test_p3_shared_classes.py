@@ -33,7 +33,7 @@ def _module_level_definitions(path: Path) -> tuple[set[str], set[str]]:
     """Return the class names and assigned names defined at the top level of path."""
     classes: set[str] = set()
     assigned: set[str] = set()
-    for node in ast.parse(path.read_text(), filename=str(path)).body:
+    for node in ast.parse(path.read_text(encoding="utf-8"), filename=str(path)).body:
         if isinstance(node, ast.ClassDef):
             classes.add(node.name)
         elif isinstance(node, ast.Assign):
