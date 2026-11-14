@@ -1,4 +1,9 @@
 .venv/
-voices/
 __pycache__/
-*.wav
+
+# Local voice files left over from the earlier Piper test. Unused; safe to delete.
+voices/
+
+# Generated audio from manual tests goes here. The prerecorded alarm WAV
+# lives outside this folder and is tracked.
+generated/

@@ -1,45 +1,57 @@
-"""Standalone Windows Piper test; no bus or real alerts are involved."""
+"""Standalone pyttsx3 speech test; no bus, alarm or hazard is involved.
+
+Speaks one sentence through the system's default audio output, offline.
+
+Setup, from the repository root, in Windows PowerShell:
+
+    py -3.11 -m pip install -r audio/requirements.txt
+
+Run:
+
+    py -3.11 -m audio.speak_test "Heinz ketchup"
+"""
+
+from __future__ import annotations
 
 import argparse
 import logging
-from pathlib import Path
-import sys
-import tempfile
-import wave
+from collections.abc import Sequence
 
 LOGGER = logging.getLogger("audio")
-DEFAULT_MODEL = Path(__file__).resolve().parent / "voices" / "en_US-lessac-medium.onnx"
 
 
-def main() -> int:
-    """Speak one supplied sentence through the Windows default audio output."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("text", help='Sentence to say, for example "Keys on the left"')
-    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
-    args = parser.parse_args()
-    if not args.text.strip():
+def speak(text: str) -> None:
+    """Say text once with pyttsx3 and wait until it has finished playing."""
+    import pyttsx3
+
+    engine = pyttsx3.init()
+    try:
+        engine.say(text)
+        engine.runAndWait()
+    finally:
+        engine.stop()
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Parse the sentence from the command line and speak it; return an exit code."""
+    parser = argparse.ArgumentParser(description="Speak one sentence with pyttsx3.")
+    parser.add_argument("text", help='Sentence to say, for example "Heinz ketchup"')
+    args = parser.parse_args(argv)
+    text = args.text.strip()
+    if not text:
         parser.error("Please supply a sentence that is not empty.")
-    if sys.platform != "win32":
-        parser.error("This standalone playback test requires Windows.")
-    for path in (args.model, Path(str(args.model) + ".json")):
-        if not path.is_file():
-            parser.error(f"Missing voice file: {path}. Download the voice first.")
 
     try:
-        import winsound
-        from piper import PiperVoice
+        import pyttsx3  # noqa: F401
     except ImportError:
-        LOGGER.error("Piper is missing. Install audio/requirements.txt in your Python environment.")
+        LOGGER.error(
+            "pyttsx3 is missing. Install audio/requirements.txt with Python 3.11."
+        )
         return 1
 
     try:
-        voice = PiperVoice.load(str(args.model))
-        with tempfile.TemporaryDirectory(prefix="sightline-audio-") as directory:
-            output = Path(directory) / "speech.wav"
-            with wave.open(str(output), "wb") as wav_file:
-                voice.synthesize_wav(args.text, wav_file)
-            LOGGER.info("Speaking: %s", args.text)
-            winsound.PlaySound(str(output), winsound.SND_FILENAME | winsound.SND_NODEFAULT)
+        LOGGER.info("Speaking: %s", text)
+        speak(text)
     except Exception:
         LOGGER.exception("Audio test failed")
         return 1
