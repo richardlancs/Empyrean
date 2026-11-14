@@ -1,0 +1,537 @@
+[
+  {
+    "file": "water_bottle_1.jpg",
+    "label": "water bottle",
+    "split": "train",
+    "sha256": "84f382325d989fd9e7644935594634baf687f5553317d469e78d9f455a1e0948"
+  },
+  {
+    "file": "water_bottle_2.jpg",
+    "label": "water bottle",
+    "split": "train",
+    "sha256": "572112365422b784401b97834a86d704496531f248a0a9ddc5d7ebaa9cb91c54"
+  },
+  {
+    "file": "water_bottle_3.jpg",
+    "label": "water bottle",
+    "split": "train",
+    "sha256": "87033d7296d700b631c46585129cbf3a356d71dea48ab428f15b4d623f3ad1b4"
+  },
+  {
+    "file": "water_bottle_4.jpg",
+    "label": "water bottle",
+    "split": "train",
+    "sha256": "8c6eeba8a622ddc92d3aca5a9c4b3b35cb1857eb46a37c863aa7a5b89ebcc329"
+  },
+  {
+    "file": "water_bottle_5.jpg",
+    "label": "water bottle",
+    "split": "train",
+    "sha256": "c51177e5ba5594812610e8948d1ff8bdb897930daae807dbafd43bf1c1ef2877"
+  },
+  {
+    "file": "water_bottle_6.jpg",
+    "label": "water bottle",
+    "split": "train",
+    "sha256": "e76167dfd6c98d8cae7055a4721ee1ed5cd7b3d87225edbc6ee5fbc15aaf9372"
+  },
+  {
+    "file": "water_bottle_7.jpg",
+    "label": "water bottle",
+    "split": "train",
+    "sha256": "031f0893839be1c4264a8dd0d13f811dfcdf940efc4ec2b24c25fcfeabbd812d"
+  },
+  {
+    "file": "water_bottle_8.jpg",
+    "label": "water bottle",
+    "split": "val",
+    "sha256": "9f5dd750043453bd06124845617b3d0f72af1e972a30071b4a844f0f86e33ba6"
+  },
+  {
+    "file": "toothbrush_1.jpg",
+    "label": "toothbrush",
+    "split": "train",
+    "sha256": "2c6e4c7050cb48bf80cf32aff1d38fe809602adddaba4d1fa016e45d5c38d726"
+  },
+  {
+    "file": "toothbrush_2.jpg",
+    "label": "toothbrush",
+    "split": "train",
+    "sha256": "4b7c292d7e46773cadcf0e4bef2ee7b51db3b121ba744b62f52b4398a143e15c"
+  },
+  {
+    "file": "toothbrush_3.jpg",
+    "label": "toothbrush",
+    "split": "train",
+    "sha256": "a220424eed9bee5c1b519f33e67f04f888dc67ed89799b6948f978266fb65992"
+  },
+  {
+    "file": "toothbrush_4.jpg",
+    "label": "toothbrush",
+    "split": "train",
+    "sha256": "5e633165da82820d15b296839dc8276474434752570ea733a2510fe0585e8b47"
+  },
+  {
+    "file": "toothbrush_5.jpg",
+    "label": "toothbrush",
+    "split": "train",
+    "sha256": "c883394a678481303c5ba7a95354ec3cc36f73b344d372a777706439affd4bd6"
+  },
+  {
+    "file": "toothbrush_6.jpg",
+    "label": "toothbrush",
+    "split": "val",
+    "sha256": "2e8108ec5c0e31db49a0698830f04edcc9d9bdf3db61a464687aea716e1bff99"
+  },
+  {
+    "file": "toothpaste_1.jpg",
+    "label": "toothpaste",
+    "split": "train",
+    "sha256": "dbe7034199152a45edf38e3f288d14cd0922717a072c480ff4bee22049d7ba00"
+  },
+  {
+    "file": "toothpaste_2.jpg",
+    "label": "toothpaste",
+    "split": "train",
+    "sha256": "6b79cab5d074ca4bb5956069ae530e3134094e0c032ba7a42b18dbf0fbd7740e"
+  },
+  {
+    "file": "toothpaste_3.jpg",
+    "label": "toothpaste",
+    "split": "train",
+    "sha256": "55fc40408f2d3d0f92859d8227b6bc478e3a65f83a2f612a03814d616a7785b9"
+  },
+  {
+    "file": "toothpaste_4.jpg",
+    "label": "toothpaste",
+    "split": "train",
+    "sha256": "087d3d674f670f5a97c9f261361771151ee6b6fe3e8a2c33e5f89c4e92b82e38"
+  },
+  {
+    "file": "toothpaste_5.jpg",
+    "label": "toothpaste",
+    "split": "train",
+    "sha256": "0c5b04b7fb6f5b8429ece22b1569ca98f39de4f26057427083d20f61fd3fff48"
+  },
+  {
+    "file": "toothpaste_6.jpg",
+    "label": "toothpaste",
+    "split": "train",
+    "sha256": "f9e3d4ea2a8527099343134bb3ed3f91b8330884bbf3adedcd976ddd531fea04"
+  },
+  {
+    "file": "toothpaste_7.jpg",
+    "label": "toothpaste",
+    "split": "train",
+    "sha256": "a96154b73e1050ee3e50ad4b7df94aded4ef98c0bea34a37f66a1a49be0ba3b0"
+  },
+  {
+    "file": "toothpaste_8.jpg",
+    "label": "toothpaste",
+    "split": "val",
+    "sha256": "18b8cb8247c22aa329db248530ec85b40c313b263f8400507c3160932db71911"
+  },
+  {
+    "file": "charger_1.jpg",
+    "label": "charger",
+    "split": "train",
+    "sha256": "c7f288d69666c2df1c8d248616c9c091d62536f1b7892cecebea9b3ee5028dc2"
+  },
+  {
+    "file": "charger_2.jpg",
+    "label": "charger",
+    "split": "train",
+    "sha256": "9fa903e1c5ec7d494930190c8f80c80e56a00fed853f65415c52979d84c4e054"
+  },
+  {
+    "file": "charger_3.jpg",
+    "label": "charger",
+    "split": "train",
+    "sha256": "11f235cf2d58d7f4579512059547d3f19969fecd438efd65c0ff6399575c2656"
+  },
+  {
+    "file": "charger_4.jpg",
+    "label": "charger",
+    "split": "train",
+    "sha256": "ba678861436a715ead3b634cbfd66dff16802b7709aa6df3f477c5d4194ba087"
+  },
+  {
+    "file": "charger_5.jpg",
+    "label": "charger",
+    "split": "val",
+    "sha256": "f068395066c4b9c86b7502610a81788dc2abafbd8974e7dd75d30c706acec22b"
+  },
+  {
+    "file": "phone_1.jpg",
+    "label": "phone",
+    "split": "train",
+    "sha256": "c584250fbcfd54f8c39b379dd5b2a65a6795fbe4edef0eab1d168ecbb1ef3a29"
+  },
+  {
+    "file": "phone_2.jpg",
+    "label": "phone",
+    "split": "train",
+    "sha256": "e4406ec71344e8c80b9b3af26aab12d142bc6b7e99e5bb3d933bc2bd5521fd2b"
+  },
+  {
+    "file": "phone_3.jpg",
+    "label": "phone",
+    "split": "train",
+    "sha256": "6c914ab59bd9834a9dd7b421633bf583ef13b92a5e6af0c66a78123277f83cac"
+  },
+  {
+    "file": "phone_4.jpg",
+    "label": "phone",
+    "split": "train",
+    "sha256": "79a72b1b12cec5b596c75ffc36f1b51f6ef13ffacf373cb2a93adddefae67b36"
+  },
+  {
+    "file": "phone_5.jpg",
+    "label": "phone",
+    "split": "train",
+    "sha256": "07cd0570a9d60afca0ff9847d2207e70c2af45b29d784605a43b8dd02d84c506"
+  },
+  {
+    "file": "phone_6.jpg",
+    "label": "phone",
+    "split": "train",
+    "sha256": "f38b411069f10b35b50404a1b50b3a4c273b0904858d09fc9b1f8a8caf8e5d7a"
+  },
+  {
+    "file": "phone_7.jpg",
+    "label": "phone",
+    "split": "train",
+    "sha256": "cecb5ccba71c309f6023c6c2ba6712b9bb34851d6205669ff09b1e1dad529f33"
+  },
+  {
+    "file": "phone_8.jpg",
+    "label": "phone",
+    "split": "train",
+    "sha256": "b7264af4f57eecc0bb24c85156a22f1478df8c00cb0227a950675813e32196c2"
+  },
+  {
+    "file": "phone_9.jpg",
+    "label": "phone",
+    "split": "val",
+    "sha256": "0397af2c059d8431aaa355dfc3a97b6361125170b04cd7e787ee552a1dea1d44"
+  },
+  {
+    "file": "headphones_1.jpg",
+    "label": "headphones",
+    "split": "train",
+    "sha256": "ee9bc473240072861f190700365e0336e26a7300c5209e8b6155e6a94385255c"
+  },
+  {
+    "file": "headphones_2.jpg",
+    "label": "headphones",
+    "split": "train",
+    "sha256": "e4dd5845f9d9461aeba0f812908b150e3b32975a526d8add0de31e1c9d4ca342"
+  },
+  {
+    "file": "headphones_3.jpg",
+    "label": "headphones",
+    "split": "train",
+    "sha256": "b804676fd0542833f8facd6e4b057b8110544e447cb92363d1588f329f04c52b"
+  },
+  {
+    "file": "headphones_4.jpg",
+    "label": "headphones",
+    "split": "train",
+    "sha256": "c1a5ca1101450eaeba517eb0d21af87d9946247ab353353823f572247bf33009"
+  },
+  {
+    "file": "headphones_5.jpg",
+    "label": "headphones",
+    "split": "train",
+    "sha256": "00a2dd8f850ab736042a2db790caa18d6e376c025a393aeb47308e007a533427"
+  },
+  {
+    "file": "headphones_6.jpg",
+    "label": "headphones",
+    "split": "train",
+    "sha256": "f2721ee5bd02e267a9a8324b93543e79cc52cb960cfe6adf965c4289d8315d4b"
+  },
+  {
+    "file": "headphones_7.jpg",
+    "label": "headphones",
+    "split": "train",
+    "sha256": "e4ac1d1175e99435578b6b25393d779a1d903ab026bf91becaf45daa56846279"
+  },
+  {
+    "file": "headphones_8.jpg",
+    "label": "headphones",
+    "split": "train",
+    "sha256": "93321793ab5de4b00b5e397027290aa60a0d029ea00be23f22ee306ab7cefd47"
+  },
+  {
+    "file": "headphones_9.jpg",
+    "label": "headphones",
+    "split": "train",
+    "sha256": "b5d769f63483ab584350207109ab0112ebdd60e1a698b84427b5c424c3fdecbb"
+  },
+  {
+    "file": "headphones_10.jpg",
+    "label": "headphones",
+    "split": "val",
+    "sha256": "8e697a479061cd12db8d2e2aa989899b46dfc3f8206f284856ff522f618f9ecc"
+  },
+  {
+    "file": "keys_1.jpg",
+    "label": "keys",
+    "split": "train",
+    "sha256": "f276637e10bc25155e59d071d2edc8fd392d71024a4dbd36c9f1eec622299940"
+  },
+  {
+    "file": "keys_2.jpg",
+    "label": "keys",
+    "split": "train",
+    "sha256": "5efa751afd406d6bfd8ea5d0ca4106df6d5352a4aac99afe00db26bb942a1970"
+  },
+  {
+    "file": "keys_3.jpg",
+    "label": "keys",
+    "split": "train",
+    "sha256": "ee6b4baf6aaa91e3d1f903997b6bcaff469d4a4bf4026a1d9eb045a08d5e7b43"
+  },
+  {
+    "file": "keys_4.jpg",
+    "label": "keys",
+    "split": "train",
+    "sha256": "90d231c9131fad4861bf382bfb54c795f3ec08709a18d0fc87249a5212531cc1"
+  },
+  {
+    "file": "keys_5.jpg",
+    "label": "keys",
+    "split": "train",
+    "sha256": "1be20cee8e7bdd65263827d6b5b8a5c412c546b3d1935db309008061f28b1119"
+  },
+  {
+    "file": "keys_6.jpg",
+    "label": "keys",
+    "split": "train",
+    "sha256": "03959bdb1d6703cb43a00e75dedb0b17d9b8bd50753fbd30044dd8c924414cac"
+  },
+  {
+    "file": "keys_7.jpg",
+    "label": "keys",
+    "split": "val",
+    "sha256": "cb6410b0062d54f9d3cd06b51f60bffe7c2aa206298a8cb21f55b4940699e6f1"
+  },
+  {
+    "file": "watch_1.jpg",
+    "label": "watch",
+    "split": "train",
+    "sha256": "bafc862508ba192cfbf39c3878009c7c770d6187deee83813b7122856f1fe587"
+  },
+  {
+    "file": "watch_2.jpg",
+    "label": "watch",
+    "split": "train",
+    "sha256": "8937b2adbec9e24c13ef489814178ae87ca201738c5617cb8dbca5ad70905c3f"
+  },
+  {
+    "file": "watch_3.jpg",
+    "label": "watch",
+    "split": "train",
+    "sha256": "b54532252842b31c86ec75017b24e5e33c350605312d14720c19e7df44e19b04"
+  },
+  {
+    "file": "watch_4.jpg",
+    "label": "watch",
+    "split": "train",
+    "sha256": "c2c83328e8ce4c1c3679fc237e6969515414314afdb029c83df49e226e46de2f"
+  },
+  {
+    "file": "watch_5.jpg",
+    "label": "watch",
+    "split": "train",
+    "sha256": "7dc8e8f136de4783ba3caa21ee021019b0c4e88dd604da957f9990369e86fd60"
+  },
+  {
+    "file": "watch_6.jpg",
+    "label": "watch",
+    "split": "train",
+    "sha256": "22d68802f5dc433c8be55e64538e941c0dca038f4a9390de67e8e9354b01e9c7"
+  },
+  {
+    "file": "watch_7.jpg",
+    "label": "watch",
+    "split": "train",
+    "sha256": "96ce7d34f38ff12d7e9c2b10a7e2ec3570d585a5291606b7e4fc3b7d111504d8"
+  },
+  {
+    "file": "watch_8.jpg",
+    "label": "watch",
+    "split": "train",
+    "sha256": "b387bb0b6efa45f1f50b09ec70cbd8c2150d416c14a849889c3e6b5135253752"
+  },
+  {
+    "file": "watch_9.jpg",
+    "label": "watch",
+    "split": "val",
+    "sha256": "35c21c86658b7776ad444eff85728527c34f39bf410dc2ab04deaa6a821af060"
+  },
+  {
+    "file": "negative-1335-1.jpg",
+    "label": "background",
+    "split": "train",
+    "sha256": "cf4b2577f08d6e881bf97a8a6868dc4da8e49ddc579a52beadb21c74201afed9"
+  },
+  {
+    "file": "negative-117-1.jpg",
+    "label": "background",
+    "split": "train",
+    "sha256": "3e3df8ffb8fcfa000490990a9acf462f3ef08d272648a2aabd3e17960cf8ff33"
+  },
+  {
+    "file": "negative-120-1.jpg",
+    "label": "background",
+    "split": "train",
+    "sha256": "8e8290f18a83e586e9aee9f6426d4779597eeafdb40abfcc48508cf9339d059e"
+  },
+  {
+    "file": "table3-frame-000.jpg",
+    "labels": [
+      "toothpaste",
+      "charger"
+    ],
+    "split": "train",
+    "sha256": "c3273c648531387e14dc8cf400178722ff127cdcefed2246a8a7ed10d02c7e5d"
+  },
+  {
+    "file": "table3-frame-001.jpg",
+    "labels": [
+      "toothpaste",
+      "charger"
+    ],
+    "split": "train",
+    "sha256": "06510f1240f6bcc7bb58730834072ae977dca8ce3f6a523e28971bd23ae7d4e8"
+  },
+  {
+    "file": "table3-frame-002.jpg",
+    "labels": [
+      "toothpaste",
+      "charger"
+    ],
+    "split": "train",
+    "sha256": "c2675495ebba17cd3a8d076e048e67535451abe605d39c183af3a89813b22cf5"
+  },
+  {
+    "file": "table3-frame-003.jpg",
+    "labels": [
+      "toothpaste",
+      "charger"
+    ],
+    "split": "train",
+    "sha256": "0fbcd9e0f09de988f6692ef818eb68328f9a8c98c61adef347c6e42ed838e581"
+  },
+  {
+    "file": "table3-frame-007.jpg",
+    "labels": [
+      "toothpaste",
+      "charger",
+      "watch"
+    ],
+    "split": "train",
+    "sha256": "f4210c59d9739e09392b9e45ec983cd0a74a7516598cd92bc4e48239f450ec87"
+  },
+  {
+    "file": "table3-frame-008.jpg",
+    "labels": [
+      "toothpaste",
+      "charger",
+      "watch"
+    ],
+    "split": "train",
+    "sha256": "b60f42cb821d90cf7147510ca467e68e79271ecc2ab9b0fbc17279bb6eb2e34e"
+  },
+  {
+    "file": "table3-frame-009.jpg",
+    "labels": [
+      "toothpaste",
+      "charger",
+      "watch"
+    ],
+    "split": "train",
+    "sha256": "00d0203ad2f3fde781b9047d7800e56c7bc6edd841a5aeecf278334061143f1b"
+  },
+  {
+    "file": "fresh-table-before-training.jpg",
+    "labels": [
+      "headphones",
+      "keys"
+    ],
+    "split": "val",
+    "sha256": "8d217fa501d2dde9326c8af60646d3e33ed9b85353c76f91f344496b044c0462"
+  },
+  {
+    "file": "fresh-toothpaste-watch-charger-before-training.jpg",
+    "labels": [
+      "toothpaste",
+      "charger",
+      "watch"
+    ],
+    "split": "val",
+    "sha256": "2013947c020ab401ed911e51e2d191418f5e504da8b80873505d16c6de050134"
+  },
+  {
+    "file": "tablehk-frame-000.jpg",
+    "labels": [
+      "headphones",
+      "keys"
+    ],
+    "split": "train",
+    "sha256": "c875565c04435bbd629d59a987ab1d3fdf9536e74f83dd493870d139d455c3f1"
+  },
+  {
+    "file": "tablehk-frame-002.jpg",
+    "labels": [
+      "headphones"
+    ],
+    "split": "train",
+    "sha256": "81389c2ef0e2668ae967a2a430996063eabf20be02360bd6687f1f8ac565d5ab"
+  },
+  {
+    "file": "tablehk-frame-006.jpg",
+    "labels": [
+      "headphones"
+    ],
+    "split": "train",
+    "sha256": "826b19328998e5b430f78633c25133a6565f3b7b3e0cd8c799fc04507b4f3bba"
+  },
+  {
+    "file": "tablehk-frame-007.jpg",
+    "labels": [
+      "headphones",
+      "keys"
+    ],
+    "split": "train",
+    "sha256": "eb2cf41e0a8355028744031103073f2cb71c77dd2174cb223f498fca66526d5a"
+  },
+  {
+    "file": "tablehk-frame-009.jpg",
+    "labels": [
+      "headphones",
+      "keys"
+    ],
+    "split": "train",
+    "sha256": "2f91e5ff60d30aba71fb6dc9e3321a336d5eb6fc9a2c734cc8b32746b2897770"
+  },
+  {
+    "file": "tablehk-frame-010.jpg",
+    "labels": [
+      "headphones",
+      "keys"
+    ],
+    "split": "train",
+    "sha256": "9b12a54020a6d5838f9752450582b615d827c3c7ec83be77c0620f0ae7273528"
+  },
+  {
+    "file": "tablehk-frame-011.jpg",
+    "labels": [
+      "headphones"
+    ],
+    "split": "train",
+    "sha256": "50c8e22c9a6165e5188ca0c4908ac490b22219fcd059b41d7eabc3b1ff85f732"
+  }
+]

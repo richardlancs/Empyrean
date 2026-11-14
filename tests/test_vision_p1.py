@@ -80,7 +80,7 @@ def test_frame_result_and_detection_filters() -> None:
     assert (result.ts, result.frame_id) == (1234.5, 0)
     assert result.image.shape == (360, 640, 3)
     assert result.image[0, 0].tolist() == [7, 8, 9]
-    assert result.objects == [TrackedObject(7, "bottle", 0.9, (10., 20., 110., 170.))]
+    assert result.objects == [TrackedObject(1, "bottle", 0.9, (10., 20., 110., 170.))]
     assert len(result.hands) == 1 and type(result.hands[0]) is Hand
     assert result.hands[0].side == "right"
     assert detector.calls[0]["persist"] is True
@@ -140,7 +140,7 @@ def test_camera_survives_a_few_failed_reads(monkeypatch: Any) -> None:
     from vision import vision
 
     device = FlakyCapture([False, False, False, True])
-    monkeypatch.setattr(vision.cv2, "VideoCapture", lambda _index: device)
+    monkeypatch.setattr(vision.cv2, "VideoCapture", lambda *_args: device)
     monkeypatch.setattr(vision, "READ_RETRY_SECONDS", 0.001)
     camera = vision.LatestCamera(0)
     try:
@@ -157,7 +157,7 @@ def test_camera_reopens_after_repeated_failures(monkeypatch: Any) -> None:
     broken = FlakyCapture([False] * 100)
     fresh = FlakyCapture([])
     devices = [broken, fresh]
-    monkeypatch.setattr(vision.cv2, "VideoCapture", lambda _index: devices.pop(0))
+    monkeypatch.setattr(vision.cv2, "VideoCapture", lambda *_args: devices.pop(0))
     monkeypatch.setattr(vision, "READ_RETRY_SECONDS", 0.001)
     monkeypatch.setattr(vision, "READ_FAILURES_BEFORE_REOPEN", 5)
     camera = vision.LatestCamera(0)
@@ -194,20 +194,23 @@ def test_demo_mode_switches_detector_and_keeps_ids_unique() -> None:
     standard, world = FakeYOLO(), FakeWorld()
     processor = VisionProcessor(standard, FakeHands(), FakeMP, demo_detector=world)
     raw = np.zeros((720, 1280, 3), dtype=np.uint8)
-    assert [o.object_id for o in processor.process(raw, 0, 1.0).objects] == [7]
+    original = processor.process(raw, 0, 1.0).objects[0]
 
     assert processor.set_mode("demo") is True
     demo = processor.process(raw, 1, 2.0).objects
-    assert [(o.object_id, o.class_label) for o in demo] == [(8, "toothpaste")]
+    assert [o.class_label for o in demo] == ["toothpaste"]
+    assert demo[0].object_id != original.object_id
     assert world.calls[0]["persist"] is False
     assert world.calls[0]["conf"] == DEMO_DET_MIN_CONFIDENCE
-    processor.process(raw, 2, 3.0)
+    again = processor.process(raw, 2, 3.0).objects
+    assert again[0].object_id == demo[0].object_id
     assert world.calls[1]["persist"] is True
     assert len(standard.calls) == 1  # the standard detector does not run in demo mode
 
     assert processor.set_mode("actual") is True
     back = processor.process(raw, 3, 4.0).objects
-    assert [(o.object_id, o.class_label) for o in back] == [(15, "bottle")]
+    assert [o.class_label for o in back] == ["bottle"]
+    assert back[0].object_id not in {original.object_id, demo[0].object_id}
     assert standard.calls[1]["conf"] == DET_MIN_CONFIDENCE
     processor.close()
 
@@ -246,3 +249,140 @@ def test_demo_reference_list_is_required_and_read(tmp_path: Any) -> None:
     refs = [{"file": "keys_1.jpg", "label": "keys", "box": [10.0, 20.0, 110.0, 90.0]}]
     (tmp_path / REFS_FILE).write_text(json.dumps(refs), encoding="utf-8")
     assert load_refs(tmp_path) == refs
+
+
+class ChangingDetector:
+    """Return a sequence of single-box results with deliberately reused raw IDs."""
+
+    def __init__(self, labels: list[str], sides: list[float] | None = None) -> None:
+        self.labels = labels
+        self.sides = sides or [170.0] * len(labels)
+        self.calls = 0
+        self.predictor = SimpleNamespace(args=SimpleNamespace(iou=0.7))
+
+    def track(self, image: Any, **kwargs: Any) -> list[Any]:
+        """Return the next class and size under raw tracker ID 1."""
+        index = min(self.calls, len(self.labels) - 1)
+        self.calls += 1
+        side = self.sides[index]
+        boxes = SimpleNamespace(
+            xyxy=Array([[10.0, 10.0, 10.0 + side, 10.0 + side]]),
+            conf=Array([0.9]), cls=Array([0]), id=Array([1]),
+        )
+        return [SimpleNamespace(boxes=boxes, names={0: self.labels[index]})]
+
+
+def test_changed_tracker_class_cannot_reuse_a_cached_scene_name() -> None:
+    """A bottle-to-laptop raw ID switch must not attach water bottle to the laptop."""
+    from contracts import NameResult
+    from scene import SceneDatabase
+
+    processor = VisionProcessor(
+        ChangingDetector(["bottle", "bottle", "laptop"]), FakeHands(), FakeMP,
+    )
+    scene = SceneDatabase(lambda _topic, _message: None, stable_frames=1)
+    raw = np.zeros((360, 640, 3), dtype=np.uint8)
+    first = processor.process(raw, 0, 0.0)
+    scene.handle_frame(first)
+    bottle_id = first.objects[0].object_id
+    scene.handle_name(NameResult(0.1, bottle_id, "water bottle", True))
+    second = processor.process(raw, 1, 0.2)
+    assert second.objects[0].object_id == bottle_id
+    scene.handle_frame(second)
+    third = processor.process(raw, 2, 0.4)
+    laptop_id = third.objects[0].object_id
+    assert laptop_id != bottle_id
+    objects = {obj.object_id: obj for obj in scene.handle_frame(third).objects}
+    assert objects[laptop_id].class_label == "laptop"
+    assert objects[laptop_id].name == ""
+    processor.close()
+
+
+def test_custom_demo_keeps_vehicle_growth_alarms_and_separate_ids(monkeypatch: Any) -> None:
+    """Demo items and COCO vehicles coexist, even when both trackers use raw ID 1."""
+    from hazard.hazard import HazardDetector
+
+    monkeypatch.delenv("GROK_API_KEY", raising=False)
+    events: list[Any] = []
+    hazard = HazardDetector(events.append)
+    coco = ChangingDetector(["car", "car"], [130.0, 170.0])
+    demo = ChangingDetector(["keys", "keys"])
+    processor = VisionProcessor(coco, FakeHands(), FakeMP, demo, True)
+    assert processor.set_mode("demo")
+    raw = np.zeros((360, 640, 3), dtype=np.uint8)
+    try:
+        first = processor.process(raw, 0, 0.0)
+        second = processor.process(raw, 1, 0.2)
+        assert {obj.class_label for obj in first.objects} == {"car", "keys"}
+        assert len({obj.object_id for obj in first.objects}) == 2
+        assert {obj.class_label: obj.object_id for obj in first.objects} == {
+            obj.class_label: obj.object_id for obj in second.objects
+        }
+        hazard.on_frame(first)
+        hazard.on_frame(second)
+        assert [(event.type, event.source) for event in events] == [("vehicle", "yolo")]
+        assert coco.calls == demo.calls == 2
+    finally:
+        processor.close()
+        hazard.stop()
+
+
+def test_custom_demo_does_not_publish_unrelated_coco_objects() -> None:
+    """A laptop from COCO cannot be confused with an eight-class demo detection."""
+    coco = ChangingDetector(["laptop"])
+    demo = ChangingDetector(["charger"])
+    processor = VisionProcessor(coco, FakeHands(), FakeMP, demo, True)
+    processor.set_mode("demo")
+    frame = processor.process(np.zeros((360, 640, 3), dtype=np.uint8), 0, 0.0)
+    assert [obj.class_label for obj in frame.objects] == ["charger"]
+    assert coco.calls == 1
+    processor.close()
+
+
+def test_custom_demo_preserves_coco_demo_items_and_deduplicates_them() -> None:
+    """A confident COCO bottle stays available without a duplicate custom bottle box."""
+    coco = ChangingDetector(["bottle"])
+    demo = ChangingDetector(["water bottle"])
+    processor = VisionProcessor(coco, FakeHands(), FakeMP, demo, True)
+    processor.set_mode("demo")
+    image = np.zeros((360, 640, 3), dtype=np.uint8)
+    first = processor.process(image, 0, 0.0)
+    second = processor.process(image, 1, 0.2)
+    assert [obj.class_label for obj in first.objects] == ["water bottle"]
+    assert first.objects[0].object_id == second.objects[0].object_id
+    assert first.objects[0].confidence == 0.9
+    processor.close()
+
+
+def test_trained_toothpaste_suppresses_an_overlapping_coco_bottle_guess() -> None:
+    """The known COCO mislabelling of toothpaste as bottle cannot create two objects."""
+    coco = ChangingDetector(["bottle"])
+    demo = ChangingDetector(["toothpaste"])
+    processor = VisionProcessor(coco, FakeHands(), FakeMP, demo, True)
+    processor.set_mode("demo")
+    frame = processor.process(np.zeros((360, 640, 3), dtype=np.uint8), 0, 0.0)
+    assert [obj.class_label for obj in frame.objects] == ["toothpaste"]
+    assert frame.objects[0].confidence == 0.9
+    processor.close()
+
+
+def test_windows_camera_uses_directshow_on_open_and_reopen(monkeypatch: Any) -> None:
+    """A Windows restart must not return to the backend that hung the real webcam."""
+    from vision import vision
+
+    calls: list[tuple[Any, ...]] = []
+    devices = [FlakyCapture([]), FlakyCapture([])]
+
+    def open_capture(*args: Any) -> FlakyCapture:
+        calls.append(args)
+        return devices.pop(0)
+
+    monkeypatch.setattr(vision.sys, "platform", "win32")
+    monkeypatch.setattr(vision.cv2, "VideoCapture", open_capture)
+    camera = vision.LatestCamera(1)
+    try:
+        assert _wait_for_frame(camera)
+        assert camera._reopen()
+        assert calls == [(1, vision.cv2.CAP_DSHOW), (1, vision.cv2.CAP_DSHOW)]
+    finally:
+        camera.close()

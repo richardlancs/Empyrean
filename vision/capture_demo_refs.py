@@ -17,6 +17,7 @@ Pictures and boxes go to vision/demo_refs/. Then run
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import os
@@ -102,7 +103,7 @@ def _read_frame(camera: Any) -> Any:
     raise RuntimeError(BUSY_HINT)
 
 
-def capture(refs_dir: Path = REFS_DIR) -> int:
+def capture(refs_dir: Path = REFS_DIR, objects: tuple[str, ...] = DEMO_OBJECTS) -> int:
     """Run the capture window; return how many reference pictures are now listed."""
     load_dotenv()
     refs_dir.mkdir(parents=True, exist_ok=True)
@@ -117,7 +118,7 @@ def capture(refs_dir: Path = REFS_DIR) -> int:
     camera.set(cv2.CAP_PROP_FRAME_HEIGHT, PROCESS_HEIGHT * 2)
     try:
         first = True
-        for label in DEMO_OBJECTS:
+        for label in objects:
             taken = sum(1 for ref in refs if ref["label"] == label)
             while True:
                 frame = _read_frame(camera)
@@ -155,13 +156,17 @@ def capture(refs_dir: Path = REFS_DIR) -> int:
 
 def main() -> None:
     """Capture reference pictures and say what to run next."""
+    parser = argparse.ArgumentParser(prog="python -m vision.capture_demo_refs")
+    parser.add_argument("--refs", type=Path, default=REFS_DIR)
+    parser.add_argument("--objects", nargs="+", choices=DEMO_OBJECTS, default=list(DEMO_OBJECTS))
+    args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(name)s: %(message)s")
     try:
-        count = capture()
+        count = capture(args.refs, tuple(args.objects))
     except RuntimeError as exc:
         log.error("%s", exc)
         sys.exit(1)
-    log.info("%d reference pictures listed in %s", count, REFS_DIR / REFS_FILE)
+    log.info("%d reference pictures listed in %s", count, args.refs / REFS_FILE)
     log.info("Next: python -m vision.build_demo_weights")
 
 

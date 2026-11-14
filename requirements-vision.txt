@@ -1,0 +1,3 @@
+# Install only through scripts/install_dependencies.py, or explicitly --no-deps.
+# requirements.txt contains the runtime dependencies, including contrib OpenCV.
+ultralytics==8.4.212

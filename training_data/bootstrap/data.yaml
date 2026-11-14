@@ -1,0 +1,11 @@
+train: images/train
+val: images/val
+names:
+  0: water bottle
+  1: toothbrush
+  2: toothpaste
+  3: charger
+  4: phone
+  5: headphones
+  6: keys
+  7: watch
