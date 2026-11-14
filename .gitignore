@@ -1,0 +1,37 @@
+# Secrets: never commit keys or connection strings (AGENTS.md rule 9).
+# .env.example (names only, empty values) stays tracked.
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Model weights: downloaded at runtime, never committed (AGENTS.md rule 7).
+# Ultralytics saves yolo*.pt into the working directory.
+*.pt
+*.pth
+*.onnx
+*.engine
+*.tflite
+*.task
+
+# Local working files
+scratch/
+.claude/settings.local.json
+.claude/worktrees/
+.playwright-mcp/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
+
+# Not ignored on purpose: the alarm WAV and the short recorded clip in
+# fakes/vision/ are meant to be committed (keep video <= 20 s and <= 10 MB).

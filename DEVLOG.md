@@ -20,7 +20,7 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
-- **Person 3 (`storage/`), when switching to `contracts/`:** `contracts.Box` is a frozen dataclass with fields `x1, y1, x2, y2`, not a tuple. `storage/db.py` `box_centre_fraction` unpacks `x1, y1, x2, y2 = box`, which raises `TypeError` on a `Box`. Use `box.x1` and so on. The `_pending.py` shims also use plain tuples for `Box` and points. Found by Person 2 while merging main, 2026-11-14.
+- **Person 2 (`scene/`, `fakes/scene/`):** since PR #2, `contracts.Box` on `main` is `tuple[float, float, float, float]`. `scene/touch.py` and `scene/naming.py` read `box.x1` and so on, and `fakes/scene/script.py` and the scene tests build `Box(a, b, c, d)`. On `main`, `pytest` gives 14 failures and 2 collection errors, all in scene tests, and `python -m fakes.scene` crashes. The Box shape still needs a team decision: keep the tuple and switch `scene/`, or revert PR #2. Found by Person 3, 2026-11-14.
 - **Person 1 (`app/` bus):** Person 3's `register(bus)` expects `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`. `SceneDatabase` takes `publish(topic_name, msg)`, where the topic is the class name. Wire scene with `SceneDatabase(lambda _topic, msg: bus.publish(msg))`, or tell Person 2 which shape the bus uses.
 
 ## Contract changes
@@ -57,6 +57,32 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code
+**Changed:**
+
+- Deleted the four `_pending.py` shims. Every Person 3 file now imports messages from `contracts/` and thresholds from `config/`.
+- `namer/` reads its thresholds as `config.NAME_...` at call time, so tests can still monkeypatch them.
+- Added a root `.gitignore` covering `.env*` (except `.env.example`), venvs, caches, model weights (`*.pt`, `*.onnx`, `*.task` and similar), `scratch/`, and OS and editor files. WAV and video files are not ignored, so the alarm sound and the short fake-vision clip can be committed.
+
+**Tested:**
+
+- `pytest tests/test_namer.py tests/test_storage.py tests/test_contracts.py`: 28 passed, 1 skipped (the live DB test).
+- With `.env` loaded, `tests/test_storage.py` gave 17 passed, including the live Tiger Data round trip.
+- `python -m fakes.namer.fake_namer` and `python -m fakes.storage.fake_store` both run and publish as before.
+- `ruff check` is clean on all Person 3 paths.
+- `git check-ignore` confirms `.env`, the venv, weights and `scratch/` are ignored, while `.env.example`, `.wav` and `.mp4` files are not.
+- Full `pytest` on this branch still fails in the scene tests. See "Needs attention".
+
+**Decisions:**
+
+- Storage still unpacks `Box` as a tuple, which matches `contracts/` on `main` now. If the team switches `Box` back to a dataclass, `storage/db.py` `box_centre_fraction` needs `box.x1` and so on.
+- `.gitignore` is a new shared root file. It only adds ignores and changes no code.
+
+**Teammates need to know:**
+
+- Once this reaches `main`, pull it to get `.gitignore`. `.env` will then be ignored in every clone, not just on Person 3's laptop. Until then, do not `git add .` with a `.env` present.
+- Still missing: `.env.example` and a requirements file.
 
 ### 2026-11-14, Person 2 (scene), Claude Code
 **Changed:** Two fixes in `scene/`, after a review of Cursor's work.
