@@ -75,7 +75,7 @@ test("speech statuses and modes", () => {
   assert.equal(done.title, "Completed"); // friendly clarity: plain status words
   assert.match(done.detail, /does not confirm/);
   const fake = selectSpeech({ speech: { text: "bottle", status: "completed", ts: NOW, mode: "fake" } }, NOW);
-  assert.equal(fake.lead, "Demo audio — no sound."); // friendly clarity: no-sound leads
+  assert.equal(fake.lead, ""); // fake-input labels removed at the user's request
   const interrupted = selectSpeech(
     {
       speech: { text: "FIXTURE mug", status: "interrupted", ts: NOW - 1, mode: "real" },

@@ -98,12 +98,15 @@ def test_help_sign_text_is_html_not_part_of_the_image() -> None:
 
 
 def test_speech_never_infers_success_from_a_touch() -> None:
-    """The speech view model reads only state.speech, and demo or log-only audio leads with no sound."""
+    """The speech view model reads only state.speech; log-only audio leads with no sound.
+
+    Fake (printed) audio is no longer labelled on the page, at the user's request.
+    """
     selectors = (STATIC / "features" / "experience" / "selectors.js").read_text(encoding="utf-8")
     body = selectors[selectors.index("export function selectSpeech") :]
     body = body[: body.index("\n}\n")]
     assert "state?.speech" in body and "current_touch" not in body and "events" not in body
-    assert 'fake: "Demo audio — no sound."' in selectors
+    assert 'unavailable: "No sound' in selectors and 'fake: "Demo audio' not in selectors
 
 
 def test_rive_and_bauhaus_artwork_were_removed_completely() -> None:

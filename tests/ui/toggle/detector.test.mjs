@@ -52,8 +52,8 @@ test("a fallback or fake demo is never called the trained model", () => {
   assert.notEqual(fallback.badge.text, "Demo-trained model");
   assert.match(fallback.support, /not the demo-trained model/);
   const fake = selectDetector(snap(detector({ active_mode: "demo", demo_kind: "fake", fake: true })), idle);
-  assert.match(fake.badge.text, /fake vision/);
-  assert.doesNotMatch(fake.support, /trained/);
+  assert.equal(fake.badge, null); // no "fake vision" badge any more, and never the trained badge
+  assert.doesNotMatch(fake.support, /trained|fake|test clip/i);
 });
 
 test("failure keeps Regular and says why", () => {

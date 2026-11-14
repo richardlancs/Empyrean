@@ -26,10 +26,10 @@ test("reclines with the Regular sentence and the tip when all is well", () => {
   assert.equal(vm.recovery, "");
 });
 
-test("Demo sentence only for the trained checkpoint; fallback and fake are said plainly", () => {
+test("Demo sentence only for the trained checkpoint; fallback said plainly, fake not labelled", () => {
   assert.equal(pip(detector({ active_mode: "demo", demo_kind: "trained" })).mode, "I’m using the model trained for our demo objects.");
   assert.match(pip(detector({ active_mode: "demo", demo_kind: "prompt-fallback" })).mode, /not the model trained/);
-  assert.match(pip(detector({ active_mode: "demo", demo_kind: "fake", fake: true })).mode, /recorded test clip, so no detector is running\. The control is set to Demo/);
+  assert.equal(pip(detector({ active_mode: "demo", demo_kind: "fake", fake: true })).mode, "I’m using a demo detector.");
 });
 
 test("attentive while something is touched", () => {

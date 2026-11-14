@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { selectHealth } from "../../../dashboard/static/features/operations/selectors.js";
 
-test("fake modules are labelled fake in the status strip and summary", () => {
+test("fake modules are not labelled in the status strip, but stay flagged in the model", () => {
   const entry = (mode) => ({ status: "active", detail: "x", last_update_ts: 100, mode });
   const state = {
     now: 100,
@@ -17,16 +17,18 @@ test("fake modules are labelled fake in the status strip and summary", () => {
   };
   const model = selectHealth({ state, connection: "connected", nowSeconds: 100 });
   const byId = Object.fromEntries(model.modules.map((m) => [m.id, m]));
-  assert.equal(byId.camera.statusLabel, "Active (fake)");
-  assert.equal(byId.storage.statusLabel, "Active (fake)");
+  // User request: fake-input labels removed from the page. System details still reads entry.mode.
+  assert.equal(byId.camera.statusLabel, "Active");
+  assert.equal(byId.storage.statusLabel, "Active");
   assert.equal(byId.scene.statusLabel, "Active");
   assert.equal(byId.audio.statusLabel, "Active");
-  assert.match(model.summary, /3 running as fakes/);
+  assert.equal(byId.camera.fake, true);
+  assert.doesNotMatch(model.summary, /fake/i);
 });
 
 import { selectCamera } from "../../../dashboard/static/features/experience/selectors.js";
 
-test("a fake camera clip is never titled plain Live", () => {
+test("a fake camera clip is titled Live, like the camera (labels removed)", () => {
   const camera = (mode) => ({
     status: "active", detail: "", last_update_ts: 100, mode,
     last_frame_ts: 100, fps: 5, width: 640, height: 360,
@@ -38,7 +40,8 @@ test("a fake camera clip is never titled plain Live", () => {
       1000,
     );
   assert.equal(view("real").title, "Live");
-  assert.equal(view("fake").title, "Live (recorded clip, not a camera)");
+  assert.equal(view("fake").title, "Live");
+  assert.doesNotMatch(view("fake").altText, /recorded|fake/i);
   assert.equal(view("fake").kind, "live");
 });
 

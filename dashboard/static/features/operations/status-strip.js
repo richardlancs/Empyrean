@@ -94,9 +94,7 @@ export function createStatusStrip(root) {
       if (model.detector) detailRow({ id: "detector", ...model.detector });
       setText(summary, model.summary);
       section.dataset.attention = String(model.attention);
-      const demo = model.modules.some((m) => m.fake);
-      if (demo) mode.removeAttribute("hidden");
-      else mode.setAttribute("hidden", "");
+      mode.setAttribute("hidden", ""); // the "Fake inputs" chip is no longer shown (user request)
     },
     destroy() {
       root.replaceChildren();
