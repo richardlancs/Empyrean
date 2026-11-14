@@ -3,10 +3,13 @@
 The route calls ask() and get(); neither blocks on the camera, a model, the
 database or the speaker.
 
-- Scene and touch questions are answered at once from the dashboard's read
-  model, never from a stale view: if the newest SceneSnapshot is older than
-  LOST_KEEP_SECONDS the answer says there is no current camera view. The answer
-  is published as one SpeakRequest (source "dashboard") for audio/ to speak.
+- Every question that is not an explicit history question is published as a
+  SceneQuestion. namer/ answers it from the current camera view with Grok and
+  speaks the answer itself (a SpeakRequest with source "namer"); the dashboard
+  shows that answer and does not speak it again. Only one scene question is
+  outstanding at a time, so the next namer answer belongs to it: a second
+  question meanwhile is told to wait. If namer is not running, or no answer
+  arrives within SCENE_ANSWER_TIMEOUT_SECONDS, the question is unavailable.
 - History questions ("Where did I last touch the keys?") go through
   LastSeenService, which publishes a LastSeenQuery with a request_id. The
   question stays "looking_up" until storage's LastSeenResult with that id
@@ -28,14 +31,14 @@ from collections import OrderedDict
 from collections.abc import Callable
 from typing import Any
 
-from config import LOST_KEEP_SECONDS
-from contracts import SpeakRequest
+from config import LAST_SEEN_TIMEOUT_SECONDS, QUESTION_TIMEOUT_SECONDS
+from contracts import SceneQuestion, SpeakRequest
 from dashboard.questions import (
-    HELP_ANSWER,
     HISTORY_UNAVAILABLE_ANSWER,
-    NO_VIEW_ANSWER,
+    SCENE_BUSY_ANSWER,
+    SCENE_PENDING_ANSWER,
+    SCENE_UNAVAILABLE_ANSWER,
     parse_question,
-    scene_answer,
 )
 from dashboard.services.last_seen import LastSeenService, QueryRejected
 
@@ -44,6 +47,10 @@ MAX_KEPT = 32  # questions kept for polling and for other open pages
 RECENT_IN_STATE = 5  # newest questions sent to every page over /ws
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 _SPACES = re.compile(r"\s+")
+# namer/ bounds each Grok call by QUESTION_TIMEOUT_SECONDS; wait longer than that
+# before giving up, reusing the dashboard's existing wait for storage answers.
+SCENE_ANSWER_TIMEOUT_SECONDS = LAST_SEEN_TIMEOUT_SECONDS
+assert SCENE_ANSWER_TIMEOUT_SECONDS > QUESTION_TIMEOUT_SECONDS
 
 
 class QuestionRejected(Exception):
@@ -69,30 +76,31 @@ def clean_question(text: str) -> str:
 
 
 class QuestionService:
-    """Answer page questions from the read model, or route them to storage."""
+    """Route page questions to namer (scene) or storage (history) and track answers."""
 
     def __init__(
         self,
         publish: Callable[[Any], None] | None,
         last_seen: LastSeenService,
         *,
-        objects: Callable[[], list[dict[str, Any]]],
-        scene_age: Callable[[], float | None],
+        scene_running: Callable[[], bool],
         history_running: Callable[[], bool],
         clock: Callable[[], float] = time.time,
+        scene_timeout: float = SCENE_ANSWER_TIMEOUT_SECONDS,
     ) -> None:
         """publish is bus.publish, or None when the dashboard runs without the engine.
 
-        objects returns the current object list, scene_age the age of the newest
-        scene in seconds (None before the first), and history_running whether
-        storage/ is running in this launch.
+        scene_running and history_running say whether namer/ and storage/ are
+        running in this launch.
         """
         self._publish = publish
         self._last_seen = last_seen
-        self._objects = objects
-        self._scene_age = scene_age
+        self._scene_running = scene_running
         self._history_running = history_running
         self._clock = clock
+        self._scene_timeout = scene_timeout
+        self._pending_scene: str | None = None  # question_id waiting for namer
+        self._late_scene_answers = 0  # namer answers still due for timed-out questions
         self._lock = threading.Lock()
         self._records: OrderedDict[str, dict[str, Any]] = OrderedDict()
         self._by_lookup: dict[str, str] = {}  # last-seen request_id -> question_id
@@ -123,7 +131,7 @@ class QuestionService:
             "target": parsed.target or None,
             "status": "answered",
             "answer": None,
-            "answered_by": None,  # "dashboard" or "storage"
+            "answered_by": None,  # "dashboard", "namer" or "storage"
             "speech_requested": False,
             "history_status": None,  # found | not_found | unavailable, for history only
             "history_request_id": None,
@@ -131,14 +139,18 @@ class QuestionService:
             "asked_at": now,
             "answered_at": None,
         }
-        if parsed.intent != "history":
-            self._answer_now(record, self._immediate_answer(parsed.intent), now)
+        self.expire()
         with self._lock:
             self._records[record["question_id"]] = record
             while len(self._records) > MAX_KEPT:
                 old_id, _old = self._records.popitem(last=False)
                 self._by_lookup = {k: v for k, v in self._by_lookup.items() if v != old_id}
-        speak_now = parsed.intent != "history" or self._ask_history(record, parsed.target)
+                if self._pending_scene == old_id:
+                    self._pending_scene = None
+        if parsed.intent == "history":
+            speak_now = self._ask_history(record, parsed.target)
+        else:
+            speak_now = self._ask_scene(record, question)
         with self._lock:
             reply = dict(record)
         if speak_now:
@@ -149,6 +161,7 @@ class QuestionService:
     def get(self, question_id: str) -> dict[str, Any] | None:
         """Return a copy of one question's record, or None if unknown."""
         self._last_seen.expire()  # a lookup that timed out is finished on read too
+        self.expire()
         with self._lock:
             record = self._records.get(question_id)
             return dict(record) if record else None
@@ -159,16 +172,52 @@ class QuestionService:
             recent = [dict(r) for r in reversed(self._records.values())][:RECENT_IN_STATE]
         return {"available": self.available, "recent": recent}
 
-    # Internals.
+    def on_answer(self, msg: SpeakRequest) -> None:
+        """Bus handler: a namer answer finishes the scene question waiting for it."""
+        if msg.source != "namer":
+            return
+        now = self._clock()
+        with self._lock:
+            if self._late_scene_answers:
+                self._late_scene_answers -= 1  # belongs to a question that already timed out
+                return
+            record = self._records.get(self._pending_scene or "")
+            self._pending_scene = None
+            if record is None or record["status"] != "looking_up":
+                return
+            # namer spoke this sentence itself; the dashboard only shows it.
+            record.update(
+                status="answered",
+                answer=msg.text,
+                answered_by="namer",
+                speech_requested=False,
+                detail="",
+                answered_at=now,
+            )
+        self._notify()
 
-    def _immediate_answer(self, intent: str) -> str:
-        """Answer scene, touch and help questions from what the dashboard holds now."""
-        if intent == "help":
-            return HELP_ANSWER
-        age = self._scene_age()
-        if age is None or age > LOST_KEEP_SECONDS:
-            return NO_VIEW_ANSWER
-        return scene_answer(self._objects(), touching=intent == "touch")
+    def expire(self) -> bool:
+        """Finish a scene question namer did not answer in time; True if one changed."""
+        now = self._clock()
+        with self._lock:
+            record = self._records.get(self._pending_scene or "")
+            if record is None or now - record["asked_at"] <= self._scene_timeout:
+                return False
+            self._pending_scene = None
+            self._late_scene_answers += 1
+            # Nothing is spoken: namer may still answer late and speak for itself.
+            record.update(
+                status="unavailable",
+                answer=SCENE_UNAVAILABLE_ANSWER,
+                answered_by="dashboard",
+                speech_requested=False,
+                detail="No answer from the scene question worker in time",
+                answered_at=now,
+            )
+        self._notify()
+        return True
+
+    # Internals.
 
     def _answer_now(self, record: dict[str, Any], answer: str, now: float) -> None:
         """Finish a question the dashboard answers and speaks itself."""
@@ -179,8 +228,28 @@ class QuestionService:
             speech_requested=True,
             answered_at=now,
         )
-        if answer == NO_VIEW_ANSWER:
-            record.update(status="unavailable", detail="No camera scene in the last few seconds")
+
+    def _ask_scene(self, record: dict[str, Any], question: str) -> bool:
+        """Send a scene question to namer, or answer at once that it cannot be.
+
+        Returns True only when the caller must speak an immediate answer.
+        """
+        now = self._clock()
+        running = self._scene_running()
+        with self._lock:
+            if not running:
+                self._answer_now(record, SCENE_UNAVAILABLE_ANSWER, now)
+                record.update(status="unavailable", detail="Namer is not running in this launch")
+                return True
+            if self._pending_scene is not None:
+                self._answer_now(record, SCENE_BUSY_ANSWER, now)
+                record.update(status="unavailable", detail="Another question is still being answered")
+                return True
+            self._pending_scene = record["question_id"]
+            record.update(status="looking_up", answer=SCENE_PENDING_ANSWER, detail="Waiting for namer")
+        assert self._publish is not None  # ask() refuses when there is no bus
+        self._publish(SceneQuestion(ts=now, text=question))
+        return False
 
     def _ask_history(self, record: dict[str, Any], target: str) -> bool:
         """Send a history question to storage, or answer honestly that it cannot be.

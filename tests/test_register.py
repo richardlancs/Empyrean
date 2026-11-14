@@ -15,10 +15,12 @@ import pytest
 
 import storage
 from contracts import (
+    FrameResult,
     HazardEvent,
     LastSeenQuery,
     NameRequest,
     NameResult,
+    SceneQuestion,
     SpeakRequest,
     TouchEvent,
 )
@@ -122,7 +124,13 @@ def fake_db(monkeypatch: pytest.MonkeyPatch) -> FakeDb:
             "neighbours": ["mug", "cereal box"],
         }
     )
-    for name in ("connect", "ensure_schema", "insert_touch", "insert_hazard", "last_seen"):
+    for name in (
+        "connect",
+        "ensure_schema",
+        "insert_touch",
+        "insert_hazard",
+        "last_seen",
+    ):
         monkeypatch.setattr(db, name, getattr(fake, name))
     monkeypatch.setenv("TIGER_DATABASE_URL", FAKE_URL)
     return fake
@@ -140,8 +148,15 @@ def _wait_for(cond: Callable[[], bool], timeout: float = 5.0) -> bool:
 
 def _touch() -> TouchEvent:
     """Build a scripted TouchEvent."""
-    return TouchEvent(ts=NOW, object_id=7, class_label="bottle", name="Heinz ketchup",
-                      kind="touch", box=(300.0, 160.0, 340.0, 200.0), neighbours=["mug"])
+    return TouchEvent(
+        ts=NOW,
+        object_id=7,
+        class_label="bottle",
+        name="Heinz ketchup",
+        kind="touch",
+        box=(300.0, 160.0, 340.0, 200.0),
+        neighbours=["mug"],
+    )
 
 
 def _hazard() -> HazardEvent:
@@ -150,6 +165,7 @@ def _hazard() -> HazardEvent:
 
 
 # storage.register -----------------------------------------------------------
+
 
 def test_storage_register_subscribes_three_handlers(fake_db: FakeDb) -> None:
     """register returns a Store whose three handlers are subscribed to the contract classes."""
@@ -192,7 +208,9 @@ def test_storage_register_query_publishes_speak_request(fake_db: FakeDb) -> None
         answer = bus.of_type(SpeakRequest)[0]
         assert type(answer) is SpeakRequest
         assert answer.text == format_answer(fake_db.last_seen_row, time.time())
-        assert answer.text.startswith("Heinz ketchup, 4 minutes ago, next to mug and cereal box")
+        assert answer.text.startswith(
+            "Heinz ketchup, 4 minutes ago, next to mug and cereal box"
+        )
         assert answer.priority == "normal"
         assert answer.source == "storage"
         assert fake_db.queries == ["ketchup"]
@@ -246,27 +264,41 @@ def test_storage_register_reads_url_once_at_registration(
 
 # namer.register ---------------------------------------------------------------
 
+
 def test_namer_register_subscribes_name_request() -> None:
     """namer.register subscribes on_name_request to NameRequest and returns the Namer."""
     bus = TestBus()
     namer = namer_register(bus)
     try:
         assert isinstance(namer, Namer)
-        assert dict(bus.subscribers) == {NameRequest: [namer.on_name_request]}
+        assert dict(bus.subscribers) == {
+            NameRequest: [namer.on_name_request],
+            FrameResult: [namer.questions.on_frame],
+            SceneQuestion: [namer.questions.on_question],
+        }
     finally:
         namer.stop(timeout=2.0)
 
 
 # fakes: same bus interface as the real modules ---------------------------------
 
+
 def test_fake_store_register_matches_storage() -> None:
     """fakes.storage registers the same three types and answers a query with SpeakRequest."""
     bus = TestBus()
     store = fake_store.register(bus)
     assert set(bus.subscribers) == {TouchEvent, HazardEvent, LastSeenQuery}
-    bus.publish(TouchEvent(ts=time.time() - 240, object_id=1, class_label="bottle",
-                           name="Heinz ketchup", kind="touch", box=(0.0, 0.0, 10.0, 10.0),
-                           neighbours=["mug"]))
+    bus.publish(
+        TouchEvent(
+            ts=time.time() - 240,
+            object_id=1,
+            class_label="bottle",
+            name="Heinz ketchup",
+            kind="touch",
+            box=(0.0, 0.0, 10.0, 10.0),
+            neighbours=["mug"],
+        )
+    )
     bus.publish(_hazard())
     bus.publish(LastSeenQuery(ts=time.time(), text="ketchup"))
     answers = bus.of_type(SpeakRequest)
@@ -282,8 +314,10 @@ def test_fake_namer_register_matches_namer() -> None:
     bus = TestBus()
     namer = fake_namer.register(bus)
     try:
-        assert set(bus.subscribers) == {NameRequest}
-        bus.publish(NameRequest(ts=NOW, object_id=3, class_label="bottle", crop_jpeg=b""))
+        assert set(bus.subscribers) == {NameRequest, SceneQuestion}
+        bus.publish(
+            NameRequest(ts=NOW, object_id=3, class_label="bottle", crop_jpeg=b"")
+        )
         assert _wait_for(lambda: len(bus.of_type(NameResult)) == 1)
         result = bus.of_type(NameResult)[0]
         assert (result.object_id, result.name, result.ok) == (3, "Heinz ketchup", True)

@@ -19,6 +19,7 @@ from contracts import (
     NameRequest,
     NameResult,
     SceneSnapshot,
+    SpeakRequest,
     SpeechStatus,
     TouchEvent,
 )
@@ -49,5 +50,7 @@ def connect(bus: Any, services: DashboardServices) -> None:
     bus.subscribe(SpeechStatus, state.on_speech)
     bus.subscribe(ModuleStatus, state.on_module_status)
     bus.subscribe(LastSeenResult, last_seen.on_result)
+    # Scene questions: namer speaks its answer; the dashboard only shows it.
+    bus.subscribe(SpeakRequest, services.questions.on_answer)
     # Regular/Demo: vision's DetectorStatus is the only confirmation of a switch.
     bus.subscribe(DetectorStatus, services.detector_mode.on_status)

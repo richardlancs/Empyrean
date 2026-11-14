@@ -351,15 +351,15 @@ def test_fake_store_correlates_results() -> None:
     assert results["q2"].status == "not_found"
 
 
-def test_default_is_question_only_and_still_reports_answers(published: list[Any]) -> None:
-    """By default a touch is silent, while a requested answer gets full telemetry.
+def test_question_only_mode_still_reports_answers(published: list[Any]) -> None:
+    """With touch announcements off, a touch is silent and an answer gets full telemetry.
 
-    main made object speech question-only (announce_touches=False); the
-    telemetry from the dashboard redesign must keep working for answers.
+    main now announces touches by default; announce_touches=False remains, and
+    the telemetry from the dashboard redesign must keep working for answers.
     """
     speaker = GatedSpeaker()
     speaker.gate.set()
-    manager = AudioManager(lambda: speaker, Alarm(), publish=published.append)
+    manager = AudioManager(lambda: speaker, Alarm(), publish=published.append, announce_touches=False)
     try:
         manager.on_touch(_touch())
         manager.on_name(NameResult(time.time(), 1, "Heinz ketchup", True))

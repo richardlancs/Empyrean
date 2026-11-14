@@ -19,6 +19,7 @@ from contracts import (
     NameRequest,
     NameResult,
     SceneObject,
+    SceneQuestion,
     SceneSnapshot,
     SpeakRequest,
     SpeechStatus,
@@ -107,6 +108,7 @@ def _all_messages() -> list[object]:
             neighbours=["cup"],
         ),
         LastSeenQuery(ts=TS, text="keys"),
+        SceneQuestion(ts=TS, text="Where are my keys?"),
         ModeChange(ts=TS, mode="demo"),
         SpeakRequest(ts=TS, text="Heinz ketchup", priority="normal", source="audio"),
         SpeechStatus(
@@ -196,7 +198,7 @@ def test_list_fields_default_to_empty() -> None:
 def test_config_matches_spec_section_9() -> None:
     """config has every section 9 name with the spec's value and type, and nothing else."""
     spec = _spec_thresholds()
-    assert len(spec) == 32  # 27 original + 3 redesign + DEMO_DET_MIN_CONFIDENCE + MODE_SWITCH_TIMEOUT_SECONDS
+    assert len(spec) == 34  # 27 original + 3 redesign + DEMO_DET_MIN_CONFIDENCE + MODE_SWITCH_TIMEOUT_SECONDS + 2 scene questions
     assert set(config.__all__) == set(spec)
     for name, value in spec.items():
         actual = getattr(config, name)

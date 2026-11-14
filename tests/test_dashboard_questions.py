@@ -1,8 +1,9 @@
 """Questions from the page: real contract messages, honest answers, correlated history.
 
-Ported from main's microphone feature (5ee1039) to the layered dashboard: the
-same question wording and answers, now through QuestionService and
-POST/GET /api/question. History goes through LastSeenService with a request_id.
+Routing follows main's independent voice questions (SPEC 4.9.1): an explicit
+"Where did I last touch X?" goes to storage as a correlated LastSeenQuery;
+every other question is a SceneQuestion that namer answers and speaks itself.
+Both run through QuestionService and POST/GET /api/question.
 """
 
 from __future__ import annotations
@@ -19,130 +20,171 @@ from contracts import (
     LastSeenQuery,
     LastSeenResult,
     ModuleStatus,
-    SceneObject,
-    SceneSnapshot,
+    SceneQuestion,
     SpeakRequest,
 )
 from dashboard import DashboardState, create_app, register
-from dashboard.questions import parse_question, scene_answer
+from dashboard.questions import (
+    SCENE_BUSY_ANSWER,
+    SCENE_PENDING_ANSWER,
+    SCENE_UNAVAILABLE_ANSWER,
+    parse_question,
+)
 from dashboard.services.last_seen import LastSeenService
 from dashboard.services.questions import QuestionService
 
 
-def scene(now: float, *objects: SceneObject) -> SceneSnapshot:
-    """A snapshot of the given objects, describing a frame captured at now."""
-    return SceneSnapshot(now, 1, list(objects))
-
-
-def obj(object_id: int, label: str, name: str, state: str, now: float) -> SceneObject:
-    """One scene object with a dummy box."""
-    return SceneObject(object_id, label, name, state, (0, 0, 50, 50), now)  # type: ignore[arg-type]
-
-
 def spoken(bus: TestBus) -> list[str]:
-    """Texts the dashboard asked audio to speak."""
+    """Texts anyone asked audio to speak."""
     return [m.text for m in bus.published if isinstance(m, SpeakRequest)]
+
+
+def spoken_by_dashboard(published: list[Any]) -> list[str]:
+    """Texts the dashboard itself asked audio to speak."""
+    return [m.text for m in published if isinstance(m, SpeakRequest) and m.source == "dashboard"]
+
+
+def scene_questions(published: list[Any]) -> list[SceneQuestion]:
+    """SceneQuestions sent to namer."""
+    return [m for m in published if isinstance(m, SceneQuestion)]
+
+
+def namer_says(text: str) -> SpeakRequest:
+    """namer's spoken answer to a scene question."""
+    return SpeakRequest(time.time(), text, "normal", "namer")
 
 
 @pytest.fixture
 def engine() -> tuple[TestBus, Any, TestClient]:
-    """A dashboard registered on a test bus, with storage counted as running."""
+    """A dashboard registered on a test bus, with storage and namer counted as running."""
     bus = TestBus()
     dashboard = register(bus, serve=False)
     return bus, dashboard, TestClient(create_app(dashboard.state))
 
 
-# Wording (main's router, unchanged).
+# Routing (main's 4.9.1 rule).
 
 
 @pytest.mark.parametrize(
     ("text", "intent", "target"),
     [
         ("What can you see?", "scene", ""),
-        ("what do you see", "scene", ""),
-        ("What am I touching?", "touch", ""),
-        ("What am I holding?", "touch", ""),
-        ("Identify this item", "touch", ""),
+        ("What am I touching?", "scene", ""),
+        ("Where are my keys?", "scene", ""),
+        ("Find my phone.", "scene", ""),
+        ("Sing a song", "scene", ""),
         ("Where did I last touch the bottle?", "history", "bottle"),
         ("Where did I last touch my keys", "history", "keys"),
-        ("Find my phone.", "history", "phone"),
-        ("Sing a song", "help", ""),
+        ("When did I last see my phone?", "history", "phone"),
     ],
 )
 def test_parse_question(text: str, intent: str, target: str) -> None:
-    """Main's phrases map to the same intents."""
+    """Only explicit last-touch questions go to history; everything else asks the view."""
     parsed = parse_question(text)
     assert (parsed.intent, parsed.target) == (intent, target)
 
 
-def test_touch_answer_names_only_the_touched_object() -> None:
-    """A this-item question answers with the touched object, not other visible ones."""
-    objects = [
-        {"text": "Heinz ketchup", "state": "held"},
-        {"text": "Coffee cup", "state": "idle"},
-        {"text": "Old cup", "state": "lost"},
-    ]
-    assert scene_answer(objects, touching=True) == "You are touching Heinz ketchup."
-    assert scene_answer(objects, touching=False) == "I can detect Heinz ketchup, Coffee cup."
+# Scene questions (answered by namer).
 
 
-# Scene and touch questions.
-
-
-def test_scene_answer_speaks_once_and_reaches_every_page(engine: Any) -> None:
-    """Scene summaries use current names, exclude lost objects, and speak once."""
+def test_scene_question_goes_to_namer_and_its_answer_is_shown_not_repeated(engine: Any) -> None:
+    """The question is published as a SceneQuestion; namer's spoken answer is shown once."""
     bus, dashboard, client = engine
-    now = time.time()
-    bus.publish(scene(now, obj(1, "bottle", "Heinz ketchup", "touching", now),
-                      obj(2, "cup", "", "lost", now)))
-    reply = client.post("/api/question", json={"text": "What do you see?"})
-    assert reply.status_code == 200
+    reply = client.post("/api/question", json={"text": "Where are my keys?"})
+    assert reply.status_code == 202
     body = reply.json()
-    assert body["answer"] == "I can detect Heinz ketchup."
-    assert body["status"] == "answered" and body["answered_by"] == "dashboard"
-    assert body["speech_requested"] is True
-    assert spoken(bus) == ["I can detect Heinz ketchup."]
-    # Another open page sees the same question and answer over /ws.
+    assert body["intent"] == "scene" and body["status"] == "looking_up"
+    assert body["answer"] == SCENE_PENDING_ANSWER
+    assert [q.text for q in scene_questions(bus.published)] == ["Where are my keys?"]
+    assert spoken(bus) == []  # "Checking…" is shown, not spoken
+    bus.publish(namer_says("Your keys are on the table to your left."))
+    done = client.get(f"/api/question/{body['question_id']}").json()
+    assert done["status"] == "answered" and done["answered_by"] == "namer"
+    assert done["answer"] == "Your keys are on the table to your left."
+    assert done["speech_requested"] is False
+    # Only namer's own SpeakRequest: the dashboard never repeats it.
+    assert spoken(bus) == ["Your keys are on the table to your left."]
     recent = dashboard.state.snapshot()["questions"]["recent"]
-    assert recent[0]["question_id"] == body["question_id"]
-    assert client.get(f"/api/question/{body['question_id']}").json()["answer"] == body["answer"]
+    assert recent[0]["question_id"] == body["question_id"] and recent[0]["status"] == "answered"
 
 
-def test_touch_then_ask_what_it_is(engine: Any) -> None:
-    """Touch an object, then ask what it is: the touched object's name comes back."""
+def test_a_second_scene_question_while_waiting_is_told_to_wait(engine: Any) -> None:
+    """One scene question at a time, so namer's next answer is known to be the first one's."""
     bus, _dashboard, client = engine
-    now = time.time()
-    bus.publish(scene(now, obj(1, "bottle", "Heinz ketchup", "touching", now),
-                      obj(2, "cup", "Coffee cup", "idle", now)))
-    body = client.post("/api/question", json={"text": "What am I touching?"}).json()
-    assert body["answer"] == "You are touching Heinz ketchup."
+    first = client.post("/api/question", json={"text": "What can you see?"}).json()
+    second = client.post("/api/question", json={"text": "What am I holding?"}).json()
+    assert len(scene_questions(bus.published)) == 1
+    assert second["status"] == "unavailable" and second["answer"] == SCENE_BUSY_ANSWER
+    assert spoken_by_dashboard(bus.published) == [SCENE_BUSY_ANSWER]
+    bus.publish(namer_says("A desk with a laptop."))
+    assert client.get(f"/api/question/{first['question_id']}").json()["answer"] == "A desk with a laptop."
+    assert client.get(f"/api/question/{second['question_id']}").json()["answer"] == SCENE_BUSY_ANSWER
 
 
-def test_stale_scene_is_not_answered_confidently(engine: Any) -> None:
-    """A scene older than LOST_KEEP_SECONDS gives "no current camera view", not names."""
+def test_other_speech_does_not_answer_a_scene_question(engine: Any) -> None:
+    """Only a SpeakRequest from namer finishes a scene question."""
     bus, _dashboard, client = engine
-    old = time.time() - 30
-    bus.publish(scene(old, obj(1, "bottle", "Heinz ketchup", "touching", old)))
-    body = client.post("/api/question", json={"text": "What am I touching?"}).json()
-    assert body["answer"] == "I do not have a current camera view."
-    assert body["status"] == "unavailable"
-    assert "Heinz" not in "".join(spoken(bus))
-
-
-def test_no_scene_yet_is_unavailable(engine: Any) -> None:
-    """Before any scene, questions about the view are honestly unavailable."""
-    _bus, _dashboard, client = engine
     body = client.post("/api/question", json={"text": "What can you see?"}).json()
-    assert body["status"] == "unavailable"
-    assert body["answer"] == "I do not have a current camera view."
+    bus.publish(SpeakRequest(time.time(), "Bottle, 2 minutes ago.", "normal", "storage"))
+    bus.publish(SpeakRequest(time.time(), "Something else.", "normal", "dashboard"))
+    assert client.get(f"/api/question/{body['question_id']}").json()["status"] == "looking_up"
 
 
-def test_unknown_question_gets_help(engine: Any) -> None:
-    """Unsupported questions get main's help sentence, spoken."""
-    bus, _dashboard, client = engine
-    body = client.post("/api/question", json={"text": "Sing a song"}).json()
-    assert body["intent"] == "help" and body["answer"].startswith("Try: What do you see?")
-    assert len(spoken(bus)) == 1
+def test_namer_not_started_answers_unavailable_at_once() -> None:
+    """With namer not running in this launch, a scene question is unavailable and spoken once."""
+    bus = TestBus()
+    dashboard = register(bus, serve=False)
+    bus.publish(ModuleStatus(time.time(), "namer", "offline", "unknown", "Not started in this run"))
+    client = TestClient(create_app(dashboard.state))
+    body = client.post("/api/question", json={"text": "What can you see?"}).json()
+    assert body["status"] == "unavailable" and body["answer"] == SCENE_UNAVAILABLE_ANSWER
+    assert not scene_questions(bus.published)
+    assert spoken(bus) == [SCENE_UNAVAILABLE_ANSWER]
+
+
+def test_namer_that_never_answers_times_out_and_a_late_answer_is_not_misattributed() -> None:
+    """A timed-out question is unavailable; namer's late answer does not land on the next one."""
+    clock = [1000.0]
+    published: list[Any] = []
+    service = QuestionService(
+        published.append, LastSeenService(published.append), scene_running=lambda: True,
+        history_running=lambda: True, clock=lambda: clock[0], scene_timeout=8.0,
+    )
+    first = service.ask("What can you see?")
+    clock[0] += 9.0
+    timed_out = service.get(first["question_id"])
+    assert timed_out is not None and timed_out["status"] == "unavailable"
+    assert timed_out["answer"] == SCENE_UNAVAILABLE_ANSWER
+    assert spoken_by_dashboard(published) == []  # namer may still speak late; never twice
+    second = service.ask("What am I holding?")
+    assert second["status"] == "looking_up" and len(scene_questions(published)) == 2
+    service.on_answer(namer_says("A late answer to the first question."))
+    assert service.get(second["question_id"])["status"] == "looking_up"  # type: ignore[index]
+    service.on_answer(namer_says("You are holding a phone."))
+    done = service.get(second["question_id"])
+    assert done is not None and done["answer"] == "You are holding a phone."
+
+
+def test_concurrent_scene_questions_from_many_threads(engine: Any) -> None:
+    """Questions asked at once get their own records; only one reaches namer."""
+    bus, dashboard, _client = engine
+    replies: list[dict[str, Any]] = []
+    lock = threading.Lock()
+
+    def ask() -> None:
+        reply = dashboard.questions.ask("What am I touching?")
+        with lock:
+            replies.append(reply)
+
+    threads = [threading.Thread(target=ask) for _ in range(12)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len({r["question_id"] for r in replies}) == 12
+    assert len(scene_questions(bus.published)) == 1
+    assert [r["status"] for r in replies].count("looking_up") == 1
+    assert spoken_by_dashboard(bus.published) == [SCENE_BUSY_ANSWER] * 11
 
 
 # History questions.
@@ -173,7 +215,7 @@ def test_history_waits_for_storage_and_does_not_speak_twice(engine: Any) -> None
 def test_unavailable_history_is_never_reported_as_not_found(engine: Any) -> None:
     """A database outage stays "unavailable"; it is not "I have not seen that"."""
     bus, _dashboard, client = engine
-    body = client.post("/api/question", json={"text": "Find my keys"}).json()
+    body = client.post("/api/question", json={"text": "Where did I last touch my keys?"}).json()
     request_id = next(m for m in bus.published if isinstance(m, LastSeenQuery)).request_id
     bus.publish(LastSeenResult(time.time(), request_id, "unavailable",
                                "Touch history is unavailable right now.", None, "", []))
@@ -203,7 +245,7 @@ def test_storage_that_never_answers_times_out_as_unavailable() -> None:
     published: list[Any] = []
     last_seen = LastSeenService(published.append, clock=lambda: clock[0], timeout=8.0)
     service = QuestionService(
-        published.append, last_seen, objects=list, scene_age=lambda: None,
+        published.append, last_seen, scene_running=lambda: True,
         history_running=lambda: True, clock=lambda: clock[0],
     )
     record = service.ask("Where did I last touch the remote?")
@@ -220,8 +262,8 @@ def test_storage_that_never_answers_times_out_as_unavailable() -> None:
 def test_delayed_history_cannot_overwrite_a_newer_answer(engine: Any) -> None:
     """Two lookups in flight: each result lands on its own question, in any order."""
     bus, dashboard, client = engine
-    first = client.post("/api/question", json={"text": "Find my keys"}).json()
-    second = client.post("/api/question", json={"text": "Find my phone"}).json()
+    first = client.post("/api/question", json={"text": "Where did I last touch my keys?"}).json()
+    second = client.post("/api/question", json={"text": "Where did I last touch my phone?"}).json()
     q1, q2 = [m for m in bus.published if isinstance(m, LastSeenQuery)]
     bus.publish(LastSeenResult(time.time(), q2.request_id, "found", "Phone, just now.",
                                time.time(), "phone", []))
@@ -233,28 +275,6 @@ def test_delayed_history_cannot_overwrite_a_newer_answer(engine: Any) -> None:
     assert (a2["answer"], a2["history_status"]) == ("Phone, just now.", "found")
     newest = dashboard.state.snapshot()["questions"]["recent"][0]
     assert newest["question_id"] == second["question_id"]
-
-
-def test_concurrent_questions_from_many_threads(engine: Any) -> None:
-    """Questions asked at once each get their own record and exactly one speech request."""
-    bus, dashboard, _client = engine
-    now = time.time()
-    bus.publish(scene(now, obj(1, "bottle", "Heinz ketchup", "touching", now)))
-    replies: list[dict[str, Any]] = []
-    lock = threading.Lock()
-
-    def ask() -> None:
-        reply = dashboard.questions.ask("What am I touching?")
-        with lock:
-            replies.append(reply)
-
-    threads = [threading.Thread(target=ask) for _ in range(12)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-    assert len({r["question_id"] for r in replies}) == 12
-    assert len(spoken(bus)) == 12
 
 
 def test_result_arriving_before_mapping_is_not_lost() -> None:
@@ -272,9 +292,9 @@ def test_result_arriving_before_mapping_is_not_lost() -> None:
 
     last_seen = LastSeenService(publish)
     holder["last_seen"] = last_seen
-    service = QuestionService(publish, last_seen, objects=list, scene_age=lambda: None,
+    service = QuestionService(publish, last_seen, scene_running=lambda: True,
                               history_running=lambda: True)
-    record = service.ask("Find my keys")
+    record = service.ask("Where did I last touch my keys?")
     assert record["status"] == "answered" and record["answer"] == "Keys, just now."
     assert not [m for m in published if isinstance(m, SpeakRequest)]
 

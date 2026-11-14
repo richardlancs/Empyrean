@@ -90,6 +90,7 @@ class Dashboard:
     def tick(self) -> None:
         """Expire old searches and pictures, then push the state to open pages."""
         self.last_seen.expire()
+        self.questions.expire()
         self.detector_mode.expire()
         self.thumbnails.expire()
         self.state.tick()
@@ -195,8 +196,7 @@ def _questions(
     return QuestionService(
         publish,
         last_seen,
-        objects=lambda: state.snapshot()["objects"],
-        scene_age=state.health.scene_age,
+        scene_running=lambda: not state.health.not_started("namer"),
         history_running=lambda: last_seen.available and not state.health.not_started("storage"),
     )
 

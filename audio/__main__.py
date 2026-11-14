@@ -2,8 +2,8 @@
 
 Run:  python -m audio
 
-Touch, release, late-name and retouch messages stay silent in question-only
-mode. The scripted spoken answer is interrupted by a stairs alarm. No bus,
+Touches and retouches announce automatically, including eligible late names.
+The independent scripted answer is interrupted by a stairs alarm. No bus,
 camera or network is needed. Uses the system's selected audio output.
 """
 

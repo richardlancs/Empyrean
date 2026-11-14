@@ -21,7 +21,7 @@ export const EXAMPLE_QUESTIONS = Object.freeze([
 
 export const RECORD_STATUSES = Object.freeze(["answered", "looking_up", "unavailable"]);
 const INTENTS = new Set(["scene", "touch", "history", "help"]);
-const ANSWERED_BY = new Set(["dashboard", "storage"]);
+const ANSWERED_BY = new Set(["dashboard", "namer", "storage"]);
 const HISTORY_STATUSES = new Set(["found", "not_found", "unavailable"]);
 
 /** Panel phases for this page's latest question. */
@@ -174,7 +174,11 @@ export function phaseForRecord(record) {
  */
 export function describeRecord(record) {
   if (!record) return null;
-  const speech = record.speech_requested || record.answered_by === "storage" ? "Sent to the speaker." : "";
+  // storage and namer speak their own answers, so speech_requested stays false for them.
+  const speech =
+    record.speech_requested || record.answered_by === "storage" || record.answered_by === "namer"
+      ? "Sent to the speaker."
+      : "";
   if (record.status === "looking_up") {
     return {
       tone: "pending",

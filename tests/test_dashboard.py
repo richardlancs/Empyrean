@@ -19,6 +19,7 @@ from contracts import (
     NameRequest,
     NameResult,
     SceneSnapshot,
+    SpeakRequest,
     SpeechStatus,
     TouchEvent,
 )
@@ -139,6 +140,7 @@ def test_register_and_real_events_are_not_simulated() -> None:
     original = {HazardEvent, TouchEvent, FrameResult, SceneSnapshot}
     added = {NameRequest, NameResult, SpeechStatus, ModuleStatus, LastSeenResult}
     added |= {DetectorStatus}  # Regular/Demo: vision's confirmation of a detector switch
+    added |= {SpeakRequest}  # namer's scene answers, shown on the page (SPEC 4.9.1)
     assert set(bus.subscribers) == original | added
 
     bus.publish(HazardEvent(ts=NOW, type="vehicle", source="yolo", confidence=0.91))

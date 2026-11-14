@@ -18,7 +18,7 @@ from collections.abc import Callable
 from typing import Any
 
 from config import NAME_MAX_CHARS
-from contracts import NameRequest, NameResult
+from contracts import NameRequest, NameResult, SceneQuestion, SpeakRequest
 
 FAKE_NAMES: dict[str, str] = {
     "bottle": "Heinz ketchup",
@@ -49,12 +49,25 @@ class FakeNamer:
         self._count = 0
         self._lock = threading.Lock()
         self._queue: queue.Queue[NameRequest | None] = queue.Queue()
-        self._thread = threading.Thread(target=self._run, name="fake-namer", daemon=True)
+        self._thread = threading.Thread(
+            target=self._run, name="fake-namer", daemon=True
+        )
         self._thread.start()
 
     def on_name_request(self, msg: NameRequest) -> None:
         """Queue a request and return immediately."""
         self._queue.put(msg)
+
+    def on_question(self, msg: SceneQuestion) -> None:
+        """Publish a clearly scripted scene answer without using Grok."""
+        self._publish(
+            SpeakRequest(
+                time.time(),
+                "Demo answer: your keys are to your right.",
+                "normal",
+                "namer",
+            )
+        )
 
     def stop(self, timeout: float = 2.0) -> None:
         """Stop the worker after pending requests are answered."""
@@ -74,14 +87,18 @@ class FakeNamer:
         with self._lock:
             cached = self._cache.get(msg.object_id)
         if cached is not None:
-            return NameResult(ts=time.time(), object_id=msg.object_id, name=cached, ok=True)
+            return NameResult(
+                ts=time.time(), object_id=msg.object_id, name=cached, ok=True
+            )
 
         time.sleep(self._rng.uniform(*self._delay_range))
         with self._lock:
             self._count += 1
             fail = self._count % FAIL_EVERY == 0
             if fail:
-                return NameResult(ts=time.time(), object_id=msg.object_id, name="", ok=False)
+                return NameResult(
+                    ts=time.time(), object_id=msg.object_id, name="", ok=False
+                )
             name = FAKE_NAMES.get(msg.class_label, msg.class_label)[:NAME_MAX_CHARS]
             self._cache[msg.object_id] = name
         return NameResult(ts=time.time(), object_id=msg.object_id, name=name, ok=True)
@@ -91,6 +108,7 @@ def register(bus: Any) -> FakeNamer:
     """Subscribe a FakeNamer to the bus exactly as namer.register does, and return it."""
     namer = FakeNamer(bus.publish)
     bus.subscribe(NameRequest, namer.on_name_request)
+    bus.subscribe(SceneQuestion, namer.on_question)
     return namer
 
 
@@ -105,10 +123,17 @@ if __name__ == "__main__":
     start = time.monotonic()
     for i in range(11):
         namer.on_name_request(
-            NameRequest(ts=time.time(), object_id=i, class_label=labels[i % len(labels)],
-                        crop_jpeg=b"")
+            NameRequest(
+                ts=time.time(),
+                object_id=i,
+                class_label=labels[i % len(labels)],
+                crop_jpeg=b"",
+            )
         )
-    print(f"queued 11 requests in {(time.monotonic() - start) * 1000:.1f} ms (non-blocking)")
-    namer.on_name_request(NameRequest(ts=time.time(), object_id=0, class_label="bottle",
-                                      crop_jpeg=b""))
+    print(
+        f"queued 11 requests in {(time.monotonic() - start) * 1000:.1f} ms (non-blocking)"
+    )
+    namer.on_name_request(
+        NameRequest(ts=time.time(), object_id=0, class_label="bottle", crop_jpeg=b"")
+    )
     namer.stop(timeout=5.0)

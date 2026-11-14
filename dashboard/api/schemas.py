@@ -50,9 +50,10 @@ class QuestionRequest(BaseModel):
 class QuestionStatus(BaseModel):
     """One question's record: POST /api/question reply and GET /api/question/{id}.
 
-    status: answered, looking_up (a history lookup is waiting for storage) or
-    unavailable (no current camera view, or history could not be reached; never
-    a "not found"). speech_requested only means a SpeakRequest was published.
+    status: answered, looking_up (waiting for namer's scene answer or storage's
+    history lookup) or unavailable (namer or history could not answer; never a
+    "not found"). speech_requested only means the dashboard published a
+    SpeakRequest; namer and storage speak their own answers.
     """
 
     question_id: str
@@ -61,7 +62,7 @@ class QuestionStatus(BaseModel):
     target: str | None
     status: Literal["answered", "looking_up", "unavailable"]
     answer: str | None
-    answered_by: Literal["dashboard", "storage"] | None
+    answered_by: Literal["dashboard", "namer", "storage"] | None
     speech_requested: bool
     history_status: Literal["found", "not_found", "unavailable"] | None
     history_request_id: str | None

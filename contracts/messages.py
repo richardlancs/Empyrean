@@ -200,3 +200,11 @@ class DetectorStatus:
     demo_available: bool | None = None  # None: not checked yet
     message: str = ""  # why a switch failed, or how to make Demo available
     fake: bool = False  # True when vision is a fake (recorded clip): no model runs
+
+
+@dataclass
+class SceneQuestion:
+    """Dashboard to namer: ask Grok about the current camera view."""
+
+    ts: float
+    text: str
