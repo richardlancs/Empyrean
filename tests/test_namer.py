@@ -173,28 +173,29 @@ def test_cache_by_object_id() -> None:
     ] * 3
 
 
-def test_timeout_then_success_is_retried_once() -> None:
+def test_timeout_makes_one_attempt_and_publishes_failure() -> None:
     calls = 0
 
     async def handler(req: httpx.Request) -> httpx.Response:
         nonlocal calls
         calls += 1
-        if calls == 1:
-            await asyncio.sleep(TIMEOUT * 3)  # trips NAME_TIMEOUT_SECONDS
+        await asyncio.sleep(TIMEOUT * 3)  # trips NAME_TIMEOUT_SECONDS
         return reply("Tropicana orange juice")
 
     out = Collector()
     namer = make_namer(handler, out)
+    t0 = time.monotonic()
     namer.on_name_request(request(3))
-    results = out.wait_for(1)
+    [result] = out.wait_for(1)
+    elapsed = time.monotonic() - t0
     namer.stop(timeout=5)
 
-    assert calls == 2
-    assert len(results) == 1
-    assert results[0].ok is True and results[0].name == "Tropicana orange juice"
+    assert calls == 1  # the namer does not retry; scene owns the one retry
+    assert (result.object_id, result.name, result.ok) == (3, "", False)
+    assert TIMEOUT - 0.05 <= elapsed < TIMEOUT * 2
 
 
-def test_two_failures_publish_one_failed_result() -> None:
+def test_error_makes_one_attempt_and_publishes_failure() -> None:
     calls = 0
 
     async def handler(req: httpx.Request) -> httpx.Response:
@@ -208,8 +209,57 @@ def test_two_failures_publish_one_failed_result() -> None:
     out.wait_for(1)
     namer.stop(timeout=5)
 
-    assert calls == 2
+    assert calls == 1
     assert [(r.object_id, r.name, r.ok) for r in out.results] == [(4, "", False)]
+
+
+def test_failure_is_not_cached_so_a_new_request_tries_again() -> None:
+    calls = 0
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(503, json={"error": "busy"})
+        return reply("Heinz ketchup")
+
+    out = Collector()
+    namer = make_namer(handler, out)
+    namer.on_name_request(request(5))
+    out.wait_for(1)
+    namer.on_name_request(request(5))  # what scene sends after a failed result
+    out.wait_for(2)
+    namer.on_name_request(request(5))  # now cached
+    results = out.wait_for(3)
+    namer.stop(timeout=5)
+
+    assert calls == 2
+    assert [(r.name, r.ok) for r in results] == [
+        ("", False),
+        ("Heinz ketchup", True),
+        ("Heinz ketchup", True),
+    ]
+
+
+def test_coalesced_requests_share_one_failed_attempt() -> None:
+    calls = 0
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0.1)
+        return httpx.Response(500, json={"error": "boom"})
+
+    out = Collector()
+    namer = make_namer(handler, out, autostart=False)
+    namer.on_name_request(request(6))
+    namer.on_name_request(request(6))  # joins the first, no second call
+    namer.start()
+    results = out.wait_for(2)
+    namer.stop(timeout=5)
+
+    assert calls == 1
+    assert [(r.object_id, r.name, r.ok) for r in results] == [(6, "", False)] * 2
 
 
 def test_on_name_request_returns_fast() -> None:

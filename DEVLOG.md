@@ -60,6 +60,32 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 3 Richard Lan (namer), Claude Code
+**Changed:**
+
+- Removed the namer's internal automatic retry. Before this, scene retried once after a failed `NameResult` and the namer also retried every `NameRequest` once, so one object that kept failing cost 4 Grok calls. SPEC.md 4.5 allows one retry. Now each uncached `NameRequest` gets exactly one HTTP attempt, and the namer publishes its `NameResult` (`name=""`, `ok=False` on timeout or error).
+- Dropped the now-unused `attempt` field on the namer's queued job, and the attempt number in the failure log line.
+- Unchanged: the 4 s timeout, at most 2 in flight, at most 1 new call per second with the largest crop first, the success cache, coalescing a request for an object already in flight, nonblocking `on_name_request`, and one result per waiting request. Failures are still not cached, so scene's retry gets its own call.
+- `tests/test_namer.py`: the two retry tests now assert one attempt. Added tests showing a failure is not cached (the next request tries again, then a success is cached) and that coalesced requests share one failed attempt.
+- New `tests/test_namer_scene_retry.py` wires the real `SceneDatabase` to the real `Namer` with mocked HTTP. It checks: persistent failure makes 2 HTTP attempts and 2 `NameRequest`s, a failure followed by a success stores the name, a cached success makes no further call, and timeouts never slow `handle_frame` or `handle_name` (slowest call under 50 ms while each Grok call times out).
+
+**Tested:**
+
+- `pytest`: 81 passed, 1 skipped (the live DB test). `ruff check .` and `ruff format --check` are clean.
+- Against the old `namer/namer.py`, the new integration test fails 3 of 4 (`assert 4 == 2` HTTP calls). That confirms it catches the double retry.
+- `python -m fakes.namer.fake_namer` runs. `python -m app --fake vision` cannot run yet because `app/` does not exist.
+- No live Grok calls were made.
+
+**Decisions:**
+
+- Scene owns the retry and the namer owns none. Scene already tracks `requests_sent` per object and has the fresh frame to crop, so the retry stays there and `scene/` is unchanged. No message or threshold changed.
+
+**Teammates need to know:**
+
+- **Person 2 (scene):** the one retry per object is now only yours. Keep `after_name_result` sending at most one more `NameRequest` after a failed `NameResult`. If scene ever stops retrying, a failed object gets no retry at all, because the namer will not add one. Do not send more than one retry: each `NameRequest` costs one Grok call.
+- **Person 1 (app bus):** a failed `NameResult` makes scene publish a new `NameRequest` from inside its `NameResult` handler. If the bus delivers `NameResult` on the namer's worker thread, that `NameRequest` goes straight back into `namer.on_name_request`, which only enqueues and returns, so it is safe. Do not make the bus wait on that delivery. Worst case per object is 2 Grok calls, and both run off the frame path.
+- Work is on branch `p3-namer-one-attempt`, cut from `p3-grok-data` at `ffe088d`, so it did not collide with another session working on `p3-grok-data`.
+
 ### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code
 **Changed:**
 

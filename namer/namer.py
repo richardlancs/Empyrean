@@ -45,7 +45,6 @@ class _Job:
 
     sort_key: tuple[int, int]
     request: NameRequest = field(compare=False)
-    attempt: int = field(default=0, compare=False)
 
 
 class Namer:
@@ -183,19 +182,24 @@ class Namer:
             self._waiting[msg.object_id] += 1
         else:
             self._waiting[msg.object_id] = 1
-            self._push(msg, 0)
+            self._push(msg)
 
-    def _push(self, request: NameRequest, attempt: int) -> None:
+    def _push(self, request: NameRequest) -> None:
         """Queue one Grok call, keyed by crop size so the largest goes first."""
         key = (-len(request.crop_jpeg), next(self._seq))
-        heapq.heappush(self._heap, _Job(key, request, attempt))
+        heapq.heappush(self._heap, _Job(key, request))
         if self._wake is not None:
             self._wake.set()
 
     async def _run_job(
         self, client: httpx.AsyncClient, job: _Job, slots: asyncio.Semaphore
     ) -> None:
-        """Make one Grok call; cache and publish on success, retry once on failure."""
+        """Make exactly one Grok call; cache on success, publish the outcome either way.
+
+        No retry here. Scene owns the one retry SPEC.md 4.5 allows: it sends a
+        second NameRequest after a failed NameResult. Failures are not cached, so
+        that second request gets its own single call.
+        """
         req = job.request
         try:
             raw = await asyncio.wait_for(
@@ -205,12 +209,9 @@ class Namer:
             name = clean_name(raw)
             if not name:
                 raise ValueError("Grok returned an empty name")
-        except Exception as exc:  # noqa: BLE001 - any failure means retry once, then ok=False
-            self._log_failure(req.object_id, job.attempt, exc)
-            if job.attempt == 0:
-                self._push(req, 1)
-            else:
-                self._finish(req.object_id, "", False)
+        except Exception as exc:  # noqa: BLE001 - any failure publishes ok=False
+            self._log_failure(req.object_id, exc)
+            self._finish(req.object_id, "", False)
         else:
             if self._failing:
                 log.info("Grok naming recovered")
@@ -220,15 +221,14 @@ class Namer:
         finally:
             slots.release()
 
-    def _log_failure(self, object_id: int, attempt: int, exc: Exception) -> None:
+    def _log_failure(self, object_id: int, exc: Exception) -> None:
         """Log the first failure loudly and repeats quietly until a call succeeds."""
         level = logging.DEBUG if self._failing else logging.WARNING
         self._failing = True
         log.log(
             level,
-            "Grok naming failed for object %s (attempt %d): %s: %s",
+            "Grok naming failed for object %s: %s: %s",
             object_id,
-            attempt + 1,
             type(exc).__name__,
             exc,
         )
