@@ -18,11 +18,12 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 ## Needs attention
 
-- **IN PROGRESS — Person 4: missed tabletop objects in video (assigned by user, 2026-11-14).** Person 4 leads this investigation now. Coordinate with Person 1 for vision changes and Person 2 for camera footage and scene changes. See the handoff entry below; coordinate with Person 4 before duplicating work. Root cause and fix remain unverified.
+- **IN PROGRESS — Person 4: missed tabletop objects in video (assigned by user, 2026-11-14).** Person 4 leads this investigation now. Coordinate with Person 1 for vision changes and Person 2 for camera footage and scene changes. See the handoff entry below; coordinate with Person 4 before duplicating work. First evidence (Person 4 trace entry below): a small, far bottle is seen by YOLO in every frame but dropped by the 2% area filter, and by the 0.5 confidence gate before ByteTrack. A large black bottle with a handle is not recognised as a bottle at all. Proposal for all four to agree: `DET_MIN_AREA_FRACTION = 0.002` and `DET_MIN_CONFIDENCE = 0.3`. Still to do: confirm on Person 2's glasses-camera footage.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
+- **Person 1 (`vision/`, setup):** on a fresh Python 3.11, the first `detector.track()` call made Ultralytics run `pip install lap` itself, from inside the running app, because ByteTrack needs `lap` and nothing pins it. That is a network call on the frame path (AGENTS.md rule 4) and would stall or fail on a laptop with no internet. Pin `lap` (0.5.14 worked) with the vision requirements, and consider setting Ultralytics' `YOLO_AUTOINSTALL=False` so it never installs at run time. Found by Person 4, 2026-11-14.
 - **Person 1 (`app/` start order):** with `--fake hazard`, the fake hazard starts publishing as soon as it is registered, before audio and dashboard have subscribed, so its first `HazardEvent` (vehicle, yolo) reaches nobody. Start the fake's thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
 - **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` fails on Person 4's Windows laptop, on a clean copy of `main` as well. Run directly, `python -m app --fake vision` starts fine, but audio startup (pyttsx3 and pygame) takes longer than the test's 1.4 s wait before vision publishes its first frame. Wait for the expected output line instead of a fixed sleep. Found by Person 4, 2026-11-14.
 - **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
@@ -72,6 +73,41 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 4 (tabletop detection trace), Claude Code
+**Changed:** No code or config. Wrote a diagnostic script outside the repo that runs the same frames through each vision stage, separately from the app (never on the frame path). It covers raw `yolo11s` predictions at confidence 0.05, ByteTrack IDs with the app's settings, and `vision.tracked_objects()` itself for the app's filter. It repeats the tracker and filter stages for the experimental settings on separate tracker instances.
+
+**Tested:** One 14 s clip (70 frames at 5 fps) from the laptop's built-in webcam: a table with a chair, a small bottle about 3 m back, and a large black bottle with a handle up close. Same clip for every setting:
+
+| Setting | Small bottle reaches `FrameResult` | Bottle track IDs | Other objects kept |
+|---|---|---|---|
+| App now (conf 0.5, area 0.02) | 0 / 70 | none | chair 70 |
+| Area 0.002 only | 36 / 70 | one (stable) | chair 70 |
+| Conf 0.3 only | 0 / 70 | none | chair 70 |
+| Conf 0.3 + area 0.002 | 70 / 70 | one (stable) | chair 70 |
+
+- Raw YOLO saw the small bottle in 70 / 70 frames, at confidence 0.36–0.63 (median 0.51). Its box was 0.30–0.41% of the frame.
+- The two filters both bite. Every box is under the 2% area cut. About half the frames are also under 0.5, and `detector.track(conf=DET_MIN_CONFIDENCE)` drops those before ByteTrack sees them.
+- With both lowered, the bottle keeps one stable track ID for the whole clip, and no extra objects appeared in this scene.
+- The large black bottle up close was never labelled a bottle. Raw YOLO called it "suitcase" at 0.07. Thresholds cannot fix that; it is a model limit, and a model swap needs the team's say-so (AGENTS.md rule 7).
+- An earlier run aimed at the user's face saw no bottle at all and is not evidence.
+
+**Decisions:** Root cause for small and far objects: the area filter first, then the 0.5 confidence gate passed to the tracker. Neither setting alone recovers the bottle reliably. Proposed defaults, needing all four to agree: `DET_MIN_AREA_FRACTION = 0.002`, `DET_MIN_CONFIDENCE = 0.3`. Nothing in `config/` was changed.
+
+**Teammates need to know:**
+- **Person 2:** please send a short clip from the glasses camera of the failing table, so the same trace can be run on it before the defaults change. The trace script can be shared.
+- **Person 1:** the confidence passed to `detector.track()` is what gates ByteTrack. Lower defaults add a little per-frame work (more boxes to track); measure latency before and after.
+- **All:** lower thresholds may add false detections in busier scenes. This clip was a sparse table, so check the glasses-camera clip before agreeing.
+- The clip itself stays on Person 4's laptop and is not committed.
+
+### 2026-11-14, Person 4 (setup and real-camera check), Claude Code
+**Changed:** No code. On the Windows laptop, installed the vision stack into Python 3.11 (`opencv-contrib-python==4.11.0.86`, `ultralytics==8.4.212`, `torch==2.15.0+cpu`, `mediapipe==1.2.3`, `httpx==0.28.1`, `psycopg[binary]==3.3.9`). Removed the `opencv-python` that Ultralytics pulls in, as Person 2's note asks. Downloaded `vision/models/yolo11s.pt` (19.3 MB, Ultralytics GitHub releases v8.3.0) and `vision/models/hand_landmarker.task` (7.8 MB, MediaPipe storage); both are git-ignored.
+
+**Tested:** On `main` at `a5ea3af` (includes PRs #11–#15). `python -m app --fake vision audio`: the page loaded, the feed showed the fake frames with bottle and cup boxes, the Objects panel listed both, and Simulate alert added one entry. Full `pytest`: 181 passed, 1 skipped, 1 failed (`test_cli_fake_vision_starts`, the known timing failure). `python -m app` on the real webcam with no `.env`: every module started, the dashboard was Live with a 640 x 360 feed, and Grok hazard checks were disabled as expected. Vision logged capture-to-publish latency of 156–248 ms, over the 150 ms target, with `yolo11s` on CPU. No objects were listed during the run; the scene in view was not set up for the investigation yet.
+
+**Decisions:** The `lap` auto-install is logged for Person 1 under "Needs attention" rather than fixed here, because `vision/` is theirs.
+
+**Teammates need to know:** Person 1: the latency numbers above are from `yolo11s` on this laptop's CPU, worth weighing against the accuracy gain from PR #13. Person 4 starts the tabletop investigation next.
 
 ### 2026-11-14, coordination (Person 4 assignment), Codex
 **Changed:** Recorded the user's assignment of the missed tabletop-object investigation to Person 4, working on it now. Documentation only; no runtime code, thresholds, contracts, or folder ownership changed.
