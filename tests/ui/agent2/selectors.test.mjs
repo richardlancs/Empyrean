@@ -72,10 +72,10 @@ test("speech is never inferred from a touch event", () => {
 
 test("speech statuses and modes", () => {
   const done = selectSpeech({ speech: { text: "FIXTURE mug", status: "completed", ts: NOW - 2, mode: "real" } }, NOW);
-  assert.equal(done.title, "Last speech completed");
+  assert.equal(done.title, "Completed"); // friendly clarity: plain status words
   assert.match(done.detail, /does not confirm/);
   const fake = selectSpeech({ speech: { text: "bottle", status: "completed", ts: NOW, mode: "fake" } }, NOW);
-  assert.match(fake.modeNote, /Log-only/);
+  assert.equal(fake.lead, "Demo audio — no sound."); // friendly clarity: no-sound leads
   const interrupted = selectSpeech(
     {
       speech: { text: "FIXTURE mug", status: "interrupted", ts: NOW - 1, mode: "real" },
@@ -83,7 +83,7 @@ test("speech statuses and modes", () => {
     },
     NOW,
   );
-  assert.equal(interrupted.title, "Speech interrupted");
+  assert.equal(interrupted.title, "Interrupted");
   assert.match(interrupted.detail, /Alarms take priority/);
   const off = selectSpeech({ capabilities: { speech_status: false }, speech: null }, NOW);
   assert.equal(off.kind, "unavailable");

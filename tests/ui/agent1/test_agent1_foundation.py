@@ -272,27 +272,27 @@ def test_token_contrast_meets_wcag(theme: str) -> None:
 
 
 def test_light_palette_matches_the_shared_design_language() -> None:
-    """The Bauhaus brief's light tokens are used as given (design/bauhaus-polish).
+    """The current brief's light tokens are used as given (design/friendly-clarity).
 
-    Replaces the earlier teal palette: ivory paper, near-black ink, deep blue for
-    action and touch, red only for hazards, yellow only as a fill, violet for
-    simulation. Contrast is checked by test_token_contrast_meets_wcag.
+    Softened Bauhaus: warm off-white paper, clear dark text, light dividers, one
+    deep blue for action and touch, red only for hazards, pastel accents only for
+    illustration and subtle backgrounds. Contrast: test_token_contrast_meets_wcag.
     """
     light = _themes()["light"]
     expected = {
-        "color-page": "#F4F0E7",
-        "color-surface": "#FFFCF5",
-        "color-text": "#171717",
-        "color-text-secondary": "#4F4B44",
-        "color-border-control": "#171717",
+        "color-page": "#F8F5EF",
+        "color-surface": "#FFFFFF",
+        "color-text": "#1F1F1F",
+        "color-text-secondary": "#57524A",
+        "color-border-control": "#7A7367",
         "color-accent": "#1947B8",
-        "color-accent-soft": "#E4EAF8",
-        "color-caution": "#171717",
-        "color-caution-soft": "#F2C94C",
+        "color-accent-soft": "#E8EEFB",
+        "color-caution": "#1F1F1F",
+        "color-caution-soft": "#FBEFC4",
         "color-danger": "#B42318",
-        "color-danger-soft": "#FCEBE7",
+        "color-danger-soft": "#FDECEA",
         "color-sim": "#6D28D9",
-        "color-sim-soft": "#F1EAFE",
+        "color-sim-soft": "#F3EEFF",
         "color-focus": "#1947B8",
     }
     assert {k: light[k] for k in expected} == expected

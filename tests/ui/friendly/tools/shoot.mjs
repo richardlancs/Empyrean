@@ -3,7 +3,7 @@
 // browser only; nothing is shipped or changed on the server.
 //   node tests/ui/bauhaus/shoot.mjs <out.png> [--base URL] [--width 1440] [--css file] [--full] [--theme high-contrast]
 import fs from "node:fs";
-import { loadPlaywright } from "../agent4/pw.mjs";
+import { loadPlaywright } from "../../agent4/pw.mjs";
 
 const args = process.argv.slice(2);
 const out = args[0];

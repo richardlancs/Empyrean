@@ -151,8 +151,9 @@ if (scenario === "normal") {
   const camera = await waitText(a.page, "camera-panel", /Live|recorded clip/, 10000);
   check("recorded clip is labelled, not shown as a camera", /recorded clip/.test(camera || ""));
   const health = await text(a.page, "health-panel");
-  check("fake modules are labelled fake", /\(fake\)/.test(health) && /running as fake/.test(health));
-  const touch = await waitText(a.page, "touch-panel", /Log-only audio/, 15000);
+  // Fakes are labelled either per module "(fake)" or by a visible "Demo mode" tag plus the count.
+  check("fake modules are labelled fake", (/\(fake\)/.test(health) || /Demo mode/.test(health)) && /running as fake/.test(health));
+  const touch = await waitText(a.page, "touch-panel", /Demo audio — no sound/, 15000);
   check("fake audio is never shown as real playback", touch !== null);
   const objects = await text(a.page, "objects-panel");
   check("objects list renders engine objects", /in view/.test(objects), objects.split("\n")[0]);
@@ -176,6 +177,9 @@ if (scenario === "normal") {
 
   // Two clients: view-only controls stay in their own browser.
   const b = await open();
+  // Overlay switches may sit in a "View options" disclosure (friendly clarity); open it if so.
+  const viewOptions = a.page.locator("#camera-panel summary", { hasText: "View options" });
+  if (await viewOptions.count()) await viewOptions.click();
   await a.page.getByLabel("Boxes").uncheck();
   await a.page.waitForTimeout(500);
   const srcA = await a.page.locator("#camera-panel img").first().getAttribute("src");
