@@ -22,7 +22,7 @@ from contracts import FrameResult, Hand, TrackedObject
 
 log = logging.getLogger("vision")
 MODEL_DIR = Path(__file__).resolve().parent / "models"
-YOLO_WEIGHTS = MODEL_DIR / "yolo11n.pt"
+YOLO_WEIGHTS = MODEL_DIR / "yolo11s.pt"
 HAND_MODEL = MODEL_DIR / "hand_landmarker.task"
 CAPTURE_WIDTH = PROCESS_WIDTH * 2
 CAPTURE_HEIGHT = PROCESS_HEIGHT * 2
@@ -138,9 +138,9 @@ def load_processor() -> VisionProcessor:
     """Load local pretrained YOLO/MediaPipe assets; never download during capture."""
     if not YOLO_WEIGHTS.is_file():
         raise FileNotFoundError(
-            f"Missing YOLO COCO nano weights at {YOLO_WEIGHTS}. "
-            "Run python -c \'from ultralytics import YOLO; YOLO(\"yolo11n.pt\")\' "
-            "in a setup shell, then move yolo11n.pt into vision/models/."
+            f"Missing YOLO COCO small weights at {YOLO_WEIGHTS}. "
+            "Run python -c \'from ultralytics import YOLO; YOLO(\"yolo11s.pt\")\' "
+            "in a setup shell, then move yolo11s.pt into vision/models/."
         )
     if not HAND_MODEL.is_file():
         raise FileNotFoundError(

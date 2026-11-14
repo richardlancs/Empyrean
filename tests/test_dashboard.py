@@ -201,3 +201,29 @@ def test_serve_skips_a_busy_port() -> None:
         busy.listen()
         port = busy.getsockname()[1]
         assert Dashboard(DashboardState()).serve(port=port) is False
+
+
+def test_scene_snapshot_fills_object_list_touched_first() -> None:
+    """SceneSnapshot objects reach the page state, touched first, name or class shown."""
+    from contracts import SceneObject
+
+    bus = TestBus()
+    state = register(bus, DashboardState(clock=lambda: NOW), serve=False).state
+    bus.publish(
+        SceneSnapshot(
+            ts=NOW,
+            frame_id=3,
+            objects=[
+                SceneObject(1, "chair", "", "idle", BOX, NOW),
+                SceneObject(2, "bottle", "Heinz ketchup", "touching", BOX, NOW),
+                SceneObject(3, "cup", "", "lost", BOX, NOW - 1),
+            ],
+        )
+    )
+    objects = state.snapshot()["objects"]
+    assert [(o["text"], o["state"], o["named"]) for o in objects] == [
+        ("Heinz ketchup", "touching", True),
+        ("chair", "idle", False),
+        ("cup", "lost", False),
+    ]
+    assert objects[2]["last_seen_ts"] == NOW - 1
