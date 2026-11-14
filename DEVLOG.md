@@ -22,7 +22,13 @@ Problems in someone else's folder go here. The owner removes the line once fixed
 
 - **Person 3 (`tests/test_storage.py`):** `test_unreachable_db_never_blocks_and_warns_once` is flaky on Windows. It failed 2 of 3 runs on Person 2's laptop. `_wait_for` gives up after 3 s, and `CONNECT_TIMEOUT_SECONDS` is also 3 s. On Windows, a refused connection to `127.0.0.1:1` can take about that long, so `dropped` reaches 100 just after the wait ends. Give the wait a longer timeout than the connect timeout. Found by Person 2, 2026-11-14.
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11.
-- **Person 1 (`app/` bus):** Person 3's `register(bus)` expects `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`. `SceneDatabase` takes `publish(topic_name, msg)`, where the topic is the class name. Wire scene with `SceneDatabase(lambda _topic, msg: bus.publish(msg))`, or tell Person 2 which shape the bus uses.
+- **Person 1 (`app/` bus):** Person 3's modules are ready to be registered. Requests for `app/`:
+  1. **Bus shape.** `namer.register(bus)`, `storage.register(bus)`, `fakes.namer.fake_namer.register(bus)` and `fakes.storage.fake_store.register(bus)` call only `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, keyed on the `contracts` class. If the bus uses a different shape, tell Person 3 before building against it.
+  2. **Load `.env` before registering.** Call `load_dotenv()` at the top of `app/` before any `register(bus)`. `storage.register` reads `TIGER_DATABASE_URL` once, when the `Store` is created. If it is not set at that moment, storage drops every write for the whole run, even if `.env` is loaded later. Do not rely on the Grok client loading `.env` the first time it calls Grok, because that happens after storage has already read the variable.
+  3. **Publishing from worker threads.** `namer` publishes `NameResult` from its own worker thread, and `storage` publishes `SpeakRequest` from its `storage-writer` thread. The fakes do the same, except the fake store, which answers on the delivering thread. `bus.publish` must be safe to call from any thread: guard the subscriber list with a lock or copy it before delivering. Subscribers that run on the frame thread, such as scene, must not be called with the bus lock held. Person 3's handlers only enqueue and return, so delivering to them inline is safe.
+  4. **Scene adapter.** `SceneDatabase` calls `publish(topic_name, msg)`, where the topic is the class name. Until Person 2 changes that, wire it with `SceneDatabase(lambda _topic, msg: bus.publish(msg))`, or with `fakes.scene` for `--fake scene`.
+  5. **Shutdown.** Keep what each `register` returns and call `stop()` on it at shutdown: `Namer.stop(timeout=...)`, `Store.stop()`, `FakeNamer.stop(timeout=...)`, and `FakeStore.stop()`, which does nothing. `Store.stop()` waits up to 5 s for its worker to finish and close the database connection.
+  6. **`--fake namer storage`.** Use the `register` functions in `fakes/namer/fake_namer.py` and `fakes/storage/fake_store.py`. They subscribe to the same message types as the real modules, so the rest of `app/` does not change.
 
 ## Contract changes
 
@@ -85,6 +91,30 @@ The approved stack, repeated here so every log reader has it. Changes go through
 - **Person 2 (scene):** the one retry per object is now only yours. Keep `after_name_result` sending at most one more `NameRequest` after a failed `NameResult`. If scene ever stops retrying, a failed object gets no retry at all, because the namer will not add one. Do not send more than one retry: each `NameRequest` costs one Grok call.
 - **Person 1 (app bus):** a failed `NameResult` makes scene publish a new `NameRequest` from inside its `NameResult` handler. If the bus delivers `NameResult` on the namer's worker thread, that `NameRequest` goes straight back into `namer.on_name_request`, which only enqueues and returns, so it is safe. Do not make the bus wait on that delivery. Worst case per object is 2 Grok calls, and both run off the frame path.
 - Work is on branch `p3-namer-one-attempt`, cut from `p3-grok-data` at `ffe088d`, so it did not collide with another session working on `p3-grok-data`.
+
+### 2026-11-14, Person 3 Richard Lan (storage, fakes), Claude Code
+**Changed:**
+
+- `storage.register(bus)` now subscribes `TouchEvent`, `HazardEvent` and `LastSeenQuery` from `contracts` to the store's three handlers, and returns the `Store` so `app/` can call `stop()` on it. Answers are `contracts.SpeakRequest(priority="normal", source="storage")`, published with `bus.publish` from the worker thread.
+- Added `register(bus)` to `fakes/storage/fake_store.py` and `fakes/namer/fake_namer.py`, with the same bus calls and message types as the real modules. Added a no-op `FakeStore.stop()` so shutdown works the same with the fake or the real store.
+- New `tests/test_register.py` drives everything through a small test bus. It checks that all three storage handlers are subscribed, that touch and hazard events reach the database writer, and that a query produces one `SpeakRequest` published from the `storage-writer` thread. It also checks that publishing returns within 0.5 s while the database connection is stuck, that the URL is read once when `register` runs, and that `namer.register` and both fakes register correctly. Every `storage.db` call is replaced, so the tests need no credentials and make no network calls.
+
+**Tested:**
+
+- `pytest -q` with `TIGER_DATABASE_URL` and `GROK_API_KEY` unset: 83 passed, 1 skipped (the live DB test). `tests/test_register.py` passed 8 of 8 on three runs in a row.
+- `ruff check .`: all checks passed.
+- `python -m fakes.storage.fake_store` and `python -m fakes.namer.fake_namer` run as before.
+- Not run: `python -m app --fake vision`, because `app/` does not exist yet.
+
+**Decisions:**
+
+- `register` reads `TIGER_DATABASE_URL` when it runs and does not load `.env` itself. Loading the environment is `app/`'s job, so it happens once and before any module starts.
+- Worked on branch `p3-storage-register` in its own worktree, because another agent CLI is working in the main checkout on `p3-grok-data`.
+
+**Teammates need to know:**
+
+- Person 1: the six concrete requests for `app/` are under "Needs attention".
+- Still open for Person 3: the flaky Windows storage timing test.
 
 ### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code
 **Changed:**
