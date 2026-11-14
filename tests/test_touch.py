@@ -15,7 +15,7 @@ from config.thresholds import (
 from contracts.messages import Box, Hand
 from scene.touch import TouchStep, TouchTrack, release_on_removal, step_touch
 
-_BOTTLE = Box(100, 60, 220, 280)
+_BOTTLE = (100, 60, 220, 280)
 _TIP = (160.0, 170.0)
 _AWAY = (2.0, 2.0)
 
@@ -61,7 +61,7 @@ def _hand(
         side="right",
         thumb_tip=index if thumb is None else thumb,
         index_tip=index,
-        box=box if box is not None else Box(1, 1, 12, 12),
+        box=box if box is not None else (1, 1, 12, 12),
     )
 
 
@@ -81,31 +81,31 @@ def _run(
 
 
 def _center(box: Box) -> tuple[float, float]:
-    return ((box.x1 + box.x2) / 2.0, (box.y1 + box.y2) / 2.0)
+    return ((box[0] + box[2]) / 2.0, (box[1] + box[3]) / 2.0)
 
 
 def _shift(box: Box, dx: float) -> Box:
-    return Box(box.x1 + dx, box.y1, box.x2 + dx, box.y2)
+    return (box[0] + dx, box[1], box[2] + dx, box[3])
 
 
 def _iou(a: Box, b: Box) -> float:
-    inter_w = min(a.x2, b.x2) - max(a.x1, b.x1)
-    inter_h = min(a.y2, b.y2) - max(a.y1, b.y1)
+    inter_w = min(a[2], b[2]) - max(a[0], b[0])
+    inter_h = min(a[3], b[3]) - max(a[1], b[1])
     if inter_w <= 0.0 or inter_h <= 0.0:
         return 0.0
     inter = inter_w * inter_h
-    union = (a.x2 - a.x1) * (a.y2 - a.y1) + (b.x2 - b.x1) * (b.y2 - b.y1) - inter
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
     if union <= 0.0:
         return 0.0
     return inter / union
 
 
 def _same_size_shifted(box: Box, target_iou: float) -> Box:
-    width = box.x2 - box.x1
-    height = box.y2 - box.y1
+    width = box[2] - box[0]
+    height = box[3] - box[1]
     inter = target_iou * 2.0 * width * height / (1.0 + target_iou)
     dx = width - inter / height
-    return Box(box.x1 + dx, box.y1, box.x2 + dx, box.y2)
+    return (box[0] + dx, box[1], box[2] + dx, box[3])
 
 
 def test_idle_becomes_touching_after_enter_frames() -> None:
@@ -231,8 +231,8 @@ def test_new_object_is_not_touchable() -> None:
 def test_overlapping_boxes_use_distance_over_diagonal() -> None:
     # The small box is closer in pixels. Its centre is farther as a fraction
     # of its diagonal, so the large box wins the fingertip.
-    small = Box(80, 85, 120, 115)
-    large = Box(50, 25, 350, 275)
+    small = (80, 85, 120, 115)
+    large = (50, 25, 350, 275)
     tip = (116.0, 100.0)
     small_distance = math.hypot(tip[0] - 100.0, tip[1] - 100.0)
     large_distance = math.hypot(tip[0] - 200.0, tip[1] - 150.0)
@@ -250,12 +250,12 @@ def test_overlapping_boxes_use_distance_over_diagonal() -> None:
 
 
 def test_outer_shrink_ring_is_not_on_and_center_is() -> None:
-    box = Box(100, 40, 300, 240)
-    width = box.x2 - box.x1
+    box = (100, 40, 300, 240)
+    width = box[2] - box[0]
     inset = BOX_SHRINK_FRACTION * width
-    ring = (box.x1 + inset / TOUCH_ENTER_FRAMES, (box.y1 + box.y2) / 2.0)
+    ring = (box[0] + inset / TOUCH_ENTER_FRAMES, (box[1] + box[3]) / 2.0)
     center = _center(box)
-    assert box.x1 < ring[0] < box.x1 + inset
+    assert box[0] < ring[0] < box[0] + inset
 
     missed = step_touch([_track(box=box)], [_hand(ring, thumb=_AWAY)], 1.0)
     assert missed.tracks[0].on_frames == 0
@@ -266,7 +266,7 @@ def test_outer_shrink_ring_is_not_on_and_center_is() -> None:
 
 
 def test_touching_becomes_held_only_after_the_center_moves_far_enough() -> None:
-    box = Box(40, 30, 440, 330)
+    box = (40, 30, 440, 330)
     tip = _center(box)
     hand = _hand(tip, thumb=_AWAY)
     entered = _run(
@@ -374,7 +374,7 @@ def test_held_releases_after_hands_stay_empty() -> None:
 
 
 def test_merge_inherits_held_name_when_hand_iou_is_high_enough() -> None:
-    hand_box = Box(80, 80, 180, 180)
+    hand_box = (80, 80, 180, 180)
     det_box = _same_size_shifted(hand_box, (HELD_MERGE_IOU + 1.0) / 2.0)
     assert _iou(hand_box, det_box) >= HELD_MERGE_IOU
     detection = _track(
@@ -392,7 +392,7 @@ def test_merge_inherits_held_name_when_hand_iou_is_high_enough() -> None:
         state="held",
         phase="held",
         detected=False,
-        box=Box(300, 40, 420, 200),
+        box=(300, 40, 420, 200),
         anchor_cx=360.0,
         anchor_cy=120.0,
         lost_since_ts=11.0,
@@ -414,7 +414,7 @@ def test_merge_inherits_held_name_when_hand_iou_is_high_enough() -> None:
 
 
 def test_merge_does_not_happen_below_hand_iou() -> None:
-    hand_box = Box(80, 80, 180, 180)
+    hand_box = (80, 80, 180, 180)
     det_box = _same_size_shifted(hand_box, HELD_MERGE_IOU / 2.0)
     assert _iou(hand_box, det_box) < HELD_MERGE_IOU
     detection = _track(
@@ -426,7 +426,7 @@ def test_merge_does_not_happen_below_hand_iou() -> None:
         state="held",
         phase="held",
         detected=False,
-        box=Box(300, 40, 420, 200),
+        box=(300, 40, 420, 200),
     )
     result = step_touch([detection, held], [_hand(_AWAY, box=hand_box)], 5.0)
     assert result.events == []
@@ -439,31 +439,31 @@ def test_merge_does_not_happen_below_hand_iou() -> None:
 
 
 def test_touch_neighbours_prefer_name_and_keep_three_nearest() -> None:
-    main_box = Box(150, 130, 250, 230)
+    main_box = (150, 130, 250, 230)
     tip = _center(main_box)
     near = _track(
         object_id=2,
         class_label="cup",
         name="mug",
-        box=Box(180, 200, 220, 240),
+        box=(180, 200, 220, 240),
     )
     mid = _track(
         object_id=3,
         class_label="bowl",
         name="",
-        box=Box(260, 160, 300, 200),
+        box=(260, 160, 300, 200),
     )
     farther = _track(
         object_id=6,
         class_label="box",
         name="cereal",
-        box=Box(180, 280, 220, 320),
+        box=(180, 280, 220, 320),
     )
     phone = _track(
         object_id=5,
         class_label="cell phone",
         name="phone",
-        box=Box(500, 160, 540, 200),
+        box=(500, 160, 540, 200),
     )
     ghost = _track(
         object_id=4,
@@ -471,11 +471,11 @@ def test_touch_neighbours_prefer_name_and_keep_three_nearest() -> None:
         state="held",
         phase="held",
         detected=False,
-        box=Box(190, 160, 230, 200),
+        box=(190, 160, 230, 200),
         anchor_cx=210.0,
         anchor_cy=180.0,
     )
-    heir_box = Box(560, 280, 630, 350)
+    heir_box = (560, 280, 630, 350)
     heir = _track(
         object_id=7,
         class_label="cup",
@@ -502,7 +502,7 @@ def test_touch_neighbours_prefer_name_and_keep_three_nearest() -> None:
 
 
 def test_merge_never_takes_over_a_stable_object_near_the_hand() -> None:
-    hand_box = Box(80, 80, 180, 180)
+    hand_box = (80, 80, 180, 180)
     mug_box = _same_size_shifted(hand_box, (HELD_MERGE_IOU + 1.0) / 2.0)
     assert _iou(hand_box, mug_box) >= HELD_MERGE_IOU
     mug = _track(object_id=8, class_label="cup", name="blue mug", box=mug_box)
@@ -511,7 +511,7 @@ def test_merge_never_takes_over_a_stable_object_near_the_hand() -> None:
         name="Heinz ketchup",
         state="held",
         phase="held",
-        box=Box(300, 40, 420, 200),
+        box=(300, 40, 420, 200),
         anchor_cx=360.0,
         anchor_cy=120.0,
     )
@@ -527,9 +527,9 @@ def test_merge_never_takes_over_a_stable_object_near_the_hand() -> None:
 
 def test_release_on_removal_only_for_objects_in_contact() -> None:
     touching = _track(object_id=1, name="Heinz ketchup", phase="touching")
-    held = _track(object_id=2, name="soda", phase="held", box=Box(300, 40, 400, 200))
+    held = _track(object_id=2, name="soda", phase="held", box=(300, 40, 400, 200))
     idle = _track(
-        object_id=3, class_label="cup", name="mug", box=Box(230, 60, 290, 120)
+        object_id=3, class_label="cup", name="mug", box=(230, 60, 290, 120)
     )
     event = release_on_removal(touching, [idle], 9.0)
     assert event is not None

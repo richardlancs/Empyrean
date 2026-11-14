@@ -4,7 +4,7 @@
 .env.*
 !.env.example
 
-# Python
+# Python and tool caches
 .venv/
 venv/
 __pycache__/
@@ -22,6 +22,15 @@ __pycache__/
 *.tflite
 *.task
 
+# Large recordings (AGENTS.md rule 10). The short recorded clip that the
+# vision fake plays (AGENTS.md rule 3) is allowed: keep it <= 20 s and <= 10 MB.
+*.mp4
+*.avi
+*.mov
+!fakes/vision/*.mp4
+!fakes/vision/*.avi
+!fakes/vision/*.mov
+
 # Local working files
 scratch/
 .claude/settings.local.json
@@ -32,6 +41,3 @@ scratch/
 .DS_Store
 .idea/
 .vscode/
-
-# Not ignored on purpose: the alarm WAV and the short recorded clip in
-# fakes/vision/ are meant to be committed (keep video <= 20 s and <= 10 MB).

@@ -20,7 +20,8 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
-- **Person 2 (`scene/`, `fakes/scene/`):** since PR #2, `contracts.Box` on `main` is `tuple[float, float, float, float]`. `scene/touch.py` and `scene/naming.py` read `box.x1` and so on, and `fakes/scene/script.py` and the scene tests build `Box(a, b, c, d)`. On `main`, `pytest` gives 14 failures and 2 collection errors, all in scene tests, and `python -m fakes.scene` crashes. The Box shape still needs a team decision: keep the tuple and switch `scene/`, or revert PR #2. Found by Person 3, 2026-11-14.
+- **Person 3 (`tests/test_storage.py`):** `test_unreachable_db_never_blocks_and_warns_once` is flaky on Windows. It failed 2 of 3 runs on Person 2's laptop. `_wait_for` gives up after 3 s, and `CONNECT_TIMEOUT_SECONDS` is also 3 s. On Windows, a refused connection to `127.0.0.1:1` can take about that long, so `dropped` reaches 100 just after the wait ends. Give the wait a longer timeout than the connect timeout. Found by Person 2, 2026-11-14.
+- **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11.
 - **Person 1 (`app/` bus):** Person 3's `register(bus)` expects `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`. `SceneDatabase` takes `publish(topic_name, msg)`, where the topic is the class name. Wire scene with `SceneDatabase(lambda _topic, msg: bus.publish(msg))`, or tell Person 2 which shape the bus uses.
 
 ## Contract changes
@@ -32,6 +33,7 @@ Any change to `contracts/`, `config/`, `SPEC.md` or `AGENTS.md`. Needs all four 
 | 2026-11-13 21:10 | First version of all four files | pending team review |
 | 2026-11-13 22:05 | Stack table added to `SPEC.md` section 2.1, `AGENTS.md` and `CLAUDE.md` | pending team review |
 | 2026-11-13 23:40 | Initial `contracts/messages.py` and `config/thresholds.py`, copied from SPEC.md sections 5 and 9. No value changed | pending team review |
+| 2026-11-14 01:03 | PR #2 merged to `main`: `Box` and `Point` are tuples, the fixed value sets are `Literal`, list fields default to empty, the dataclasses are no longer frozen, and `tests/test_contracts.py` checks them against SPEC.md. No threshold changed | Person 3 (author), Person 2 (adopted in `scene/`). Persons 1 and 4 still to confirm |
 
 ## Stack
 
@@ -63,7 +65,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 - Deleted the four `_pending.py` shims. Every Person 3 file now imports messages from `contracts/` and thresholds from `config/`.
 - `namer/` reads its thresholds as `config.NAME_...` at call time, so tests can still monkeypatch them.
-- Added a root `.gitignore` covering `.env*` (except `.env.example`), venvs, caches, model weights (`*.pt`, `*.onnx`, `*.task` and similar), `scratch/`, and OS and editor files. WAV and video files are not ignored, so the alarm sound and the short fake-vision clip can be committed.
+- Merged the root `.gitignore` with the one Person 2 put on `main`, keeping all of its rules. It adds `.env.*` (except `.env.example`), more weight formats (`*.pth`, `*.task` and others), `scratch/`, and OS and editor files. Main's `*.mp4`, `*.avi` and `*.mov` ignores stay, with an exception for `fakes/vision/`, because the vision fake plays a short recorded clip (AGENTS.md rules 3 and 10). `*.wav` is not ignored, so the alarm sound can be committed.
 
 **Tested:**
 
@@ -71,18 +73,36 @@ The approved stack, repeated here so every log reader has it. Changes go through
 - With `.env` loaded, `tests/test_storage.py` gave 17 passed, including the live Tiger Data round trip.
 - `python -m fakes.namer.fake_namer` and `python -m fakes.storage.fake_store` both run and publish as before.
 - `ruff check` is clean on all Person 3 paths.
-- `git check-ignore` confirms `.env`, the venv, weights and `scratch/` are ignored, while `.env.example`, `.wav` and `.mp4` files are not.
-- Full `pytest` on this branch still fails in the scene tests. See "Needs attention".
+- `git check-ignore` confirms `.env`, the venv, weights, `scratch/` and root-level video are ignored, while `.env.example`, `.wav` files and video under `fakes/vision/` are not.
+- After merging `main` into this branch, full `pytest` gave 75 passed and 1 skipped, and 76 passed with `.env` loaded. `ruff check .` is clean for the whole repo, and `python -m fakes.scene` runs.
 
 **Decisions:**
 
 - Storage still unpacks `Box` as a tuple, which matches `contracts/` on `main` now. If the team switches `Box` back to a dataclass, `storage/db.py` `box_centre_fraction` needs `box.x1` and so on.
-- `.gitignore` is a new shared root file. It only adds ignores and changes no code.
+- `.gitignore` is a shared root file. The merge removes none of Person 2's rules, except that a short clip in `fakes/vision/` is now allowed.
 
 **Teammates need to know:**
 
-- Once this reaches `main`, pull it to get `.gitignore`. `.env` will then be ignored in every clone, not just on Person 3's laptop. Until then, do not `git add .` with a `.env` present.
-- Still missing: `.env.example` and a requirements file.
+- The shim item under "Needs attention" is fixed: namer and storage now subscribe to the `contracts` classes that scene publishes.
+- Still open for Person 3: the flaky Windows storage timing test.
+
+### 2026-11-14, Person 2 (repo housekeeping), Claude Code
+**Changed:** Moved `hazardeventsample.py` from the repo root to a new `samples/` folder. It now imports `HazardEvent` from `contracts` and binds the example to `SAMPLE`, so `ruff check .` passes. Added a root `.gitignore` (`.env`, caches, model weights, video files) and `.env.example` with the four variables from SPEC.md section 6, both required by AGENTS.md rules 7, 9 and 10. Merged `p2-touch` into `main`, so `main` has the tuple `Box` fix for scene.
+
+**Tested:** `python -m ruff check .`: clean across the whole repo. `python -m pytest`: 74 passed, 1 skipped, 1 failed. The failure is the flaky storage timing test under "Needs attention". `samples/hazardeventsample.py` runs and builds a valid `HazardEvent`. `python -m app --fake vision` cannot run yet, because `app/` does not exist.
+
+**Decisions:** `samples/` holds hand-written example messages for teammates. It is not a module and nothing imports it. Person 2 created it at their human's request.
+
+**Teammates need to know:** Person 3, see the shim item under "Needs attention". It is the main thing between `main` and a working touch-to-name demo. Everyone: `git pull`, then delete your local `__pycache__` folders if git shows them.
+
+### 2026-11-14, Person 2 (scene), Claude Code
+**Changed:** Moved `scene/`, `fakes/scene/` and the scene tests to the tuple `Box` from PR #2. After that merge, `main` failed `pytest` at collection time, because `Box(1, 2, 3, 4)` raises `TypeError` when `Box` is a tuple alias. `scene/touch.py` and `scene/naming.py` now unpack `x1, y1, x2, y2 = box`. The fake and the tests build boxes as plain tuples. No behaviour changed.
+
+**Tested:** `python -m pytest`: 74 passed, 1 skipped, 1 failed. The failure is the flaky storage timing test described under "Needs attention". It is not affected by this change. `python -m ruff check scene fakes tests contracts config`: clean. `python -m fakes.scene`: same script as before, with tuple boxes. `python -m app --fake vision` does not run yet, because `app/` does not exist.
+
+**Decisions:** Reviewed the merged contract against SPEC.md section 5. Every field, type and fixed value matches. Scene still stores `state` and `kind` as `str`. The values it uses are exactly the `Literal` sets.
+
+**Teammates need to know:** Anyone who builds boxes must use tuples like `(x1, y1, x2, y2)` now, not `Box(...)`. `contracts.Box` is only a type hint. Person 4: `TouchEvent.box` and `SceneObject.box` arrive as tuples.
 
 ### 2026-11-14, Person 2 (scene), Claude Code
 **Changed:** Two fixes in `scene/`, after a review of Cursor's work.

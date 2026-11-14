@@ -10,7 +10,7 @@ from contracts.messages import Box, NameRequest, NameResult
 from scene.naming import after_name_result, crop_jpeg, request_for_new_idle
 
 _MARKER = (20, 180, 240)
-_BOX = Box(100, 100, 200, 200)
+_BOX = (100, 100, 200, 200)
 
 
 def _frame(height: int = PROCESS_HEIGHT, width: int = PROCESS_WIDTH) -> np.ndarray:
@@ -20,12 +20,12 @@ def _frame(height: int = PROCESS_HEIGHT, width: int = PROCESS_WIDTH) -> np.ndarr
 
 def _padded_bounds(box: Box, width: int, height: int) -> tuple[int, int, int, int]:
     """Exclusive crop after padding, clamping, floor, and ceil."""
-    pad_x = (box.x2 - box.x1) * NAME_CROP_PADDING
-    pad_y = (box.y2 - box.y1) * NAME_CROP_PADDING
-    left = min(max(box.x1 - pad_x, 0.0), float(width))
-    top = min(max(box.y1 - pad_y, 0.0), float(height))
-    right = min(max(box.x2 + pad_x, 0.0), float(width))
-    bottom = min(max(box.y2 + pad_y, 0.0), float(height))
+    pad_x = (box[2] - box[0]) * NAME_CROP_PADDING
+    pad_y = (box[3] - box[1]) * NAME_CROP_PADDING
+    left = min(max(box[0] - pad_x, 0.0), float(width))
+    top = min(max(box[1] - pad_y, 0.0), float(height))
+    right = min(max(box[2] + pad_x, 0.0), float(width))
+    bottom = min(max(box[3] + pad_y, 0.0), float(height))
     return math.floor(left), math.floor(top), math.ceil(right), math.ceil(bottom)
 
 
@@ -55,8 +55,8 @@ def test_crop_pads_each_side_by_name_crop_padding() -> None:
     x1, y1, x2, y2 = _paint(image, _BOX)
     # Width and height are 100. 10% is 10 px each side, so 120 x 120.
     # Those padded edges are integers, so floor and ceil do not change them.
-    pad = (_BOX.x2 - _BOX.x1) * NAME_CROP_PADDING
-    assert (_BOX.x1 - pad, _BOX.y1 - pad, _BOX.x2 + pad, _BOX.y2 + pad) == (
+    pad = (_BOX[2] - _BOX[0]) * NAME_CROP_PADDING
+    assert (_BOX[0] - pad, _BOX[1] - pad, _BOX[2] + pad, _BOX[3] + pad) == (
         90.0,
         90.0,
         210.0,
@@ -73,16 +73,16 @@ def test_crop_pads_each_side_by_name_crop_padding() -> None:
 
 
 def test_crop_touching_the_origin_is_clamped() -> None:
-    box = Box(0, 0, 50, 40)
-    pad_x = (box.x2 - box.x1) * NAME_CROP_PADDING
-    pad_y = (box.y2 - box.y1) * NAME_CROP_PADDING
-    assert box.x1 - pad_x < 0
-    assert box.y1 - pad_y < 0
+    box = (0, 0, 50, 40)
+    pad_x = (box[2] - box[0]) * NAME_CROP_PADDING
+    pad_y = (box[3] - box[1]) * NAME_CROP_PADDING
+    assert box[0] - pad_x < 0
+    assert box[1] - pad_y < 0
     image = _frame()
     x1, y1, x2, y2 = _paint(image, box)
     assert (x1, y1) == (0, 0)
-    unclamped_w = math.ceil(box.x2 + pad_x) - math.floor(box.x1 - pad_x)
-    unclamped_h = math.ceil(box.y2 + pad_y) - math.floor(box.y1 - pad_y)
+    unclamped_w = math.ceil(box[2] + pad_x) - math.floor(box[0] - pad_x)
+    unclamped_h = math.ceil(box[3] + pad_y) - math.floor(box[1] - pad_y)
     assert x2 - x1 < unclamped_w
     assert y2 - y1 < unclamped_h
     jpeg = crop_jpeg(image, box)
@@ -99,7 +99,7 @@ def test_crop_uses_the_image_size_when_the_array_is_present() -> None:
     width = 800
     height = 400
     image = _frame(height, width)
-    box = Box(700, 100, 780, 200)
+    box = (700, 100, 780, 200)
     x1, y1, x2, y2 = _paint(image, box)
     assert x1 > PROCESS_WIDTH
     assert y2 < height
@@ -111,18 +111,18 @@ def test_crop_uses_the_image_size_when_the_array_is_present() -> None:
 
 
 def test_fractional_box_uses_floor_and_ceil() -> None:
-    box = Box(100.2, 80.8, 200.2, 180.8)
-    pad_x = (box.x2 - box.x1) * NAME_CROP_PADDING
-    pad_y = (box.y2 - box.y1) * NAME_CROP_PADDING
-    right = box.x2 + pad_x
-    bottom = box.y2 + pad_y
+    box = (100.2, 80.8, 200.2, 180.8)
+    pad_x = (box[2] - box[0]) * NAME_CROP_PADDING
+    pad_y = (box[3] - box[1]) * NAME_CROP_PADDING
+    right = box[2] + pad_x
+    bottom = box[3] + pad_y
     assert math.ceil(right) != math.trunc(right)
     assert math.ceil(bottom) != math.trunc(bottom)
     image = _frame()
     x1, y1, x2, y2 = _paint(image, box)
     assert (x1, y1, x2, y2) == (
-        math.floor(box.x1 - pad_x),
-        math.floor(box.y1 - pad_y),
+        math.floor(box[0] - pad_x),
+        math.floor(box[1] - pad_y),
         math.ceil(right),
         math.ceil(bottom),
     )
