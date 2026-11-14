@@ -92,8 +92,8 @@ class DashboardState:
         self._notify()
 
     def on_answer(self, msg: SpeakRequest) -> None:
-        """Display answers from storage and dashboard without speaking twice."""
-        if msg.source not in {"storage", "dashboard"}:
+        """Display requested answers without speaking twice."""
+        if msg.source not in {"storage", "dashboard", "namer"}:
             return
         with self._lock:
             self._answer = msg.text

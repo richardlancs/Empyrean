@@ -1,7 +1,6 @@
 """Audio manager: speak requested answers and sound the alarm first.
 
-Object speech is question-only by user request. Legacy touch announcements
-remain available only through an explicit constructor option.
+Touches announce automatically; separately requested answers use lower priority.
 
 Subscribes to: HazardEvent, TouchEvent, NameResult, SpeakRequest.
 Publishes: nothing. Output is sound on the system speaker (the JBL Go 3).
@@ -101,7 +100,7 @@ class AudioManager:
         *,
         clock: Callable[[], float] = time.monotonic,
         late_name_window: float = LATE_NAME_WINDOW_SECONDS,
-        announce_touches: bool = False,
+        announce_touches: bool = True,
     ) -> None:
         """Start the speech worker. speaker_factory runs on that worker thread."""
         self._announce_touches = announce_touches
@@ -140,7 +139,7 @@ class AudioManager:
         log.info("Alarm: %s (%s, confidence %.2f)", phrase, msg.source, msg.confidence)
 
     def on_touch(self, msg: TouchEvent) -> None:
-        """Announce a touch only when the legacy touch-announcement mode is enabled."""
+        """Announce the touched object automatically when announcements are enabled."""
         if not self._announce_touches:
             return
         with self._cond:
@@ -157,7 +156,7 @@ class AudioManager:
             )
 
     def on_name(self, msg: NameResult) -> None:
-        """Speak a late name only in legacy touch-announcement mode."""
+        """Speak a late name while the object is still being touched."""
         if not self._announce_touches:
             return
         name = msg.name.strip()

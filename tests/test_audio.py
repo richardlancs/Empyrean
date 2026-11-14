@@ -374,11 +374,12 @@ def test_register_subscribes_hazard_first(
         types = [t for t, _ in bus.subscriptions]
         assert types == [HazardEvent, TouchEvent, NameResult, SpeakRequest]
         bus.publish(touch(1, "bottle", "Heinz ketchup"))
+        assert settle(speaker, 1) == ["Heinz ketchup"]
         bus.publish(named(1, "New ketchup name"))
         bus.publish(
             SpeakRequest(time.time(), "Requested ketchup answer", "normal", "dashboard")
         )
-        assert settle(speaker, 1) == ["Requested ketchup answer"]
+        assert settle(speaker, 2) == ["Heinz ketchup", "Requested ketchup answer"]
     finally:
         mgr.stop()
 
@@ -410,26 +411,22 @@ def test_fake_audio_register_prints(capsys: pytest.CaptureFixture[str]) -> None:
         mgr.stop()
 
 
-def test_default_audio_only_speaks_requested_answers(speaker: RecordingSpeaker) -> None:
-    """Touches, retouches and late names stay silent; requests and alarms work."""
+def test_default_audio_announces_without_question(speaker: RecordingSpeaker) -> None:
+    """Touch and retouch announce independently; requested answers also play."""
     alarm = RecordingAlarm()
     mgr = AudioManager(lambda: speaker, alarm)
     try:
-        mgr.on_touch(touch(1, "bottle"))
-        mgr.on_name(named(1, "Heinz ketchup"))
+        mgr.on_touch(touch(1, "bottle", "Heinz ketchup"))
+        assert settle(speaker, 1) == ["Heinz ketchup"]
         mgr.on_touch(touch(1, "bottle", kind="release"))
         mgr.on_touch(touch(1, "bottle", "Heinz ketchup"))
+        assert settle(speaker, 2) == ["Heinz ketchup", "Heinz ketchup"]
         mgr.on_speak(
-            SpeakRequest(
-                time.time(), "You are touching Heinz ketchup.", "normal", "dashboard"
-            )
+            SpeakRequest(time.time(), "Your keys are to your right.", "normal", "namer")
         )
-        assert settle(speaker, 1) == ["You are touching Heinz ketchup."]
+        assert settle(speaker, 3)[-1] == "Your keys are to your right."
         mgr.on_hazard(HazardEvent(time.time(), "vehicle", "yolo", 0.9))
-        assert settle(speaker, 2) == [
-            "You are touching Heinz ketchup.",
-            "Stop. Vehicle.",
-        ]
+        assert settle(speaker, 4)[-1] == "Stop. Vehicle."
         assert len(alarm.played_at) == 1
     finally:
         mgr.stop()

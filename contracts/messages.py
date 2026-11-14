@@ -131,3 +131,11 @@ class ModeChange:
 
     ts: float  # when the mode was set
     mode: Literal["actual", "demo"]  # actual: COCO detector. demo: demo-object detector
+
+
+@dataclass
+class SceneQuestion:
+    """Dashboard to namer: ask Grok about the current camera view."""
+
+    ts: float
+    text: str

@@ -5,34 +5,31 @@ import time
 from fastapi.testclient import TestClient
 from test_dashboard import TestBus
 
-from contracts import LastSeenQuery, SceneObject, SceneSnapshot, SpeakRequest
+from contracts import LastSeenQuery, SpeakRequest
 from dashboard import DashboardState, create_app, register
 from dashboard.questions import ask_question
 
 
-def test_scene_answer_speaks_once_and_reaches_page() -> None:
-    """Scene summaries use current names and exclude lost objects."""
+def test_scene_question_is_independent_and_answer_reaches_page() -> None:
+    """Open questions use Grok messages, with no touch or database prerequisite."""
+    from contracts import SceneQuestion
+
     bus = TestBus()
     dashboard = register(bus, serve=False)
-    now = time.time()
-    bus.publish(
-        SceneSnapshot(
-            now,
-            1,
-            [
-                SceneObject(
-                    1, "bottle", "Heinz ketchup", "touching", (0, 0, 50, 50), now
-                ),
-                SceneObject(2, "cup", "", "lost", (60, 0, 100, 50), now),
-            ],
-        )
-    )
     client = TestClient(create_app(dashboard.state, publish=bus.publish))
-    reply = client.post("/api/question", json={"text": "What do you see?"}).json()
-    assert reply["answer"] == "I can detect Heinz ketchup."
-    spoken = [msg for msg in bus.published if isinstance(msg, SpeakRequest)]
-    assert len(spoken) == 1
-    assert dashboard.state.snapshot()["answer"] == reply["answer"]
+    for text in (
+        "Where are my keys?",
+        "Find my bottle",
+        "What is this item?",
+        "What do you see?",
+    ):
+        reply = client.post("/api/question", json={"text": text}).json()
+        assert reply["kind"] == "question"
+        assert isinstance(bus.published[-1], SceneQuestion)
+        assert bus.published[-1].text == text
+    assert not any(isinstance(msg, LastSeenQuery) for msg in bus.published)
+    bus.publish(SpeakRequest(time.time(), "To your right.", "normal", "namer"))
+    assert dashboard.state.snapshot()["answer"] == "To your right."
 
 
 def test_history_extracts_object_and_publishes_query(monkeypatch) -> None:
@@ -56,16 +53,14 @@ def test_history_extracts_object_and_publishes_query(monkeypatch) -> None:
     assert state.snapshot()["answer"] == "Bottle, 2 minutes ago."
 
 
-def test_stale_scene_and_missing_history_are_honest() -> None:
-    """Unavailable inputs do not masquerade as a successful lookup."""
-    state = DashboardState()
-    state.on_scene(SceneSnapshot(1, 1, []))
+def test_missing_history_is_honest() -> None:
+    """Explicit history requests report unavailable storage."""
     published = []
-    result = ask_question("What am I touching?", state, published.append, False)
-    assert "current camera view" in result["answer"]
-    result = ask_question("Find my bottle", state, published.append, False)
+    result = ask_question(
+        "Where did I last touch my bottle?", DashboardState(), published.append, False
+    )
     assert "unavailable" in result["answer"]
-    assert all(isinstance(msg, SpeakRequest) for msg in published)
+    assert isinstance(published[0], SpeakRequest)
 
 
 def test_invalid_and_standalone_requests() -> None:
@@ -79,25 +74,3 @@ def test_invalid_and_standalone_requests() -> None:
         .status_code
         == 503
     )
-
-
-def test_this_item_identifies_touch_instead_of_other_visible_objects() -> None:
-    """A spoken this-item question answers with the touched object directly."""
-    state = DashboardState()
-    now = time.time()
-    state.on_scene(
-        SceneSnapshot(
-            now,
-            1,
-            [
-                SceneObject(1, "bottle", "Heinz ketchup", "held", (0, 0, 50, 50), now),
-                SceneObject(2, "cup", "Coffee cup", "idle", (60, 0, 100, 50), now),
-            ],
-        )
-    )
-    spoken = []
-    for question in ("What is this item?", "What's this?", "Identify this item"):
-        reply = ask_question(question, state, spoken.append, False)
-        assert reply["answer"] == "You are touching Heinz ketchup."
-    assert len(spoken) == 3
-    assert all(isinstance(message, SpeakRequest) for message in spoken)
