@@ -1,4 +1,4 @@
-"""FastAPI app: serves the page, pushes state over /ws, and handles Simulate alert."""
+"""FastAPI app: serves the page, the camera feed at /video, state over /ws, and Simulate alert."""
 
 from __future__ import annotations
 
@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from config import DASHBOARD_PORT
-from contracts import HazardEvent, TouchEvent
+from contracts import FrameResult, HazardEvent, SceneSnapshot, TouchEvent
 from dashboard.state import DashboardState
+from dashboard.video import BOUNDARY, VideoFeed, mjpeg_stream
 
 LOGGER = logging.getLogger("dashboard")
 INDEX_PATH = Path(__file__).resolve().parent / "index.html"
@@ -26,9 +27,10 @@ SERVER_STOP_SECONDS = 3.0  # how long stop() waits for the web server thread
 class Dashboard:
     """The dashboard as app/ runs it: bus-fed state plus the web page on a thread."""
 
-    def __init__(self, state: DashboardState) -> None:
-        """Hold state; call serve() to start the web page."""
+    def __init__(self, state: DashboardState, video: VideoFeed | None = None) -> None:
+        """Hold state and the camera feed; call serve() to start the web page."""
         self.state = state
+        self.video = video or VideoFeed()
         self._server: Any = None
         self._thread: threading.Thread | None = None
 
@@ -42,7 +44,10 @@ class Dashboard:
         import uvicorn
 
         config = uvicorn.Config(
-            create_app(self.state), host=host, port=port, log_level="warning"
+            create_app(self.state, self.video),
+            host=host,
+            port=port,
+            log_level="warning",
         )
         self._server = uvicorn.Server(config)
         self._thread = threading.Thread(
@@ -53,7 +58,8 @@ class Dashboard:
         return True
 
     def stop(self) -> None:
-        """Ask the web server to finish and wait briefly for it."""
+        """End open video streams, ask the web server to finish, and wait briefly."""
+        self.video.close()
         if self._server is not None:
             self._server.should_exit = True
         if self._thread is not None:
@@ -73,10 +79,16 @@ def _port_is_free(host: str, port: int) -> bool:
 def register(
     bus: Any, state: DashboardState | None = None, serve: bool = True
 ) -> Dashboard:
-    """Feed HazardEvent and TouchEvent to the dashboard and, if serve, start the page."""
+    """Feed bus messages to the dashboard and, if serve, start the page.
+
+    FrameResult and SceneSnapshot drive the camera feed; HazardEvent and
+    TouchEvent drive the warning and event log.
+    """
     dashboard = Dashboard(state or DashboardState())
     bus.subscribe(HazardEvent, dashboard.state.on_hazard)
     bus.subscribe(TouchEvent, dashboard.state.on_touch)
+    bus.subscribe(FrameResult, dashboard.video.on_frame)
+    bus.subscribe(SceneSnapshot, dashboard.video.on_scene)
     if serve:
         dashboard.serve()
     return dashboard
@@ -89,9 +101,12 @@ def _put_latest(queue: asyncio.Queue[dict[str, Any]], item: dict[str, Any]) -> N
     queue.put_nowait(item)
 
 
-def create_app(state: DashboardState | None = None) -> FastAPI:
-    """Build the dashboard web app around state (a new empty one if not given)."""
+def create_app(
+    state: DashboardState | None = None, video: VideoFeed | None = None
+) -> FastAPI:
+    """Build the dashboard web app around state and a camera feed (new empty ones if not given)."""
     state = state or DashboardState()
+    video = video or VideoFeed()
     app = FastAPI(title="Dashboard")
     app.state.dashboard = state
     clients: set[asyncio.Queue[dict[str, Any]]] = set()
@@ -113,6 +128,15 @@ def create_app(state: DashboardState | None = None) -> FastAPI:
     async def index() -> str:
         """Serve the single dashboard page."""
         return INDEX_PATH.read_text(encoding="utf-8")
+
+    @app.get("/video")
+    async def video_stream() -> StreamingResponse:
+        """Stream the camera feed with overlays as MJPEG (SPEC.md 4.9)."""
+        return StreamingResponse(
+            mjpeg_stream(video),
+            media_type=f"multipart/x-mixed-replace; boundary={BOUNDARY}",
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/api/state")
     async def get_state() -> dict[str, Any]:
