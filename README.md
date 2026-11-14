@@ -104,17 +104,18 @@ Then open **http://localhost:8000** in Chrome. Press **Ctrl+C** in PowerShell to
 
 On the dashboard:
 
-- **Microphone** starts and stops listening. Ask "What am I touching?" or "What do you see?" and the answer is spoken. Voice input uses the browser's speech recognition, which may send audio to the browser's speech service and needs internet.
-- **Demo mode** switches the camera to the fixed set of demo objects; off returns to the standard detector.
-- The **Latest warning** card turns red for a few seconds after a hazard.
-- **Objects** lists what the camera sees; the touched object is highlighted.
-- **Voice input** shows what was heard and the latest answer.
-- **Recent events** shows the last 10 touches and hazards.
-- **Simulate alert** adds a test warning, marked *Simulated*, to the page only. It makes no sound and is not saved.
+- **Ask a question**: type a question, or press the microphone button and speak one question (one per press; it never listens on its own). Check the text, then press **Ask**. Try "What am I touching?", "What can you see?" or "Where did I last touch my keys?". The answer is shown and sent to the speaker. Voice input uses the browser's speech recognition, which may send audio to the browser's speech service and needs internet; typing always works.
+- **Regular | Demo** beside the camera switches the detector. The page shows Demo as active only after the camera process confirms the demo detector is loaded; Regular keeps running until then.
+- **Pip**, on the camera frame, is a help button and shows what the camera and detector are doing.
+- The **Warnings** panel turns red for a few seconds after a hazard.
+- **Recognized objects** lists what the camera sees; the touched object is highlighted.
+- **Find a last touch** searches recorded touches.
+- **Recent activity** shows the last 10 touches and hazards.
+- **Simulate alert** (Demo tools) adds a test warning, marked *Simulated*, to the page only. It makes no sound and is not saved.
 
 ## Demo tips
 
-- With Demo mode off, use everyday objects the standard detector knows well: a plain plastic water bottle, a cup or mug, a phone, a banana or apple, a book, scissors. Unusual items (metal tumblers, headphones, keys, toiletries) are often missed or mislabelled.
+- In Regular mode, use everyday objects the standard detector knows well: a plain plastic water bottle, a cup or mug, a phone, a banana or apple, a book, scissors. Unusual items (metal tumblers, headphones, keys, toiletries) are often missed or mislabelled.
 - Demo mode targets the team's eight demo objects. It is still being trained; see [demotraining.md](demotraining.md) for its current status.
 - Wear or hold the camera as it will be used: steady, looking forward and down at arm's length, in good light.
 

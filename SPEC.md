@@ -10,11 +10,12 @@ This file is the single source of truth for what the system does. `AGENTS.md` is
 
 ## 1. Goal
 
-A wearer picks things up off a table or shelf. Each time their hand lands on an object, a speaker says exactly what it is, down to the brand ("Heinz ketchup", not "bottle"). Nothing is spoken for objects that are only in view. Touching the same object again says it again. Separately, if the wearer walks toward stairs, a drop, a vehicle or an obstacle, an alarm interrupts everything else.
+A wearer picks things up off a table or shelf and asks what they are touching; a speaker says exactly what it is, down to the brand ("Heinz ketchup", not "bottle"). Since 2026-11-14 object names are spoken only in answer to a question (typed or spoken on the dashboard), at the user's request; the original automatic touch announcement remains available as an audio option (`announce_touches`). Separately, if the wearer walks toward stairs, a drop, a vehicle or an obstacle, an alarm interrupts everything else.
 
 ### In scope
 
-- Touch-triggered announcement of the touched object's specific name.
+- The touched object's specific name, spoken in answer to a question ("What am I touching?"). Automatic touch announcement is an option, off by default.
+- Questions typed or spoken in the dashboard: what is in view, what is being touched, and where an object was last touched.
 - Brand-level naming through Grok vision.
 - Hazard alarm from the same camera.
 - A dashboard that shows the camera feed, the objects in view, and which object is being touched.
@@ -80,7 +81,7 @@ One Python 3.11 process on the laptop. Modules never call each other directly. T
 | 7 | Grok namer | `namer/` | Person 3 | `NameRequest` | `NameResult` | Grok vision API |
 | 8 | Tiger Data store | `storage/` | Person 3 | `TouchEvent`, `HazardEvent`, `LastSeenQuery` | `SpeakRequest` (answers) | Tiger Data (Postgres with time-series) |
 | 9 | Audio manager | `audio/` | Person 4 | `TouchEvent`, `NameResult`, `HazardEvent`, `SpeakRequest` | sound to the JBL | Offline text to speech plus a tone file |
-| 10 | Dashboard | `dashboard/` | Person 4 | `FrameResult`, `SceneSnapshot`, `TouchEvent`, `HazardEvent` | `LastSeenQuery` | FastAPI, one static HTML page |
+| 10 | Dashboard | `dashboard/` | Person 4 | `FrameResult`, `SceneSnapshot`, `TouchEvent`, `HazardEvent`, `NameRequest`, `NameResult`, `SpeechStatus`, `ModuleStatus`, `LastSeenResult`, `DetectorStatus` | `LastSeenQuery`, `SpeakRequest` (question answers), `ModeChange` | FastAPI, a minimal `index.html` plus native ES modules under `dashboard/static/` |
 
 Shared folders:
 
@@ -199,11 +200,12 @@ Known limit: one webcam cannot measure distance. Tier B lags by 1 to 3 seconds a
 | Priority | Sound | Trigger |
 |---|---|---|
 | 1 (highest) | Alarm: three short 880 Hz beeps, then the spoken hazard ("Stop. Stairs.") | `HazardEvent` |
-| 2 | Spoken object name | `TouchEvent` with kind `touch` |
-| 3 | Spoken answer | `SpeakRequest` with priority `normal` |
+| 2 | Spoken object name (only with `announce_touches`, off by default) | `TouchEvent` with kind `touch` |
+| 3 | Spoken answer, including "You are touching Heinz ketchup." | `SpeakRequest` with priority `normal` |
 
 Rules:
 
+- Object speech is question-only by default: a `TouchEvent` or late `NameResult` is silent unless `AudioManager(announce_touches=True)`. The dashboard's question panel publishes the answer as a `SpeakRequest`.
 - An alarm cuts off whatever is playing and empties the queue.
 - The speech queue holds one item. A newer item replaces a waiting older one. Stale speech is worse than no speech.
 - Spoken hazard phrases: `stairs_down` is "Stop. Stairs.", `drop_off` is "Stop. Drop ahead.", `vehicle` is "Stop. Vehicle.", `obstacle` is "Stop. Obstacle."
@@ -236,6 +238,17 @@ Hands are drawn as dots at the thumb tip and index fingertip.
 Object list and events reach the page over one WebSocket at `/ws`, sent after every `SceneSnapshot`.
 
 The search box publishes a `LastSeenQuery`. The answer is shown on the page and spoken through the JBL.
+
+**Questions.** The page has a question panel (`dashboard/static/features/questions/`) with a labelled text box, example questions, an Ask button and a microphone button. The microphone uses the browser's own speech recognition, one utterance per click, never automatically; the transcript lands in the text box for editing and is sent only when the wearer presses Ask. `POST /api/question {"text"}` is answered by `dashboard/services/questions.py` with the phrases in `dashboard/questions.py`:
+
+| Question | Answer |
+|---|---|
+| "What can you see?" and similar | Names of `idle`, `touching` and `held` objects in the current `SceneSnapshot` |
+| "What am I touching?", "What am I holding?", "What is this?" | Names of `touching` and `held` objects only |
+| "Where did I last touch the keys?", "Find my phone" | A correlated `LastSeenQuery`; the question stays `looking_up` until storage's `LastSeenResult` with the same `request_id` |
+| Anything else | A help sentence listing the examples |
+
+Rules: if the newest scene is older than `LOST_KEEP_SECONDS` the answer is "I do not have a current camera view." rather than old names. Scene and touch answers are published as one `SpeakRequest` (source `dashboard`). Storage speaks history answers itself, so the dashboard never repeats them; if storage is not running or does not answer within `LAST_SEEN_TIMEOUT_SECONDS`, the answer is "Touch history is unavailable right now." (spoken by the dashboard), never a "not found". A returned answer does not prove it was heard: `SpeechStatus` reports what the speech engine did. `GET /api/question/{question_id}` returns one question; the five newest are in the page state as `questions.recent`, so every open page shows the same answers.
 
 ### 4.10 Tiger Data
 
@@ -515,7 +528,7 @@ Only after the Sat 8 pm checkpoint is met.
 
 1. **Unknown objects.** If fingertips rest for 1 second where no object box exists, crop the area around the hand and send it to the namer. COCO has only 80 classes, so many groceries are never detected.
 2. **Teach mode.** The wearer names a personal item ("my allergy meds"). Store an embedding in Tiger Data and match later touches by vector similarity.
-3. **Voice query.** Use the webcam's microphone for the last-seen question in place of the dashboard search box.
+3. **Voice query.** Done in the dashboard with browser speech recognition (see 4.9 Questions). A microphone on the glasses themselves is still a stretch goal.
 
 ---
 

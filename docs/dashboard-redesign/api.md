@@ -82,6 +82,8 @@ the dashboard reports `unavailable` after 8 s and nothing was spoken.
 | `POST /api/simulate-alert` | page state after adding one simulated warning. Publishes nothing on the bus: no HazardEvent, no alarm, no storage row |
 | `POST /api/last-seen` `{"query": "keys"}` | **202** `{"request_id": "<32 hex>", "status": "pending"}`. 422 empty/too long (> 60 chars after trimming)/extra fields, 429 more than 8 searches pending, 503 no engine attached (`python -m dashboard` alone) |
 | `GET /api/last-seen/{request_id}` | `{request_id, status, answer, matched_at, query, label, neighbours, detail, submitted_at}`; `status` pending, found, not_found, unavailable. 404 unknown or expired id |
+| `POST /api/question` `{"text": "What am I touching?"}` | **200** or **202** question record `{question_id, text, intent, target, status, answer, answered_by, speech_requested, history_status, history_request_id, detail, asked_at, answered_at}`. `intent` scene, touch, history, help. `status` answered, looking_up (202: history waiting for storage), unavailable (stale view or no history; never "not found"). 422 empty or > 500 chars, 503 no engine attached |
+| `GET /api/question/{question_id}` | the same record; poll while `looking_up`. 404 unknown or expired |
 | `GET /api/objects/{object_id}/thumbnail` | `image/jpeg` crop (longest edge ≤ 160 px) or 404 `{detail}` |
 | `WS /ws` | page state on connect and after each change, at most 10 per second, plus a 1 s heartbeat |
 
@@ -95,6 +97,10 @@ at most 64 are kept. Poll every 500 ms; a `/ws` push also follows each answer.
 at recorded touches only (name or class label contains the text); there is no
 location data, so never show a room or position. `neighbours` are the objects
 recorded next to it at that moment.
+
+Questions: see SPEC.md 4.9 "Questions". The page state adds `questions:
+{available, recent: [5 newest records, newest first]}` and
+`capabilities.questions` (false when no engine is attached).
 
 ## 4. Page state (`/api/state` and `/ws`)
 
