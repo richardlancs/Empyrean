@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experience harness (fixtures)</title>
+  <link rel="stylesheet" href="/static/features/experience/experience.css">
+  <style>
+    /* Harness-only layout; the real shell is Agent 1's. */
+    body { margin: 0; background: #F5F7FA; color: #172B4D; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 17px; }
+    .harness-bar { background: #F3EEFF; color: #6D28D9; border-bottom: 2px solid #6D28D9; padding: 8px 16px; }
+    .harness-bar strong { display: block; }
+    .harness-bar label { margin-right: 8px; }
+    .harness-bar select, .harness-bar button { min-height: 44px; font: inherit; margin: 4px 4px 4px 0; }
+    .harness-grid { display: grid; gap: 16px; padding: 16px; grid-template-columns: minmax(0, 1fr); max-width: 1400px; margin: 0 auto; }
+    @media (min-width: 900px) {
+      .harness-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+      #touch-panel { grid-column: 1 / -1; }
+    }
+    .harness-log { margin: 0 16px 16px; font-size: 14px; color: #526176; }
+  </style>
+</head>
+<body>
+  <div class="harness-bar" role="region" aria-label="Fixture controls">
+    <strong>Preview harness: artificial FIXTURE data, not the running engine.</strong>
+    <label for="scenario">Scenario</label>
+    <select id="scenario"></select>
+    <button type="button" id="play">Play touch → hold → release → retouch</button>
+    <button type="button" id="drop">Toggle socket connection</button>
+  </div>
+  <main class="harness-grid">
+    <div id="touch-panel"></div>
+    <div id="camera-panel"></div>
+    <div id="objects-panel"></div>
+    <div id="find-panel"></div>
+  </main>
+  <details class="harness-log"><summary>Screen-reader announcements</summary><ol id="announcements"></ol></details>
+  <script type="module" src="/harness/harness.js"></script>
+</body>
+</html>
