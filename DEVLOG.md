@@ -72,6 +72,21 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 2 (shared `config/` and `SPEC.md`, agreed by all four), Claude Code
+**Changed:**
+- `config/thresholds.py`: `DET_MIN_CONFIDENCE` 0.5 to 0.3 and `DET_MIN_AREA_FRACTION` 0.02 to 0.002. These are the values Person 4 proposed in the tabletop detection trace entry below.
+- `SPEC.md` sections 4.2 and 9 now state the same two values. No code in `vision/`, no contracts, no model.
+- `tests/test_vision_p1.py` (Person 1's test): the fake detector's "low-confidence" box was hard-coded at 0.3, which is no longer below the threshold, so the test failed. It is now 0.2. The test still checks the same thing.
+
+**Tested:** On `main` at `d973e3a` plus this change, Windows, Python 3.11.18. Full `pytest`: 184 passed, 1 skipped (live database). `python -m app --fake vision audio` started every module and published frames. Ruff on `config/` and the edited test is clean. Not run on the real camera with the new values, and not checked against a glasses-camera clip.
+
+**Decisions:** Person 2's human confirmed that all four teammates accepted the new defaults (AGENTS.md rules 1 and 6). The change was made before Person 4's trace was run on a glasses-camera clip; Person 2 is sending that clip to Person 4.
+
+**Teammates need to know:**
+- **All:** pull `main` after this merges. Smaller and less certain objects now reach `FrameResult`, so expect more objects in the scene and possibly false detections in busy views. Say so here if you see them.
+- **Person 1:** more boxes reach ByteTrack. Latency was already over the 150 ms target on two Windows laptops (156 to 252 ms), so please measure it again.
+- **Person 4:** the "IN PROGRESS" item under Needs attention is yours to remove once the glasses-camera clip confirms the fix. The large black bottle that YOLO does not recognise is not helped by this.
+
 ### 2026-11-14, Person 1 (app, fake hazard, tests), Codex
 **Changed:**
 - Fake hazard registration can defer playback; app starts it after all selected modules subscribe. The first vehicle event is no longer lost during startup. Direct fake users retain automatic startup by default; stopping an unstarted fake is safe.
