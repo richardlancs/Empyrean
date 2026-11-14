@@ -14,7 +14,7 @@ from collections.abc import Callable
 from typing import Any
 
 from config import HAZARD_COOLDOWN_SECONDS
-from contracts import HazardEvent, SceneSnapshot, TouchEvent
+from contracts import HazardEvent, ModeChange, SceneSnapshot, TouchEvent
 
 EVENT_LOG_SIZE = 10  # SPEC.md 4.9: "last 10 touch and hazard events"
 # SPEC.md 4.9: touched objects are sorted to the top of the object list.
@@ -40,6 +40,7 @@ class DashboardState:
         self._events: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
         self._latest_warning: dict[str, Any] | None = None
         self._objects: list[dict[str, Any]] = []
+        self._mode = "actual"
         self._listeners: list[Callable[[], None]] = []
 
     def add_listener(self, listener: Callable[[], None]) -> None:
@@ -87,6 +88,14 @@ class DashboardState:
             self._objects = objects
         self._notify()
 
+    def on_mode(self, msg: ModeChange) -> None:
+        """Show which mode is running: actual, or demo (demo-object detector)."""
+        with self._lock:
+            if self._mode == msg.mode:
+                return
+            self._mode = msg.mode
+        self._notify()
+
     def simulate_hazard(self) -> dict[str, Any]:
         """Add one simulated stairs warning to this page only, and return the new state.
 
@@ -101,8 +110,10 @@ class DashboardState:
             latest = dict(self._latest_warning) if self._latest_warning else None
             events = [dict(e) for e in self._events]
             objects = [dict(o) for o in self._objects]
+            mode = self._mode
         return {
             "now": self._clock(),
+            "mode": mode,
             "hazard_active_seconds": HAZARD_COOLDOWN_SECONDS,
             "latest_warning": latest,
             "events": events,

@@ -23,7 +23,9 @@ Problems in someone else's folder go here. The owner removes the line once fixed
 - **Repo root:** there is still no root requirements file (AGENTS.md rule 8). Pins are split across `audio/requirements.txt` (`pyttsx3==2.99`, `pygame==2.6.1`) and `dashboard/requirements.txt` (`fastapi==0.162.7`, `uvicorn[standard]==0.54.0`, `opencv-contrib-python==4.11.0.86`). `ultralytics`, `mediapipe`, `httpx`, `psycopg`, `python-dotenv`, `numpy`, `pytest` and `ruff` are pinned nowhere. Earlier tested versions for some: `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. Whoever sets up the demo laptop should write one root file from that machine's working environment. Install `opencv-contrib-python` only, never alongside `opencv-python`.
 - **Person 1 (`fakes/hazard/fake_hazard.py`, start order):** still open. `FakeHazard` starts its thread in its constructor and `hazard` is first in `app`'s `MODULES`, so with `--fake hazard` the first `HazardEvent` (vehicle, yolo) is published before audio and dashboard subscribe. Start the thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
 - **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` still uses a fixed `time.sleep(1.4)`. It passes on Person 2's laptop (2026-11-14) but failed on Person 4's, where audio startup is slower. Wait for the expected output line instead.
-- **Demo mode proposal (Persons 1, 3 and 4, and all four for `contracts/`):** read the "demo button and recordings proposal" entry. It needs a yes or no on a `ModeChange` message, a demo toggle in `dashboard/` (Person 4), a demo object list in the Grok prompt in `namer/` (Person 3), and an optional start-up video source in `vision/` (Person 1). No model training.
+- **Person 1 (`vision/`, please review):** Person 2 added demo mode to your folder: `vision/vision.py` (second detector, `set_mode`, `ModeChange` handling) and the new `vision/build_demo_weights.py` and `vision/capture_demo_refs.py`. See the "demo mode built" and "demo detector changed to YOLOE" entries. Keep, change or revert, then remove this line. Reference pictures of the eight demo objects still have to be taken on the Logitech camera.
+- **Person 4 (`dashboard/`, please review):** Person 2 added the Demo mode button, `POST /api/mode` and the `mode` field in the page state (`server.py`, `state.py`, `index.html`). Keep, change or revert, then remove this line.
+- **Persons 1, 3 and 4 (shared files):** Person 2 added `ModeChange` to `contracts/` and `DEMO_DET_MIN_CONFIDENCE` to `config/`, with matching rows in `SPEC.md` sections 5 and 9, before the other three confirmed. Say yes or ask for it to be reverted.
 - **Person 1 (voice questions):** read the "voice questions plan for Person 1" entry before building. Confirm first that a Google Home can pass questions to our process at all.
 - **Person 1 (`hazard/`):** the narrowed tier B prompt has only been tested on scenes with no hazard (0 of 10 flagged). Test it on real stairs, a doorway and a wall before the demo. If it misses them, loosen the "do not count" list.
 - **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed and the Objects panel to your folder (`dashboard/video.py`, `server.py`, `state.py`, `__init__.py`, `index.html`, `requirements.txt`, and the dashboard tests). Keep, change or revert, then remove this line.
@@ -47,6 +49,7 @@ Any change to `contracts/`, `config/`, `SPEC.md` or `AGENTS.md`. Needs all four 
 | 2026-11-13 23:40 | Initial `contracts/messages.py` and `config/thresholds.py`, copied from SPEC.md sections 5 and 9. No value changed | pending team review |
 | 2026-11-14 01:03 | PR #2 merged to `main`: `Box` and `Point` are tuples, the fixed value sets are `Literal`, list fields default to empty, the dataclasses are no longer frozen, and `tests/test_contracts.py` checks them against SPEC.md. No threshold changed | Person 3 (author), Person 2 (adopted in `scene/`). Persons 1 and 4 still to confirm |
 | 2026-11-14 | Docs brought in line with the code on `main`. `SPEC.md` 2.1, 3.1 and 4.2, `AGENTS.md` and `CLAUDE.md`: YOLO nano to YOLO small (`yolo11s.pt`). `SPEC.md` 4.5: naming prompt names a brand only when readable, and scene owns the one retry. `SPEC.md` 4.7: narrowed tier B prompt. `SPEC.md` 6 and 12: Grok model name resolved. `contracts/README.md`: proposal text replaced with the current shapes. No message field and no threshold changed | All four, as confirmed by Person 2 to the agent |
+| 2026-11-14 | New message `ModeChange` (`ts`, `mode`: `actual` or `demo`) in `contracts/` and `SPEC.md` section 5. New threshold `DEMO_DET_MIN_CONFIDENCE` = 0.25 in `config/` and `SPEC.md` section 9. YOLOE (`yoloe-11s-seg.pt`, Ultralytics, pretrained, no training) used as the detector in demo mode only, after YOLO-World was tried and dropped; `yolo11s.pt` unchanged in actual mode. No existing field or value changed | Person 2 only, who told the agent to build it. Persons 1, 3 and 4 still to confirm |
 
 ## Stack
 
@@ -73,6 +76,63 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 2 working in `vision/`, Claude Code: demo detector changed to YOLOE with reference pictures
+**Changed:** Demo mode detected nothing on the real camera, so the demo detector was replaced. The button, `ModeChange`, the threshold and the dashboard are as in the entry below.
+- **Why YOLO-World failed.** On one real frame from the Logitech camera (bottle, toothpaste, laptop, hand), resized to 640 x 360, YOLO-World small scored the water bottle 0.05 and the toothpaste 0.03 against a cutoff of 0.25. Plainer wording and the v2 small, medium and large weights were tried: the best toothpaste score was 0.08, and the large model took about 350 ms per frame. YOLOE with text prompts was no better (toothpaste 0.09 small, 0.19 medium).
+- **What works: YOLOE visual prompts.** YOLOE is given a picture of each object with a box around it and turns that into an embedding. Nothing is trained. With the bottle and toothpaste boxed on that one frame, the small model scored toothpaste 0.90 to 0.99 and bottle 0.63 to 0.89 on altered copies of the frame (flipped, darker, rotated and scaled), and found nothing on a laptop-only crop.
+- **`vision/capture_demo_refs.py` (new):** `python -m vision.capture_demo_refs`. OpenCV window on the camera; for each demo object press SPACE, drag a box, ENTER. Saves 640 x 360 pictures and `refs.json` to `vision/demo_refs/`.
+- **`vision/build_demo_weights.py` (rewritten):** reads `refs.json`, averages the embeddings per object, adds text embeddings for car, bus, truck, motorcycle and bicycle (for hazard tier A), saves `vision/models/demo-prompts.pt`. Warns for any demo object with no picture.
+- **`vision/vision.py`:** demo mode loads `yoloe-11s-seg.pt` and `demo-prompts.pt` and calls `set_classes`. If either file is missing, demo mode is refused as before.
+- **`SPEC.md` 5:** the `ModeChange` note now describes YOLOE and the two commands.
+
+**Tested:**
+- `python -m vision.build_demo_weights --refs <folder>` on a folder holding that one frame with two boxes: wrote prompts for water bottle, toothpaste and the five vehicle classes.
+- `load_processor` with `clip` and `mobileclip` imports blocked, then `VisionProcessor.process` on four altered copies of the frame, six frames each. Actual mode: laptop only (the bottle scores 0.46, under `DET_MIN_CONFIDENCE`). Demo mode: toothpaste and water bottle tracked in every variant, no vehicle reported. A second, lower box around bottle plus arm (0.34) appeared in one variant.
+- Speed on this CPU-only laptop, detector plus hands: actual median 88 ms, worst 100 ms; demo median 103 ms, worst 119 ms.
+- **Fix, same day:** the first real run of `capture_demo_refs` showed no window and no message. Three copies had been started in three terminals and were competing for the camera; each hung opening it or looped on failed reads without saying so. The tool now logs "Opening camera N", gives up with a clear message after 15 s if the camera will not open or 5 s if it sends no picture, logs "Camera ready" once it does, and keeps its window on top.
+- **Second fix:** after those copies were force-stopped, camera 1 (the external webcam) still hung on OpenCV's default Windows backend but opened in 0.3 s through DirectShow (`CAP_DSHOW`). The tool now falls back to DirectShow when the default backend does not open within 15 s. `vision/vision.py` still uses the default backend only, so **Person 1**: if the app's camera hangs the same way, unplugging and replugging the webcam may clear it, or the same fallback could go into `LatestCamera`.
+- **Reference pictures taken (Person 2, 13:15 to 13:30):** 62 pictures in `vision/demo_refs/` on the Logitech camera: water bottle 8, toothbrush 6, toothpaste 8, charger 5, phone 9, headphones 10, keys 7, watch 9. Every box was checked by eye on a contact sheet: all on the right object; toothbrush 3 and 5 and charger 5 are loose.
+- **Accuracy, leave-one-out** (each picture detected with prompts built from the other 61, cutoff `DEMO_DET_MIN_CONFIDENCE` 0.25, counted as found when the right name is on a box overlapping the object): averaged prompt per object 18/62 (29%); one prompt per picture 25/62 (40%); both together 28/62 (45%). Both together is what `build_demo_weights` now saves (75 prompts named like `keys/3`; `vision.tracked_objects` cuts the `/3` so the label stays `keys`). Per object with both: water bottle 6/8, toothpaste 4/8, phone 5/9, headphones 6/10, watch 4/9, toothbrush 2/6, charger 1/5, keys 0/7. Headphones and keys are often boxed as water bottle.
+- **Why it is low:** not a bug. The prompt computed by `build_demo_weights` is identical to Ultralytics' own `refer_image` path, and even a picture's own prompt scores it low (headphones_5 0.09, keys_3 0.19, water_bottle_2 0.44). YOLOE visual prompts are weak on these webcam pictures. The 0.98 on the first screenshot was a lucky case.
+- **Next, if demo mode must be reliable:** fine-tune a detector on these 62 labelled pictures (they already have boxes). That is training, so AGENTS.md rule 7 needs the human's say-so; on this CPU-only laptop expect roughly half an hour, not measured.
+- **Not tested:** live demo mode on the camera with the 62-picture prompts. Earlier note, now out of date: `capture_demo_refs` had not been run successfully yet (it needs a person at the camera, and the camera was in use). Six of the eight objects (toothbrush, charger, phone, headphones, keys, watch) have never been through the detector. The test frames were copies of the reference frame, which flatters the scores; the real check is the live camera after proper reference pictures.
+
+**Teammates need to know:**
+- On the demo laptop: stop the app, run `python -m vision.capture_demo_refs` (two or three pictures per object, in demo lighting), then `python -m vision.build_demo_weights`, then start the app and press Demo mode.
+- The build needs a network connection the first time: `yoloe-11s-seg.pt` (28 MB) and `mobileclip_blt.ts` (600 MB, only used for the vehicle text prompts). Run time needs only `yoloe-11s-seg.pt` and `demo-prompts.pt`, both git-ignored.
+- `vision/models/demo-prompts.pt` on Person 2's laptop currently holds only water bottle and toothpaste, from the one test frame. It is replaced by the next build.
+- Ultralytics' CLIP package was installed into Person 2's venv for the YOLO-World attempt and is no longer needed.
+- `vision/demo_refs/` pictures are not git-ignored. Decide whether to commit them.
+- `.gitignore` gained one line, `mobileclip_*.ts`, so the 600 MB text encoder cannot be committed by accident.
+- `pytest`: 185 passed, 1 skipped, and `test_cli_fake_vision_starts` failing on some runs and passing on others, as in the entry below. `ruff check .`: clean.
+
+### 2026-11-14, Person 2 working in `vision/`, `dashboard/`, `contracts/` and `config/`, Claude Code: demo mode built
+**Changed:** Person 2 is responsible for the demo and told the agent to build demo mode now, across other people's folders and the shared files. The owners have not reviewed it. Branch `p2-demo-mode`.
+- **What demo mode is:** the live camera as always, but objects are detected by YOLO-World with a fixed class list instead of COCO `yolo11s.pt`. Five of the eight demo objects (toothpaste, charger, headphones, keys, watch) have no COCO class, so they could never be touched or named in actual mode. No model is trained.
+- **`contracts/`, `SPEC.md` 5:** new `ModeChange` (`ts`, `mode`). Dashboard publishes it; vision subscribes. If vision cannot switch, it publishes `ModeChange` with `mode="actual"` so the page shows what is really running.
+- **`config/`, `SPEC.md` 9:** new `DEMO_DET_MIN_CONFIDENCE` = 0.25, because open-vocabulary scores run lower than COCO scores. The value is a guess, not measured.
+- **`vision/vision.py`:** `load_processor` also loads `vision/models/demo-world.pt` if it exists. `VisionProcessor.set_mode` picks the detector for the next frame, rebuilds the tracker on the first frame after a switch, and offsets track ids so an id is never reused across modes (scene keeps names by id). `Vision.on_mode` only stores the request; the frame loop applies it. Nothing is downloaded at run time.
+- **`vision/build_demo_weights.py` (new):** `python -m vision.build_demo_weights`, run once in a setup shell. Loads `yolov8s-world.pt`, sets the classes, saves `demo-world.pt`. Classes are the eight demo objects plus car, bus, truck, motorcycle and bicycle, so hazard tier A still sees vehicles in demo mode.
+- **`dashboard/`:** "Demo mode: on/off" button in the header, `POST /api/mode` with `{"mode": "actual" | "demo"}`, a `mode` field in the page state, and a "Demo mode: detecting the demo objects only" tag while it is on.
+- **Not changed:** `namer/`. In demo mode the detector label is already specific ("toothpaste"), and it reaches Grok as the existing hint. `scene/`, `audio/`, `hazard/` and `storage/` are untouched. `--fake vision` ignores the mode.
+- **Dropped from the earlier proposal:** playing recorded clips. Demo mode is live only.
+
+**Tested:**
+- `pytest`: 185 passed, 1 skipped (live DB). `ruff check .`: clean. New tests: detector switch, demo threshold, fresh tracker and unique ids; refusal without demo weights; the button publishing `ModeChange`; page state following a `ModeChange` from the bus; a bad mode value rejected.
+- On the page at `localhost:8000`: the button is there and the "on" rendering was checked by hand. A click on a running `python -m app` without demo weights went back to "off", as designed.
+- **Weights built on Person 2's laptop** with `python -m vision.build_demo_weights`: it downloaded `yolov8s-world.pt` (26 MB) and the CLIP ViT-B/32 text encoder (338 MB), installed Ultralytics' CLIP package into the venv, and wrote `vision/models/demo-world.pt` (27 MB) with the 13 class names. The saved file loads through `load_processor` with the `clip` import blocked, so run time needs no CLIP.
+- **Speed, CPU only, one 1280 x 720 noise frame repeated 20 times through `VisionProcessor.process` (detector plus hands):** actual mode median 77 ms, worst 88 ms; demo mode median 90 ms, worst 104 ms. Both fit the 200 ms frame budget at 5 fps. Switching actual, demo, actual in one process worked.
+- **`test_cli_fake_vision_starts` failed in 3 of 6 runs** after the build, and passed on a run with these changes stashed. It is the fixed `time.sleep(1.4)` test already listed under "Needs attention", and a second `python -m app` was running on this laptop at the time. The other 184 tests passed every run.
+- **Not tested:** detection of the real objects. No image of any demo object has been through the demo detector, on a camera or from a file. Unknown: whether each of the eight is found, at what confidence, and how well ByteTrack follows them.
+
+**Decisions:** demo touches are written to Tiger Data like any others; nothing marks them as demo.
+
+**Teammates need to know:**
+- Building the weights needs a network connection and installs Ultralytics' CLIP package into the environment (a dependency used only by the build script, AGENTS.md rule 8). Until `demo-world.pt` exists on the demo laptop the button does nothing.
+- After building, test all eight objects on the Logitech camera and tune `DEMO_DET_MIN_CONFIDENCE` and the class wording in `build_demo_weights.py` (for example "phone charger" for "charger").
+- `DET_MIN_AREA_FRACTION` (2% of the frame) still applies, so keys and a toothbrush must be close to the camera.
+- See the three new "Needs attention" lines.
+
 ### 2026-11-14, Person 2 (docs only), Claude Code: demo button and recordings proposal
 **Changed:** No code. Person 2 is responsible for the demo and asked how to build a demo button and whether to train the model on recorded clips. This is the agent's proposal for the team to accept or change. Nothing below is built or agreed yet.
 
@@ -89,7 +149,36 @@ The approved stack, repeated here so every log reader has it. Changes go through
   - Committed clips go under `fakes/vision/`, each under 20 seconds and 10 MB (AGENTS.md rule 10). Longer ones are copied to the demo laptop by hand.
 - **Differs from the earlier plan** (entry below): that one had the button switch the app to playing a recording. This one keeps the live camera and moves clip playback to a start-up option, which avoids run-time source switching in `vision/`. Person 1, who started on per-object clips, should say whether that fits what he has built.
 
-**To decide, all four:** (1) accept or change the proposal, (2) the `ModeChange` message, (3) where the object list lives, (4) whether demo-mode touches are written to Tiger Data.
+**Demo objects (chosen by Person 2, later the same day):** water bottle, toothbrush, toothpaste, charger, phone, headphones, keys, watch.
+
+**Problem found with that list:** `vision/` runs plain COCO `yolo11s.pt`, and a touch only happens on an object YOLO has boxed. Checked against the COCO class list, not yet on camera:
+
+| Object | COCO class | Expected |
+|---|---|---|
+| Water bottle | `bottle` | Detected |
+| Toothbrush | `toothbrush` | Detected, but thin objects are often missed |
+| Phone | `cell phone` | Detected |
+| Watch | none (`clock` is wall clocks) | Missed or mislabelled |
+| Toothpaste | none | Missed or mislabelled |
+| Charger | none | Missed or mislabelled |
+| Headphones | none | Missed or mislabelled |
+| Keys | none | Missed or mislabelled |
+
+Five of the eight have no COCO class, so no box, no touch and no spoken name. The Grok object list in this proposal does not help there, because Grok is only asked about boxes YOLO produced. Options, for the team to choose:
+1. *Change the objects* to ones COCO has (bottle, cup, phone, toothbrush, book, scissors, remote, mouse, keyboard, banana, apple, orange, spoon, fork, backpack, umbrella). No code change. Lowest risk.
+2. *Open-vocabulary weights in Ultralytics* (YOLO-World, for example `yolov8s-world.pt`, with the class list set to the demo objects). No training, same library, but it is a model swap in `vision/` (Person 1), so AGENTS.md rule 7 and the stack table need all four to agree, and speed and tracking on the demo laptop must be measured first.
+3. *Fine-tune YOLO on recorded clips.* Not recommended: needs hand labelling and training time, and breaks rule 7.
+Whichever is chosen, test each object on the Logitech camera before relying on it.
+
+**Person 2's choice: option 2, in demo mode only.** Actual mode keeps `yolo11s.pt` unchanged. Demo mode runs YOLO-World with the eight demo objects as its class list. This still needs the other three to agree (model and stack change, AGENTS.md rules 7 and 8) and it is Person 1's folder. Design notes for Person 1 (Person 2's agent's notes):
+- *What the venv has.* Checked on Person 2's laptop: `ultralytics 8.4.212` already includes `YOLOWorld`. Torch is CPU only, no GPU. The `clip` package is not installed.
+- *One-off weights build, off the frame path.* Setting a class list needs the `clip` package and downloads a text encoder, as far as the agent knows. Do it once in a setup shell: load `yolov8s-world.pt`, call `set_classes([...the eight names...])`, then `save("vision/models/demo_world.pt")`. The saved file should then load with plain `YOLO(...)` and need no `clip` at run time. Confirm this on the installed version. Neither weights file is committed.
+- *In `vision/`.* Load both detectors at start-up. Keep a current-mode flag, set from the bus when the mode message arrives, and call `.track(...)` on whichever detector is active. Reset the tracker when the mode flips so object ids from one model do not carry into the other. `TrackedObject.label` then carries the YOLO-World name ("toothpaste"), so no message shape changes.
+- *Speed.* `yolo11s` takes about 49 ms per frame here on CPU. YOLO-World small will be slower. Measure it on the demo laptop before agreeing; if it is too slow, try a smaller input size.
+- *Confidence.* Open-vocabulary scores run lower than COCO scores, so `DET_MIN_CONFIDENCE` (0.5) may hide real detections in demo mode. A separate demo threshold would be a new `config/` value, which needs all four.
+- *Naming.* With the label already specific, the Grok object list in step 2 above matters less, but still helps with brands.
+
+**To decide, all four:** (0) agree to YOLO-World in demo mode, (1) accept or change the proposal, (2) the `ModeChange` message, (3) where the object list lives, (4) whether demo-mode touches are written to Tiger Data.
 
 **Tested:** Docs only; nothing to run.
 

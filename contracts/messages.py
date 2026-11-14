@@ -123,3 +123,11 @@ class SpeakRequest:
     text: str  # what to say
     priority: Literal["normal"]
     source: str  # folder name of the sender
+
+
+@dataclass
+class ModeChange:
+    """Dashboard to vision, and vision back to dashboard if it cannot switch."""
+
+    ts: float  # when the mode was set
+    mode: Literal["actual", "demo"]  # actual: COCO detector. demo: demo-object detector

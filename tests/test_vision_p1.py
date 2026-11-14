@@ -167,3 +167,82 @@ def test_camera_reopens_after_repeated_failures(monkeypatch: Any) -> None:
         assert not camera.stopped
     finally:
         camera.close()
+
+
+class FakeWorld:
+    """A demo detector: one low-confidence toothpaste whose track id restarts at 1."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def track(self, image: Any, **kwargs: Any) -> list[Any]:
+        """Return a box that only passes the demo confidence threshold."""
+        self.calls.append(kwargs)
+        boxes = SimpleNamespace(
+            xyxy=Array([[300, 100, 420, 260]]),
+            conf=Array([0.3]),
+            cls=Array([0]),
+            id=Array([1]),
+        )
+        return [SimpleNamespace(boxes=boxes, names={0: "toothpaste"})]
+
+
+def test_demo_mode_switches_detector_and_keeps_ids_unique() -> None:
+    """Demo mode uses the demo detector, its threshold, a fresh tracker and new ids."""
+    from config import DEMO_DET_MIN_CONFIDENCE, DET_MIN_CONFIDENCE
+
+    standard, world = FakeYOLO(), FakeWorld()
+    processor = VisionProcessor(standard, FakeHands(), FakeMP, demo_detector=world)
+    raw = np.zeros((720, 1280, 3), dtype=np.uint8)
+    assert [o.object_id for o in processor.process(raw, 0, 1.0).objects] == [7]
+
+    assert processor.set_mode("demo") is True
+    demo = processor.process(raw, 1, 2.0).objects
+    assert [(o.object_id, o.class_label) for o in demo] == [(8, "toothpaste")]
+    assert world.calls[0]["persist"] is False
+    assert world.calls[0]["conf"] == DEMO_DET_MIN_CONFIDENCE
+    processor.process(raw, 2, 3.0)
+    assert world.calls[1]["persist"] is True
+    assert len(standard.calls) == 1  # the standard detector does not run in demo mode
+
+    assert processor.set_mode("actual") is True
+    back = processor.process(raw, 3, 4.0).objects
+    assert [(o.object_id, o.class_label) for o in back] == [(15, "bottle")]
+    assert standard.calls[1]["conf"] == DET_MIN_CONFIDENCE
+    processor.close()
+
+
+def test_demo_mode_refused_without_demo_weights() -> None:
+    """With no demo detector loaded, vision stays in actual and reports it on the bus."""
+    from contracts import ModeChange
+    from vision.vision import Vision
+
+    processor = VisionProcessor(FakeYOLO(), FakeHands(), FakeMP)
+    assert processor.set_mode("demo") is False and processor.mode == "actual"
+
+    published: list[Any] = []
+    vision = Vision.__new__(Vision)  # no camera thread; exercise the mode handling only
+    vision._publish = published.append
+    vision._mode_lock = __import__("threading").Lock()
+    vision._wanted_mode = "actual"
+    vision.on_mode(ModeChange(ts=1.0, mode="demo"))
+    vision._apply_mode(processor)
+    assert [(type(m), m.mode) for m in published] == [(ModeChange, "actual")]
+    vision._apply_mode(processor)  # nothing more to report
+    assert len(published) == 1
+    processor.close()
+
+
+def test_demo_reference_list_is_required_and_read(tmp_path: Any) -> None:
+    """The prompt build refuses a folder with no refs.json and reads one that has it."""
+    import json
+
+    import pytest
+
+    from vision.build_demo_weights import REFS_FILE, load_refs
+
+    with pytest.raises(FileNotFoundError):
+        load_refs(tmp_path)
+    refs = [{"file": "keys_1.jpg", "label": "keys", "box": [10.0, 20.0, 110.0, 90.0]}]
+    (tmp_path / REFS_FILE).write_text(json.dumps(refs), encoding="utf-8")
+    assert load_refs(tmp_path) == refs

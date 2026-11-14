@@ -1,0 +1,622 @@
+[
+  {
+    "file": "water_bottle_1.jpg",
+    "label": "water bottle",
+    "box": [
+      332.0,
+      29.5,
+      470.5,
+      335.0
+    ]
+  },
+  {
+    "file": "water_bottle_2.jpg",
+    "label": "water bottle",
+    "box": [
+      47.0,
+      28.0,
+      409.5,
+      342.5
+    ]
+  },
+  {
+    "file": "water_bottle_3.jpg",
+    "label": "water bottle",
+    "box": [
+      232.0,
+      24.5,
+      417.5,
+      169.0
+    ]
+  },
+  {
+    "file": "water_bottle_4.jpg",
+    "label": "water bottle",
+    "box": [
+      345.0,
+      60.5,
+      576.0,
+      300.0
+    ]
+  },
+  {
+    "file": "water_bottle_5.jpg",
+    "label": "water bottle",
+    "box": [
+      267.5,
+      4.0,
+      416.0,
+      326.5
+    ]
+  },
+  {
+    "file": "water_bottle_6.jpg",
+    "label": "water bottle",
+    "box": [
+      224.0,
+      27.5,
+      363.5,
+      290.0
+    ]
+  },
+  {
+    "file": "water_bottle_7.jpg",
+    "label": "water bottle",
+    "box": [
+      96.0,
+      62.5,
+      316.0,
+      194.5
+    ]
+  },
+  {
+    "file": "water_bottle_8.jpg",
+    "label": "water bottle",
+    "box": [
+      178.0,
+      34.0,
+      283.0,
+      182.5
+    ]
+  },
+  {
+    "file": "toothbrush_1.jpg",
+    "label": "toothbrush",
+    "box": [
+      107.5,
+      46.5,
+      171.0,
+      237.0
+    ]
+  },
+  {
+    "file": "toothbrush_2.jpg",
+    "label": "toothbrush",
+    "box": [
+      121.0,
+      30.5,
+      181.0,
+      189.5
+    ]
+  },
+  {
+    "file": "toothbrush_3.jpg",
+    "label": "toothbrush",
+    "box": [
+      221.5,
+      90.5,
+      477.0,
+      348.5
+    ]
+  },
+  {
+    "file": "toothbrush_4.jpg",
+    "label": "toothbrush",
+    "box": [
+      318.0,
+      47.0,
+      351.0,
+      269.5
+    ]
+  },
+  {
+    "file": "toothbrush_5.jpg",
+    "label": "toothbrush",
+    "box": [
+      190.5,
+      90.0,
+      452.0,
+      348.5
+    ]
+  },
+  {
+    "file": "toothbrush_6.jpg",
+    "label": "toothbrush",
+    "box": [
+      223.5,
+      52.5,
+      368.0,
+      240.5
+    ]
+  },
+  {
+    "file": "toothpaste_1.jpg",
+    "label": "toothpaste",
+    "box": [
+      268.5,
+      14.5,
+      471.0,
+      165.0
+    ]
+  },
+  {
+    "file": "toothpaste_2.jpg",
+    "label": "toothpaste",
+    "box": [
+      364.0,
+      32.5,
+      570.0,
+      262.5
+    ]
+  },
+  {
+    "file": "toothpaste_3.jpg",
+    "label": "toothpaste",
+    "box": [
+      186.5,
+      30.5,
+      317.5,
+      226.5
+    ]
+  },
+  {
+    "file": "toothpaste_4.jpg",
+    "label": "toothpaste",
+    "box": [
+      184.0,
+      47.0,
+      240.0,
+      226.5
+    ]
+  },
+  {
+    "file": "toothpaste_5.jpg",
+    "label": "toothpaste",
+    "box": [
+      106.0,
+      101.5,
+      314.0,
+      178.0
+    ]
+  },
+  {
+    "file": "toothpaste_6.jpg",
+    "label": "toothpaste",
+    "box": [
+      171.5,
+      120.5,
+      227.0,
+      186.5
+    ]
+  },
+  {
+    "file": "toothpaste_7.jpg",
+    "label": "toothpaste",
+    "box": [
+      208.0,
+      56.0,
+      296.0,
+      148.5
+    ]
+  },
+  {
+    "file": "toothpaste_8.jpg",
+    "label": "toothpaste",
+    "box": [
+      213.5,
+      33.0,
+      327.5,
+      139.0
+    ]
+  },
+  {
+    "file": "charger_1.jpg",
+    "label": "charger",
+    "box": [
+      137.0,
+      104.5,
+      328.0,
+      204.0
+    ]
+  },
+  {
+    "file": "charger_2.jpg",
+    "label": "charger",
+    "box": [
+      180.5,
+      30.5,
+      318.5,
+      209.5
+    ]
+  },
+  {
+    "file": "charger_3.jpg",
+    "label": "charger",
+    "box": [
+      200.0,
+      54.5,
+      328.5,
+      153.5
+    ]
+  },
+  {
+    "file": "charger_4.jpg",
+    "label": "charger",
+    "box": [
+      197.0,
+      70.5,
+      320.0,
+      249.0
+    ]
+  },
+  {
+    "file": "charger_5.jpg",
+    "label": "charger",
+    "box": [
+      104.0,
+      8.5,
+      377.5,
+      246.5
+    ]
+  },
+  {
+    "file": "phone_1.jpg",
+    "label": "phone",
+    "box": [
+      188.5,
+      26.0,
+      309.5,
+      174.5
+    ]
+  },
+  {
+    "file": "phone_2.jpg",
+    "label": "phone",
+    "box": [
+      224.0,
+      55.5,
+      313.0,
+      194.0
+    ]
+  },
+  {
+    "file": "phone_3.jpg",
+    "label": "phone",
+    "box": [
+      184.5,
+      44.5,
+      260.0,
+      186.0
+    ]
+  },
+  {
+    "file": "phone_4.jpg",
+    "label": "phone",
+    "box": [
+      164.5,
+      68.5,
+      262.0,
+      165.0
+    ]
+  },
+  {
+    "file": "phone_5.jpg",
+    "label": "phone",
+    "box": [
+      151.5,
+      73.0,
+      292.0,
+      134.5
+    ]
+  },
+  {
+    "file": "phone_6.jpg",
+    "label": "phone",
+    "box": [
+      123.5,
+      30.0,
+      238.0,
+      178.5
+    ]
+  },
+  {
+    "file": "phone_7.jpg",
+    "label": "phone",
+    "box": [
+      147.0,
+      83.5,
+      251.0,
+      191.0
+    ]
+  },
+  {
+    "file": "phone_8.jpg",
+    "label": "phone",
+    "box": [
+      230.5,
+      62.5,
+      346.0,
+      131.5
+    ]
+  },
+  {
+    "file": "phone_9.jpg",
+    "label": "phone",
+    "box": [
+      166.5,
+      77.0,
+      302.0,
+      146.5
+    ]
+  },
+  {
+    "file": "headphones_1.jpg",
+    "label": "headphones",
+    "box": [
+      225.5,
+      31.0,
+      512.0,
+      303.0
+    ]
+  },
+  {
+    "file": "headphones_2.jpg",
+    "label": "headphones",
+    "box": [
+      216.0,
+      110.0,
+      503.5,
+      213.0
+    ]
+  },
+  {
+    "file": "headphones_3.jpg",
+    "label": "headphones",
+    "box": [
+      244.0,
+      46.5,
+      500.0,
+      274.5
+    ]
+  },
+  {
+    "file": "headphones_4.jpg",
+    "label": "headphones",
+    "box": [
+      231.0,
+      50.5,
+      454.0,
+      242.0
+    ]
+  },
+  {
+    "file": "headphones_5.jpg",
+    "label": "headphones",
+    "box": [
+      201.0,
+      79.5,
+      556.0,
+      250.5
+    ]
+  },
+  {
+    "file": "headphones_6.jpg",
+    "label": "headphones",
+    "box": [
+      236.0,
+      28.0,
+      566.0,
+      280.0
+    ]
+  },
+  {
+    "file": "headphones_7.jpg",
+    "label": "headphones",
+    "box": [
+      282.5,
+      55.5,
+      611.5,
+      205.5
+    ]
+  },
+  {
+    "file": "headphones_8.jpg",
+    "label": "headphones",
+    "box": [
+      274.0,
+      33.5,
+      613.5,
+      317.5
+    ]
+  },
+  {
+    "file": "headphones_9.jpg",
+    "label": "headphones",
+    "box": [
+      292.0,
+      37.0,
+      593.0,
+      318.5
+    ]
+  },
+  {
+    "file": "headphones_10.jpg",
+    "label": "headphones",
+    "box": [
+      297.5,
+      54.0,
+      609.5,
+      319.5
+    ]
+  },
+  {
+    "file": "keys_1.jpg",
+    "label": "keys",
+    "box": [
+      354.5,
+      66.5,
+      529.5,
+      240.5
+    ]
+  },
+  {
+    "file": "keys_2.jpg",
+    "label": "keys",
+    "box": [
+      261.0,
+      12.5,
+      378.5,
+      236.0
+    ]
+  },
+  {
+    "file": "keys_3.jpg",
+    "label": "keys",
+    "box": [
+      201.0,
+      33.5,
+      445.0,
+      209.0
+    ]
+  },
+  {
+    "file": "keys_4.jpg",
+    "label": "keys",
+    "box": [
+      229.0,
+      90.0,
+      412.0,
+      257.0
+    ]
+  },
+  {
+    "file": "keys_5.jpg",
+    "label": "keys",
+    "box": [
+      207.0,
+      54.5,
+      341.0,
+      303.0
+    ]
+  },
+  {
+    "file": "keys_6.jpg",
+    "label": "keys",
+    "box": [
+      203.0,
+      59.0,
+      398.5,
+      270.5
+    ]
+  },
+  {
+    "file": "keys_7.jpg",
+    "label": "keys",
+    "box": [
+      425.5,
+      104.5,
+      640.0,
+      285.5
+    ]
+  },
+  {
+    "file": "watch_1.jpg",
+    "label": "watch",
+    "box": [
+      379.5,
+      17.5,
+      521.0,
+      240.0
+    ]
+  },
+  {
+    "file": "watch_2.jpg",
+    "label": "watch",
+    "box": [
+      269.0,
+      62.5,
+      485.0,
+      170.0
+    ]
+  },
+  {
+    "file": "watch_3.jpg",
+    "label": "watch",
+    "box": [
+      290.0,
+      62.5,
+      571.5,
+      234.0
+    ]
+  },
+  {
+    "file": "watch_4.jpg",
+    "label": "watch",
+    "box": [
+      305.0,
+      68.0,
+      463.5,
+      225.0
+    ]
+  },
+  {
+    "file": "watch_5.jpg",
+    "label": "watch",
+    "box": [
+      297.5,
+      63.0,
+      512.5,
+      184.5
+    ]
+  },
+  {
+    "file": "watch_6.jpg",
+    "label": "watch",
+    "box": [
+      371.5,
+      23.0,
+      525.5,
+      185.0
+    ]
+  },
+  {
+    "file": "watch_7.jpg",
+    "label": "watch",
+    "box": [
+      474.0,
+      66.0,
+      634.5,
+      231.0
+    ]
+  },
+  {
+    "file": "watch_8.jpg",
+    "label": "watch",
+    "box": [
+      353.5,
+      40.0,
+      617.0,
+      174.0
+    ]
+  },
+  {
+    "file": "watch_9.jpg",
+    "label": "watch",
+    "box": [
+      461.5,
+      16.0,
+      636.0,
+      151.5
+    ]
+  }
+]

@@ -12,6 +12,7 @@ from contracts import (
     Hand,
     HazardEvent,
     LastSeenQuery,
+    ModeChange,
     NameRequest,
     NameResult,
     SceneObject,
@@ -92,6 +93,7 @@ def _all_messages() -> list[object]:
         ),
         HazardEvent(ts=TS, type="stairs_down", source="grok", confidence=0.8),
         LastSeenQuery(ts=TS, text="keys"),
+        ModeChange(ts=TS, mode="demo"),
         SpeakRequest(ts=TS, text="Heinz ketchup", priority="normal", source="audio"),
     ]
 
@@ -136,6 +138,7 @@ def test_fixed_values_match_spec() -> None:
         (HazardEvent, "type"): {"stairs_down", "drop_off", "vehicle", "obstacle"},
         (HazardEvent, "source"): {"yolo", "grok"},
         (SpeakRequest, "priority"): {"normal"},
+        (ModeChange, "mode"): {"actual", "demo"},
     }
     for (cls, field_name), values in expected.items():
         hint = typing.get_type_hints(cls)[field_name]
@@ -153,7 +156,7 @@ def test_list_fields_default_to_empty() -> None:
 def test_config_matches_spec_section_9() -> None:
     """config has every section 9 name with the spec's value and type, and nothing else."""
     spec = _spec_thresholds()
-    assert len(spec) == 27
+    assert len(spec) == 28
     assert set(config.__all__) == set(spec)
     for name, value in spec.items():
         actual = getattr(config, name)

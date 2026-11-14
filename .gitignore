@@ -21,6 +21,8 @@ __pycache__/
 *.engine
 *.tflite
 *.task
+# Text encoder that the demo prompt build downloads (600 MB).
+mobileclip_*.ts
 
 # Large recordings (AGENTS.md rule 10). The short recorded clip that the
 # vision fake plays (AGENTS.md rule 3) is allowed: keep it <= 20 s and <= 10 MB.

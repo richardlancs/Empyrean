@@ -338,6 +338,15 @@ These are the contract between modules. Field names, types and units are fixed.
 | `ts` | number | When asked |
 | `text` | text | What to search for |
 
+### `ModeChange` (dashboard to vision, and vision back to dashboard)
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When the mode was set |
+| `mode` | text | One of `actual`, `demo` |
+
+The dashboard publishes this when the Demo mode button is pressed. In `demo`, vision detects with pretrained YOLOE (`yoloe-11s-seg.pt`) instead of `yolo11s.pt`. YOLOE is prompted with reference pictures of the demo objects, taken with `python -m vision.capture_demo_refs` and turned into prompts once by `python -m vision.build_demo_weights`. Nothing is trained. The camera, hands, scene, naming, audio and hazard paths are unchanged. If vision cannot switch (the demo prompts are not built), it publishes `ModeChange` with `mode` set to `actual`, so the page shows the mode that is really running.
+
 ### `SpeakRequest` (anyone to audio)
 
 | Field | Type | Meaning |
@@ -408,6 +417,7 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 | `PROCESS_WIDTH`, `PROCESS_HEIGHT` | 640, 360 | vision |
 | `DET_MIN_CONFIDENCE` | 0.5 | vision |
 | `DET_MIN_AREA_FRACTION` | 0.02 | vision |
+| `DEMO_DET_MIN_CONFIDENCE` | 0.25 | vision |
 | `STABLE_FRAMES` | 5 | scene |
 | `LOST_KEEP_SECONDS` | 2.0 | scene |
 | `BOX_SHRINK_FRACTION` | 0.10 | scene |

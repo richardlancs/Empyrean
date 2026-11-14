@@ -1,4 +1,9 @@
-"""Publish unmirrored camera frames with COCO tracks and two hand landmark sets."""
+"""Publish unmirrored camera frames with tracked objects and two hand landmark sets.
+
+Actual mode detects with COCO yolo11s.pt. Demo mode (ModeChange on the bus)
+detects the fixed demo objects with YOLOE and prompts built ahead of time from
+reference pictures of those objects.
+"""
 
 from __future__ import annotations
 
@@ -7,22 +12,28 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import cv2
 
 from config.thresholds import (
+    DEMO_DET_MIN_CONFIDENCE,
     DET_MIN_AREA_FRACTION,
     DET_MIN_CONFIDENCE,
     PROCESS_FPS,
     PROCESS_HEIGHT,
     PROCESS_WIDTH,
 )
-from contracts import FrameResult, Hand, TrackedObject
+from contracts import FrameResult, Hand, ModeChange, TrackedObject
 
 log = logging.getLogger("vision")
 MODEL_DIR = Path(__file__).resolve().parent / "models"
 YOLO_WEIGHTS = MODEL_DIR / "yolo11s.pt"
+# Demo mode: pretrained YOLOE plus prompts built once by
+# `python -m vision.build_demo_weights`. Neither is downloaded at run time.
+DEMO_WEIGHTS = MODEL_DIR / "yoloe-11s-seg.pt"
+DEMO_PROMPTS = MODEL_DIR / "demo-prompts.pt"
+Mode = Literal["actual", "demo"]
 HAND_MODEL = MODEL_DIR / "hand_landmarker.task"
 CAPTURE_WIDTH = PROCESS_WIDTH * 2
 CAPTURE_HEIGHT = PROCESS_HEIGHT * 2
@@ -36,8 +47,13 @@ def _clamp(value: float, maximum: int) -> float:
     return max(0.0, min(float(maximum), value))
 
 
-def tracked_objects(result: Any) -> list[TrackedObject]:
-    """Convert Ultralytics tracked COCO boxes into filtered contract objects."""
+def tracked_objects(
+    result: Any, min_confidence: float = DET_MIN_CONFIDENCE, id_offset: int = 0
+) -> list[TrackedObject]:
+    """Convert Ultralytics tracked boxes into filtered contract objects.
+
+    id_offset is added to every track id so ids stay unique across a mode switch.
+    """
     boxes = result.boxes
     if boxes is None or boxes.id is None:
         return []
@@ -50,7 +66,8 @@ def tracked_objects(result: Any) -> list[TrackedObject]:
         boxes.id.tolist(),
     ):
         confidence = float(score)
-        label = str(names[int(class_id)])
+        # Demo prompts are named "keys/3"; report the plain object name.
+        label = str(names[int(class_id)]).split("/", 1)[0]
         x1 = _clamp(float(box[0]), PROCESS_WIDTH)
         y1 = _clamp(float(box[1]), PROCESS_HEIGHT)
         x2 = _clamp(float(box[2]), PROCESS_WIDTH)
@@ -58,13 +75,13 @@ def tracked_objects(result: Any) -> list[TrackedObject]:
         area = (x2 - x1) * (y2 - y1)
         if (
             label == "person"
-            or confidence < DET_MIN_CONFIDENCE
+            or confidence < min_confidence
             or area < DET_MIN_AREA_FRACTION * PROCESS_WIDTH * PROCESS_HEIGHT
             or x2 <= x1
             or y2 <= y1
         ):
             continue
-        objects.append(TrackedObject(int(object_id), label, confidence, (x1, y1, x2, y2)))
+        objects.append(TrackedObject(int(object_id) + id_offset, label, confidence, (x1, y1, x2, y2)))
     return objects
 
 
@@ -97,24 +114,43 @@ def tracked_hands(result: Any) -> list[Hand]:
 class VisionProcessor:
     """Run pretrained tracking models on one processed-size frame."""
 
-    def __init__(self, detector: Any, hand_landmarker: Any, mp_module: Any) -> None:
+    def __init__(
+        self,
+        detector: Any,
+        hand_landmarker: Any,
+        mp_module: Any,
+        demo_detector: Any | None = None,
+    ) -> None:
         self.detector = detector
+        self.demo_detector = demo_detector
         self.hand_landmarker = hand_landmarker
         self.mp = mp_module
+        self.mode: Mode = "actual"
+        self._fresh_tracker = False  # True for the first frame after a mode switch
+        self._id_offset = 0
+        self._max_id = 0
         self._last_ms = -1
         self._start_monotonic = time.monotonic()
 
     def process(self, image: Any, frame_id: int, captured_ts: float) -> FrameResult:
         """Build a single FrameResult with the original, unmirrored BGR image."""
         processed = cv2.resize(image, (PROCESS_WIDTH, PROCESS_HEIGHT))
-        results = self.detector.track(
+        demo = self.mode == "demo" and self.demo_detector is not None
+        detector = self.demo_detector if demo else self.detector
+        min_confidence = DEMO_DET_MIN_CONFIDENCE if demo else DET_MIN_CONFIDENCE
+        results = detector.track(
             processed,
-            persist=True,
+            persist=not self._fresh_tracker,  # False rebuilds the tracker after a switch
             tracker="bytetrack.yaml",
-            conf=DET_MIN_CONFIDENCE,
+            conf=min_confidence,
             verbose=False,
         )
-        objects = tracked_objects(results[0]) if results else []
+        self._fresh_tracker = False
+        objects = (
+            tracked_objects(results[0], min_confidence, self._id_offset) if results else []
+        )
+        for obj in objects:
+            self._max_id = max(self._max_id, obj.object_id)
         rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
         mp_image = self.mp.Image(image_format=self.mp.ImageFormat.SRGB, data=rgb)
         timestamp_ms = max(int((time.monotonic() - self._start_monotonic) * 1000),
@@ -128,6 +164,18 @@ class VisionProcessor:
             objects=objects,
             hands=hands,
         )
+
+    def set_mode(self, mode: Mode) -> bool:
+        """Switch detector for the next frame; return False if that mode is unavailable."""
+        if mode == self.mode:
+            return True
+        if mode == "demo" and self.demo_detector is None:
+            return False
+        self.mode = mode
+        # Both trackers number from 1, so shift new ids past every id already published.
+        self._fresh_tracker = True
+        self._id_offset = self._max_id
+        return True
 
     def close(self) -> None:
         """Close MediaPipe resources after capture ends."""
@@ -154,13 +202,28 @@ def load_processor() -> VisionProcessor:
     from ultralytics import YOLO
 
     detector = YOLO(str(YOLO_WEIGHTS))
+    demo_detector = None
+    if DEMO_WEIGHTS.is_file() and DEMO_PROMPTS.is_file():
+        import torch
+        from ultralytics import YOLOE
+
+        prompts = torch.load(DEMO_PROMPTS, weights_only=True)
+        demo_detector = YOLOE(str(DEMO_WEIGHTS))
+        demo_detector.set_classes(prompts["names"], prompts["embeddings"])
+        log.info("Demo mode ready for: %s", ", ".join(prompts["names"]))
+    else:
+        log.info(
+            "No demo prompts at %s; demo mode is off until "
+            "`python -m vision.build_demo_weights` has been run",
+            DEMO_PROMPTS,
+        )
     options = mp.tasks.vision.HandLandmarkerOptions(
         base_options=mp.tasks.BaseOptions(model_asset_path=str(HAND_MODEL)),
         running_mode=mp.tasks.vision.RunningMode.VIDEO,
         num_hands=2,
     )
     hands = mp.tasks.vision.HandLandmarker.create_from_options(options)
-    return VisionProcessor(detector, hands, mp)
+    return VisionProcessor(detector, hands, mp, demo_detector)
 
 
 class LatestCamera:
@@ -244,8 +307,29 @@ class Vision:
     def __init__(self, publish: Any) -> None:
         self._publish = publish
         self._stop = threading.Event()
+        self._mode_lock = threading.Lock()
+        self._wanted_mode: Mode = "actual"
         self._thread = threading.Thread(target=self._run, name="vision", daemon=True)
         self._thread.start()
+
+    def on_mode(self, msg: ModeChange) -> None:
+        """Remember the requested mode; the frame loop applies it before its next frame."""
+        with self._mode_lock:
+            self._wanted_mode = msg.mode
+
+    def _apply_mode(self, processor: VisionProcessor) -> None:
+        """Switch the processor to the requested mode, or report back that it cannot."""
+        with self._mode_lock:
+            wanted = self._wanted_mode
+        if wanted == processor.mode:
+            return
+        if processor.set_mode(wanted):
+            log.info("Vision mode is now %s", wanted)
+            return
+        log.warning("Demo mode requested but the demo prompts are not built; staying in actual")
+        with self._mode_lock:
+            self._wanted_mode = processor.mode
+        self._publish(ModeChange(ts=time.time(), mode=processor.mode))
 
     def _run(self) -> None:
         processor: VisionProcessor | None = None
@@ -267,6 +351,7 @@ class Vision:
                     self._stop.wait(0.005)
                     continue
                 last_sequence, captured_ts, image = latest
+                self._apply_mode(processor)
                 result = processor.process(image, frame_id, captured_ts)
                 self._publish(result)
                 frame_id += 1
@@ -292,5 +377,7 @@ class Vision:
 
 
 def register(bus: Any) -> Vision:
-    """Publish live FrameResults from the configured camera to the bus."""
-    return Vision(bus.publish)
+    """Publish live FrameResults from the configured camera and follow ModeChange."""
+    vision = Vision(bus.publish)
+    bus.subscribe(ModeChange, vision.on_mode)
+    return vision

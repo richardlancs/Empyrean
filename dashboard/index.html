@@ -16,6 +16,7 @@
     --touch: #3fb950;
     --sim: #f5a524;
     --sim-bg: #3a2a0a;
+    --demo: #58a6ff;
     --radius: 10px;
   }
   * { box-sizing: border-box; }
@@ -63,6 +64,10 @@
     cursor: pointer;
   }
   button:disabled { opacity: .6; cursor: progress; }
+  #mode { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  #mode[aria-pressed="true"] { background: var(--demo); color: #06121f; border-color: var(--demo); }
+  #mode-tag { color: var(--demo); border-color: var(--demo); }
+  #mode-tag[hidden] { display: none; }
   button:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
 
   main {
@@ -188,8 +193,13 @@
 <header>
   <h1>Empyrean</h1>
   <span class="tag">Prototype</span>
+  <span id="mode-tag" class="tag" hidden>Demo mode: detecting the demo objects only</span>
   <span class="spacer"></span>
   <span id="status" class="status" role="status">Connecting</span>
+  <button id="mode" type="button" aria-pressed="false"
+          title="Demo mode detects only the fixed set of demo objects on the live camera. Off returns to the standard detector.">
+    Demo mode: off
+  </button>
   <button id="simulate" type="button"
           title="Adds a simulated stairs warning to this page only. No alarm sounds and nothing is stored.">
     Simulate alert
@@ -229,6 +239,8 @@
   const els = {
     status: document.getElementById("status"),
     button: document.getElementById("simulate"),
+    mode: document.getElementById("mode"),
+    modeTag: document.getElementById("mode-tag"),
     warning: document.getElementById("warning"),
     warningText: document.getElementById("warning-text"),
     warningMeta: document.getElementById("warning-meta"),
@@ -275,6 +287,11 @@
     clockOffset = state.now - Date.now() / 1000;
     activeSeconds = state.hazard_active_seconds;
     latest = state.latest_warning;
+
+    const demo = state.mode === "demo";
+    els.mode.setAttribute("aria-pressed", String(demo));
+    els.mode.textContent = demo ? "Demo mode: on" : "Demo mode: off";
+    els.modeTag.hidden = !demo;
 
     els.warningText.textContent = latest ? latest.text : "No warnings yet";
     if (latest && latest.simulated) els.warningText.appendChild(simBadge());
@@ -375,6 +392,21 @@
     };
   }
   connect();
+
+  els.mode.addEventListener("click", async () => {
+    const next = els.mode.getAttribute("aria-pressed") === "true" ? "actual" : "demo";
+    els.mode.disabled = true;
+    try {
+      const response = await fetch("/api/mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: next }),
+      });
+      if (response.ok) render(await response.json());
+    } finally {
+      els.mode.disabled = false;
+    }
+  });
 
   els.button.addEventListener("click", async () => {
     els.button.disabled = true;

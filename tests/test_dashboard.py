@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from config import HAZARD_COOLDOWN_SECONDS
-from contracts import FrameResult, HazardEvent, SceneSnapshot, TouchEvent
+from contracts import FrameResult, HazardEvent, ModeChange, SceneSnapshot, TouchEvent
 from dashboard import DashboardState, create_app, register
 from dashboard.state import EVENT_LOG_SIZE, HAZARD_LABELS
 
@@ -100,7 +100,13 @@ def test_register_and_real_events_are_not_simulated() -> None:
     """Real HazardEvent and touch TouchEvent from the bus are shown without the label."""
     bus = TestBus()
     state = register(bus, serve=False).state
-    assert set(bus.subscribers) == {HazardEvent, TouchEvent, FrameResult, SceneSnapshot}
+    assert set(bus.subscribers) == {
+        HazardEvent,
+        TouchEvent,
+        FrameResult,
+        SceneSnapshot,
+        ModeChange,
+    }
 
     bus.publish(HazardEvent(ts=NOW, type="vehicle", source="yolo", confidence=0.91))
     bus.publish(
@@ -227,3 +233,22 @@ def test_scene_snapshot_fills_object_list_touched_first() -> None:
         ("cup", "lost", False),
     ]
     assert objects[2]["last_seen_ts"] == NOW - 1
+
+
+def test_demo_button_publishes_mode_change_and_shows_mode() -> None:
+    """The Demo mode button publishes ModeChange on the bus and the page state follows."""
+    bus = TestBus()
+    dashboard = register(bus, DashboardState(clock=lambda: NOW), serve=False)
+    client = TestClient(create_app(dashboard.state, publish=bus.publish))
+    assert client.get("/api/state").json()["mode"] == "actual"
+    assert 'id="mode"' in client.get("/").text
+
+    body = client.post("/api/mode", json={"mode": "demo"}).json()
+    assert body["mode"] == "demo"
+    assert [(type(m), m.mode) for m in bus.published] == [(ModeChange, "demo")]
+
+    # Vision answers "actual" when it has no demo weights; the page must follow.
+    bus.publish(ModeChange(ts=NOW, mode="actual"))
+    assert client.get("/api/state").json()["mode"] == "actual"
+
+    assert client.post("/api/mode", json={"mode": "replay"}).status_code == 422

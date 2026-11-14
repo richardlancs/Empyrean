@@ -1,4 +1,4 @@
-"""FastAPI app: serves the page, the camera feed at /video, state over /ws, and Simulate alert."""
+"""FastAPI app: the page, the camera feed at /video, state over /ws, Simulate alert, Demo mode."""
 
 from __future__ import annotations
 
@@ -7,14 +7,16 @@ import contextlib
 import logging
 import socket
 import threading
+import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from config import DASHBOARD_PORT
-from contracts import FrameResult, HazardEvent, SceneSnapshot, TouchEvent
+from contracts import FrameResult, HazardEvent, ModeChange, SceneSnapshot, TouchEvent
 from dashboard.state import DashboardState
 from dashboard.video import BOUNDARY, VideoFeed, mjpeg_stream
 
@@ -27,10 +29,16 @@ SERVER_STOP_SECONDS = 3.0  # how long stop() waits for the web server thread
 class Dashboard:
     """The dashboard as app/ runs it: bus-fed state plus the web page on a thread."""
 
-    def __init__(self, state: DashboardState, video: VideoFeed | None = None) -> None:
-        """Hold state and the camera feed; call serve() to start the web page."""
+    def __init__(
+        self,
+        state: DashboardState,
+        video: VideoFeed | None = None,
+        publish: Callable[[Any], None] | None = None,
+    ) -> None:
+        """Hold state, the camera feed and the bus publish; call serve() to start the page."""
         self.state = state
         self.video = video or VideoFeed()
+        self.publish = publish
         self._server: Any = None
         self._thread: threading.Thread | None = None
 
@@ -44,7 +52,7 @@ class Dashboard:
         import uvicorn
 
         config = uvicorn.Config(
-            create_app(self.state, self.video),
+            create_app(self.state, self.video, self.publish),
             host=host,
             port=port,
             log_level="warning",
@@ -83,9 +91,11 @@ def register(
 
     FrameResult and SceneSnapshot drive the camera feed, SceneSnapshot also
     drives the object list, and HazardEvent and TouchEvent drive the warning
-    and event log.
+    and event log. The Demo mode button publishes ModeChange, and ModeChange
+    from the bus sets the mode shown on the page.
     """
-    dashboard = Dashboard(state or DashboardState())
+    dashboard = Dashboard(state or DashboardState(), publish=bus.publish)
+    bus.subscribe(ModeChange, dashboard.state.on_mode)
     bus.subscribe(HazardEvent, dashboard.state.on_hazard)
     bus.subscribe(TouchEvent, dashboard.state.on_touch)
     bus.subscribe(FrameResult, dashboard.video.on_frame)
@@ -104,9 +114,15 @@ def _put_latest(queue: asyncio.Queue[dict[str, Any]], item: dict[str, Any]) -> N
 
 
 def create_app(
-    state: DashboardState | None = None, video: VideoFeed | None = None
+    state: DashboardState | None = None,
+    video: VideoFeed | None = None,
+    publish: Callable[[Any], None] | None = None,
 ) -> FastAPI:
-    """Build the dashboard web app around state and a camera feed (new empty ones if not given)."""
+    """Build the dashboard web app around state and a camera feed (new empty ones if not given).
+
+    publish is the bus publish used by the Demo mode button; without it the
+    button only changes the page.
+    """
     state = state or DashboardState()
     video = video or VideoFeed()
     app = FastAPI(title="Dashboard")
@@ -150,6 +166,18 @@ def create_app(
         """Add one simulated warning to the page only, and return the new state."""
         LOGGER.info("Simulated alert added to the dashboard (no bus message, no alarm)")
         return state.simulate_hazard()
+
+    @app.post("/api/mode")
+    async def set_mode(
+        mode: Literal["actual", "demo"] = Body(embed=True),
+    ) -> dict[str, Any]:
+        """Ask the app to switch mode, show it on the page, and return the new state."""
+        message = ModeChange(ts=time.time(), mode=mode)
+        state.on_mode(message)
+        if publish is not None:
+            publish(message)  # the bus only queues it; nothing here waits on vision
+        LOGGER.info("Mode set to %s from the dashboard", mode)
+        return state.snapshot()
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:
