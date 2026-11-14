@@ -72,13 +72,31 @@ OPEN_GIVE_UP_SECONDS = 15.0  # setup tool only; Windows can hang opening a busy 
 def _try_open(index: int, backend: int, seconds: float) -> Any | None:
     """Open one camera backend on a helper thread; return None if it fails or hangs."""
     result: list[Any] = []
-    opener = threading.Thread(
-        target=lambda: result.append(cv2.VideoCapture(index, backend)), daemon=True
-    )
+    lock = threading.Lock()
+    abandoned = threading.Event()
+
+    def open_device() -> None:
+        """Return an opened camera, or release it if the caller has timed out."""
+        camera = None
+        try:
+            camera = cv2.VideoCapture(index, backend)
+            with lock:
+                if not abandoned.is_set() and camera.isOpened():
+                    result.append(camera)
+                    camera = None  # ownership passes to the caller
+        except (cv2.error, RuntimeError) as exc:
+            log.warning("Camera initialization failed (%s)", type(exc).__name__)
+        finally:
+            if camera is not None:
+                camera.release()
+
+    opener = threading.Thread(target=open_device, daemon=True)
     opener.start()
     opener.join(seconds)
-    if result and result[0].isOpened():
-        return result[0]
+    with lock:
+        if result:
+            return result[0]
+        abandoned.set()
     return None
 
 
@@ -154,8 +172,14 @@ def capture(
                 if w == 0 or h == 0:
                     continue
                 box = [value / DISPLAY_SCALE for value in (x, y, x + w, y + h)]
-                name = f"{_slug(label)}_{taken + 1}.jpg"
-                cv2.imwrite(str(refs_dir / name), frame)
+                number = taken + 1
+                name = f"{_slug(label)}_{number}.jpg"
+                while (refs_dir / name).exists():
+                    number += 1
+                    name = f"{_slug(label)}_{number}.jpg"
+                if not cv2.imwrite(str(refs_dir / name), frame):
+                    log.error("Could not save %s; photo was not added to refs.json", name)
+                    continue
                 refs.append({"file": name, "label": label, "box": box})
                 refs_path.write_text(json.dumps(refs, indent=2), encoding="utf-8")
                 taken += 1

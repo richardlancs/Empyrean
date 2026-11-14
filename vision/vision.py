@@ -269,23 +269,34 @@ def load_processor() -> VisionProcessor:
     demo_detector = None
     demo_needs_vehicle_detector = False
     if TRAINED_DEMO_WEIGHTS.is_file():
-        candidate = YOLO(str(TRAINED_DEMO_WEIGHTS))
-        names = candidate.names.values() if isinstance(candidate.names, dict) else candidate.names
-        if set(names) == set(DEMO_OBJECTS):
-            demo_detector = candidate
-            demo_needs_vehicle_detector = True
-            log.info("Demo mode ready with fine-tuned weights: %s; COCO vehicles stay active",
-                     TRAINED_DEMO_WEIGHTS)
-        else:
-            log.error("Ignoring demo weights with unexpected classes: %s", TRAINED_DEMO_WEIGHTS)
+        try:
+            candidate = YOLO(str(TRAINED_DEMO_WEIGHTS))
+            names = candidate.names.values() if isinstance(candidate.names, dict) else candidate.names
+            if len(names) == len(DEMO_OBJECTS) and set(names) == set(DEMO_OBJECTS):
+                demo_detector = candidate
+                demo_needs_vehicle_detector = True
+                log.info("Demo mode ready with fine-tuned weights: %s; COCO vehicles stay active",
+                         TRAINED_DEMO_WEIGHTS)
+            else:
+                log.error("Ignoring demo weights with unexpected classes: %s", TRAINED_DEMO_WEIGHTS)
+        except Exception as exc:  # noqa: BLE001 - optional checkpoints must not stop COCO
+            # Demo assets are optional: a failed experiment must not disable COCO
+            # tracking and the vehicle-hazard path.
+            log.warning("Cannot load optional demo weights (%s); keeping COCO available",
+                        type(exc).__name__)
     if demo_detector is None and DEMO_WEIGHTS.is_file() and DEMO_PROMPTS.is_file():
-        import torch
-        from ultralytics import YOLOE
+        try:
+            import torch
+            from ultralytics import YOLOE
 
-        prompts = torch.load(DEMO_PROMPTS, weights_only=True)
-        demo_detector = YOLOE(str(DEMO_WEIGHTS))
-        demo_detector.set_classes(prompts["names"], prompts["embeddings"])
-        log.info("Demo mode ready for: %s", ", ".join(prompts["names"]))
+            prompts = torch.load(DEMO_PROMPTS, weights_only=True)
+            candidate = YOLOE(str(DEMO_WEIGHTS))
+            candidate.set_classes(prompts["names"], prompts["embeddings"])
+            demo_detector = candidate
+            log.info("Demo mode ready for: %s", ", ".join(prompts["names"]))
+        except Exception as exc:  # noqa: BLE001 - malformed optional prompt assets
+            log.warning("Cannot load optional demo prompts (%s); keeping COCO available",
+                        type(exc).__name__)
     elif demo_detector is None:
         log.info(
             "No demo prompts at %s; demo mode is off until "

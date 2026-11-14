@@ -84,6 +84,17 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 1 (camera/capture reliability review), Codex
+**Changed:** Reviewed latest origin/main in isolated `codex/p1-camera-reliability` worktree, leaving the pending dataset PR and 19 earlier Person 4-labelled local photos untouched. Optional corrupt trained-demo/YOLOE prompt assets now log a warning and leave mandatory COCO vision available; an eight-class checkpoint must have exactly eight class entries. Mandatory COCO model failures still propagate. Capture camera initialization now releases failed devices and successful devices arriving after the caller timed out. Capture skips occupied JPEG filenames and only appends a reference after imwrite succeeds.
+
+**Tested:** New regression suite: original code 7 failed / 2 passed; fixed code 9 passed. Full pinned Python 3.11 suite: 216 passed, 1 skipped, existing FastAPI/httpx warning. After moving optional prompt imports inside the guarded load, 23 vision/reliability tests passed. Repository Ruff and diff whitespace checks clean. `python -m app --fake vision audio` started, published processed frames, served HTTP 200 and exited cleanly. Tests use mocked model/camera failures; no claims of improved detector accuracy or physical webcam validation.
+
+**Decisions:** Preserve normal COCO/vehicle-hazard availability when optional demo setup is broken. No model swap, training, threshold, contract, dependency or other owner's runtime change. Failed saves are not represented as valid training data; pre-existing photos are never overwritten by resumed capture numbering.
+
+**Teammates need to know:** Runtime changes are only in vision/ with a dedicated regression test. Optional demo startup warnings explain the fallback; actual mode remains available. Existing dataset/model evaluation results are unchanged. Changes are local for review; no push, PR or main merge performed for this fix session.
+
+
+
 ### 2026-11-14, Person 4 (headphones and toothbrush captures), Claude Code
 **Changed:** Captured Person 4's training and evaluation data with `vision.capture_demo_refs` on the user's own laptop webcam (index 0, 1280 x 720, Windows). `training_data/person4/train/`: 46 headphones (34 held, 12 on a table) and 36 toothbrush (24 held, 12 on a table, 6 of those standing upright). `training_data/person4/eval/`: 12 headphones and 10 toothbrush, taken at a different table and background from training. One item per photo throughout. The toothbrush is an electric toothbrush; note it if the demo uses a manual one. Three sets were rejected and moved to the git-ignored `scratch/` instead: the first training session (a second headset worn around the neck, unboxed, in all 55 photos), 7 toothbrush photos with the headphones unboxed in the background, and a first eval attempt where 10 toothbrush photos were saved under the headphones label. The remaining toothbrush training files were renumbered 1 to 36 so the capture tool cannot overwrite them; `refs.json` matches the files on disk.
 
