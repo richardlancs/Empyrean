@@ -1,0 +1,415 @@
+{
+  "weights_sha256": "c90fce38071b39e49e38406f321028326ba1e1e5e7ed30627545c6baddf44057",
+  "dataset": "frozen bootstrap validation: 10 images / 13 boxes",
+  "confidence": 0.25,
+  "iou_required": 0.5,
+  "imgsz": 416,
+  "device": "cpu",
+  "torch_threads": 4,
+  "warmup_excluded": true,
+  "per_class": {
+    "charger": {
+      "correct": 1,
+      "total": 2
+    },
+    "headphones": {
+      "correct": 2,
+      "total": 2
+    },
+    "keys": {
+      "correct": 2,
+      "total": 2
+    },
+    "toothpaste": {
+      "correct": 1,
+      "total": 2
+    },
+    "watch": {
+      "correct": 2,
+      "total": 2
+    },
+    "phone": {
+      "correct": 1,
+      "total": 1
+    },
+    "toothbrush": {
+      "correct": 0,
+      "total": 1
+    },
+    "water bottle": {
+      "correct": 1,
+      "total": 1
+    }
+  },
+  "false_positive_boxes": 2,
+  "median_inference_ms": 20.191937452182174,
+  "images": [
+    {
+      "file": "charger_5.jpg",
+      "targets": [
+        {
+          "label": "charger",
+          "box": [
+            103.99999999999999,
+            8.50000000000001,
+            377.5,
+            246.5
+          ],
+          "correct": false,
+          "best_correct_class_iou": 0,
+          "highest_overlap_label": null,
+          "highest_overlap_iou": 0
+        }
+      ],
+      "detections": [],
+      "inference_ms": 23.88204215094447
+    },
+    {
+      "file": "fresh-table-before-training.jpg",
+      "targets": [
+        {
+          "label": "headphones",
+          "box": [
+            20.0,
+            0.0,
+            245.0,
+            142.0
+          ],
+          "correct": true,
+          "best_correct_class_iou": 0.8065782987544239,
+          "highest_overlap_label": "headphones",
+          "highest_overlap_iou": 0.8065782987544239
+        },
+        {
+          "label": "keys",
+          "box": [
+            279.0,
+            59.00000000000001,
+            348.00000000000006,
+            138.0
+          ],
+          "correct": true,
+          "best_correct_class_iou": 0.6996728912916258,
+          "highest_overlap_label": "keys",
+          "highest_overlap_iou": 0.6996728912916258
+        }
+      ],
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.7776085734367371,
+          "box": [
+            7.665030002593994,
+            2.89681077003479,
+            265.8614501953125,
+            150.65994262695312
+          ]
+        },
+        {
+          "label": "keys",
+          "confidence": 0.7314300537109375,
+          "box": [
+            269.2882385253906,
+            54.210819244384766,
+            349.1475830078125,
+            151.7671356201172
+          ]
+        }
+      ],
+      "inference_ms": 23.39170780032873
+    },
+    {
+      "file": "fresh-toothpaste-watch-charger-before-training.jpg",
+      "targets": [
+        {
+          "label": "toothpaste",
+          "box": [
+            100.0,
+            117.0,
+            198.0,
+            309.0
+          ],
+          "correct": true,
+          "best_correct_class_iou": 0.8660535083403826,
+          "highest_overlap_label": "toothpaste",
+          "highest_overlap_iou": 0.8660535083403826
+        },
+        {
+          "label": "charger",
+          "box": [
+            234.0,
+            72.00000000000001,
+            391.0,
+            170.0
+          ],
+          "correct": true,
+          "best_correct_class_iou": 0.9234031217969129,
+          "highest_overlap_label": "charger",
+          "highest_overlap_iou": 0.9234031217969129
+        },
+        {
+          "label": "watch",
+          "box": [
+            311.0,
+            173.0,
+            483.00000000000006,
+            251.99999999999997
+          ],
+          "correct": true,
+          "best_correct_class_iou": 0.7369349046064693,
+          "highest_overlap_label": "watch",
+          "highest_overlap_iou": 0.7369349046064693
+        }
+      ],
+      "detections": [
+        {
+          "label": "toothpaste",
+          "confidence": 0.8255491256713867,
+          "box": [
+            97.4317626953125,
+            121.40556335449219,
+            202.08334350585938,
+            298.0726623535156
+          ]
+        },
+        {
+          "label": "charger",
+          "confidence": 0.75398850440979,
+          "box": [
+            234.54458618164062,
+            68.48169708251953,
+            393.8680114746094,
+            172.3654327392578
+          ]
+        },
+        {
+          "label": "watch",
+          "confidence": 0.6699041128158569,
+          "box": [
+            301.8599853515625,
+            167.5512237548828,
+            454.39312744140625,
+            253.51229858398438
+          ]
+        },
+        {
+          "label": "watch",
+          "confidence": 0.2629055976867676,
+          "box": [
+            346.8416442871094,
+            167.84808349609375,
+            490.7123107910156,
+            237.71353149414062
+          ]
+        }
+      ],
+      "inference_ms": 23.217166773974895
+    },
+    {
+      "file": "headphones_10.jpg",
+      "targets": [
+        {
+          "label": "headphones",
+          "box": [
+            297.5,
+            54.00000000000001,
+            609.5,
+            319.5
+          ],
+          "correct": true,
+          "best_correct_class_iou": 0.7449679146421465,
+          "highest_overlap_label": "headphones",
+          "highest_overlap_iou": 0.7449679146421465
+        }
+      ],
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.6692919731140137,
+          "box": [
+            326.7572326660156,
+            50.565093994140625,
+            590.8173217773438,
+            290.2563171386719
+          ]
+        }
+      ],
+      "inference_ms": 23.111917078495026
+    },
+    {
+      "file": "keys_7.jpg",
+      "targets": [
+        {
+          "label": "keys",
+          "box": [
+            425.5,
+            104.49999999999999,
+            640.0,
+            285.5
+          ],
+          "correct": true,
+          "best_correct_class_iou": 0.6034002908316529,
+          "highest_overlap_label": "keys",
+          "highest_overlap_iou": 0.6034002908316529
+        }
+      ],
+      "detections": [
+        {
+          "label": "keys",
+          "confidence": 0.613193929195404,
+          "box": [
+            417.2055358886719,
+            77.98435974121094,
+            640.0,
+            233.33987426757812
+          ]
+        }
+      ],
+      "inference_ms": 20.241999998688698
+    },
+    {
+      "file": "phone_9.jpg",
+      "targets": [
+        {
+          "label": "phone",
+          "box": [
+            166.5,
+            77.0,
+            302.0,
+            146.5
+          ],
+          "correct": true,
+          "best_correct_class_iou": 0.5948100026500476,
+          "highest_overlap_label": "phone",
+          "highest_overlap_iou": 0.5948100026500476
+        }
+      ],
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.6831095218658447,
+          "box": [
+            154.43870544433594,
+            60.422340393066406,
+            282.04266357421875,
+            155.35227966308594
+          ]
+        }
+      ],
+      "inference_ms": 19.888415932655334
+    },
+    {
+      "file": "toothbrush_6.jpg",
+      "targets": [
+        {
+          "label": "toothbrush",
+          "box": [
+            223.5,
+            52.49999999999999,
+            368.0,
+            240.50000000000003
+          ],
+          "correct": false,
+          "best_correct_class_iou": 0,
+          "highest_overlap_label": null,
+          "highest_overlap_iou": 0
+        }
+      ],
+      "detections": [],
+      "inference_ms": 20.14187490567565
+    },
+    {
+      "file": "toothpaste_8.jpg",
+      "targets": [
+        {
+          "label": "toothpaste",
+          "box": [
+            213.5,
+            33.0,
+            327.5,
+            139.0
+          ],
+          "correct": false,
+          "best_correct_class_iou": 0,
+          "highest_overlap_label": "phone",
+          "highest_overlap_iou": 0.7628400103311811
+        }
+      ],
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.45058539509773254,
+          "box": [
+            200.97760009765625,
+            44.6396598815918,
+            329.5590515136719,
+            143.98863220214844
+          ]
+        }
+      ],
+      "inference_ms": 19.969415850937366
+    },
+    {
+      "file": "watch_9.jpg",
+      "targets": [
+        {
+          "label": "watch",
+          "box": [
+            461.5,
+            16.000000000000004,
+            636.0,
+            151.5
+          ],
+          "correct": true,
+          "best_correct_class_iou": 0.7308819600520013,
+          "highest_overlap_label": "watch",
+          "highest_overlap_iou": 0.7308819600520013
+        }
+      ],
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.7148287296295166,
+          "box": [
+            442.4237365722656,
+            19.9424991607666,
+            628.9957885742188,
+            172.91038513183594
+          ]
+        }
+      ],
+      "inference_ms": 19.9430831708014
+    },
+    {
+      "file": "water_bottle_8.jpg",
+      "targets": [
+        {
+          "label": "water bottle",
+          "box": [
+            178.0,
+            34.0,
+            283.0,
+            182.5
+          ],
+          "correct": true,
+          "best_correct_class_iou": 0.8613486725183528,
+          "highest_overlap_label": "water bottle",
+          "highest_overlap_iou": 0.8613486725183528
+        }
+      ],
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.7662952542304993,
+          "box": [
+            185.88340759277344,
+            29.25896453857422,
+            284.2632751464844,
+            187.549560546875
+          ]
+        }
+      ],
+      "inference_ms": 19.868959207087755
+    }
+  ]
+}

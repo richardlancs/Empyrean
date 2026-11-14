@@ -1,0 +1,202 @@
+[
+  {
+    "file": "watch_1.jpg",
+    "label": "watch",
+    "box": [
+      234.0,
+      171.0,
+      319.5,
+      229.0
+    ]
+  },
+  {
+    "file": "watch_2.jpg",
+    "label": "watch",
+    "box": [
+      207.0,
+      239.0,
+      258.0,
+      285.0
+    ]
+  },
+  {
+    "file": "watch_3.jpg",
+    "label": "watch",
+    "box": [
+      158.5,
+      115.0,
+      293.5,
+      199.5
+    ]
+  },
+  {
+    "file": "watch_4.jpg",
+    "label": "watch",
+    "box": [
+      383.5,
+      122.0,
+      479.0,
+      168.0
+    ]
+  },
+  {
+    "file": "watch_5.jpg",
+    "label": "watch",
+    "box": [
+      417.5,
+      135.5,
+      494.5,
+      173.5
+    ]
+  },
+  {
+    "file": "watch_6.jpg",
+    "label": "watch",
+    "box": [
+      370.5,
+      89.5,
+      461.0,
+      184.0
+    ]
+  },
+  {
+    "file": "watch_7.jpg",
+    "label": "watch",
+    "box": [
+      361.5,
+      119.5,
+      477.0,
+      198.5
+    ]
+  },
+  {
+    "file": "watch_8.jpg",
+    "label": "watch",
+    "box": [
+      335.5,
+      122.0,
+      423.5,
+      177.0
+    ]
+  },
+  {
+    "file": "watch_9.jpg",
+    "label": "watch",
+    "box": [
+      369.0,
+      133.0,
+      432.5,
+      174.5
+    ]
+  },
+  {
+    "file": "watch_10.jpg",
+    "label": "watch",
+    "box": [
+      340.5,
+      109.5,
+      422.0,
+      229.5
+    ]
+  },
+  {
+    "file": "water_bottle_1.jpg",
+    "label": "water bottle",
+    "box": [
+      417.0,
+      81.0,
+      505.5,
+      359.5
+    ]
+  },
+  {
+    "file": "water_bottle_2.jpg",
+    "label": "water bottle",
+    "box": [
+      260.5,
+      157.5,
+      578.5,
+      243.0
+    ]
+  },
+  {
+    "file": "water_bottle_3.jpg",
+    "label": "water bottle",
+    "box": [
+      370.0,
+      119.0,
+      639.5,
+      231.5
+    ]
+  },
+  {
+    "file": "water_bottle_4.jpg",
+    "label": "water bottle",
+    "box": [
+      401.0,
+      73.5,
+      584.0,
+      320.0
+    ]
+  },
+  {
+    "file": "water_bottle_5.jpg",
+    "label": "water bottle",
+    "box": [
+      281.5,
+      123.0,
+      589.5,
+      199.0
+    ]
+  },
+  {
+    "file": "water_bottle_6.jpg",
+    "label": "water bottle",
+    "box": [
+      407.0,
+      127.5,
+      564.0,
+      231.0
+    ]
+  },
+  {
+    "file": "water_bottle_7.jpg",
+    "label": "water bottle",
+    "box": [
+      346.0,
+      110.5,
+      453.0,
+      284.0
+    ]
+  },
+  {
+    "file": "water_bottle_8.jpg",
+    "label": "water bottle",
+    "box": [
+      150.0,
+      151.0,
+      312.5,
+      278.0
+    ]
+  },
+  {
+    "file": "water_bottle_9.jpg",
+    "label": "water bottle",
+    "box": [
+      348.5,
+      55.5,
+      472.0,
+      235.5
+    ]
+  },
+  {
+    "file": "water_bottle_10.jpg",
+    "label": "water bottle",
+    "box": [
+      365.0,
+      97.0,
+      505.0,
+      286.0
+    ]
+  }
+]

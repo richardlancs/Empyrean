@@ -1,0 +1,290 @@
+{
+  "weights": "scratch/p1-comparison-baseline.pt",
+  "confidence": 0.25,
+  "iou_required": 0.5,
+  "per_class": {
+    "watch": {
+      "correct": 0,
+      "total": 10
+    },
+    "water bottle": {
+      "correct": 4,
+      "total": 10
+    }
+  },
+  "false_positive_boxes": 8,
+  "median_inference_ms": 19.035791512578726,
+  "images": [
+    {
+      "file": "watch_1.jpg",
+      "expected": "watch",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "watch_2.jpg",
+      "expected": "watch",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "watch_3.jpg",
+      "expected": "watch",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.4119502902030945,
+          "box": [
+            152.4604034423828,
+            113.6786880493164,
+            298.2139587402344,
+            210.9771270751953
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_4.jpg",
+      "expected": "watch",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": [
+        {
+          "label": "toothpaste",
+          "confidence": 0.3868755102157593,
+          "box": [
+            393.4222106933594,
+            61.09438705444336,
+            551.7096557617188,
+            185.53817749023438
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_5.jpg",
+      "expected": "watch",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": [
+        {
+          "label": "toothpaste",
+          "confidence": 0.34495341777801514,
+          "box": [
+            414.296875,
+            37.64876174926758,
+            573.56494140625,
+            193.8935089111328
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_6.jpg",
+      "expected": "watch",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "watch_7.jpg",
+      "expected": "watch",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "watch_8.jpg",
+      "expected": "watch",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "watch_9.jpg",
+      "expected": "watch",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "watch_10.jpg",
+      "expected": "watch",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "water_bottle_1.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.6487344298523157,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.4334382116794586,
+          "box": [
+            393.9239196777344,
+            98.0866928100586,
+            519.0570678710938,
+            345.0870056152344
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_2.jpg",
+      "expected": "water bottle",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "water_bottle_3.jpg",
+      "expected": "water bottle",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.437301367521286,
+          "box": [
+            473.2585754394531,
+            132.47227478027344,
+            639.5670166015625,
+            238.66310119628906
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_4.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.5922095956968171,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.44497016072273254,
+          "box": [
+            431.4399719238281,
+            66.35538482666016,
+            604.4408569335938,
+            268.9100036621094
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_5.jpg",
+      "expected": "water bottle",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": [
+        {
+          "label": "charger",
+          "confidence": 0.3410729765892029,
+          "box": [
+            246.54058837890625,
+            214.36524963378906,
+            400.6639404296875,
+            342.4259338378906
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_6.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.6196137672769568,
+      "detections": [
+        {
+          "label": "charger",
+          "confidence": 0.3542838990688324,
+          "box": [
+            258.7507019042969,
+            202.4806671142578,
+            425.6141662597656,
+            342.0566101074219
+          ]
+        },
+        {
+          "label": "water bottle",
+          "confidence": 0.2704947888851166,
+          "box": [
+            422.48968505859375,
+            115.4853286743164,
+            597.1873168945312,
+            241.61546325683594
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_7.jpg",
+      "expected": "water bottle",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.5091198682785034,
+          "box": [
+            318.9562683105469,
+            100.23954010009766,
+            475.06317138671875,
+            255.52867126464844
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_8.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.7534267492706972,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.4188472032546997,
+          "box": [
+            138.4981231689453,
+            148.3386688232422,
+            328.1178283691406,
+            292.7936706542969
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_9.jpg",
+      "expected": "water bottle",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.47531235218048096,
+          "box": [
+            345.0946960449219,
+            46.587650299072266,
+            493.1432800292969,
+            173.3521728515625
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_10.jpg",
+      "expected": "water bottle",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    }
+  ]
+}

@@ -1,0 +1,368 @@
+{
+  "status": "capture_validated_candidate_trained_and_evaluated",
+  "items": [
+    "watch",
+    "water bottle"
+  ],
+  "camera_index": 0,
+  "splits": {
+    "train": {
+      "counts": {
+        "watch": 30,
+        "water bottle": 30
+      },
+      "images": [
+        {
+          "file": "watch_1.jpg",
+          "sha256": "a09309f963e52f4011f4af168b0a44389e7f00588b03fd49976051857a7d2b24"
+        },
+        {
+          "file": "watch_2.jpg",
+          "sha256": "1b189c47decf8f70af090c38ce8c74bab286bc692181fe20f31520057f4e4ac6"
+        },
+        {
+          "file": "watch_3.jpg",
+          "sha256": "849f6c275497439fee1c8921c6efb5c95814d81092d2f9cca14c4d253ef0a5b1"
+        },
+        {
+          "file": "watch_4.jpg",
+          "sha256": "3265ed27440c27e6ec3117e7751c14d191747a0d60739552c2869705e999e732"
+        },
+        {
+          "file": "watch_5.jpg",
+          "sha256": "f4b0be94a1b117db3b708a0a884506817dcc62dae79a5685c02ed957770b3f45"
+        },
+        {
+          "file": "watch_6.jpg",
+          "sha256": "35766a0241a55d827b9fe3ccce54cf64a6a8d832bbbfcdefc2f143471057a620"
+        },
+        {
+          "file": "watch_7.jpg",
+          "sha256": "c68762e1204d524771bce3a2cc30017f3c4d0e7fcbdf5a05eefd186a574af04d"
+        },
+        {
+          "file": "watch_8.jpg",
+          "sha256": "0a56add758cb85d09cc6e40953a136e39ced3e5e7dbc3594014c269fb1f04517"
+        },
+        {
+          "file": "watch_9.jpg",
+          "sha256": "0dccbba85eca7faba53ce1a6453c238727127c27852e14a8be50b28f1a3b9511"
+        },
+        {
+          "file": "watch_10.jpg",
+          "sha256": "d3beeb6afd0bf8408ba66db802e4c27a5bb87bc0a82765c36aa64f76821eae4f"
+        },
+        {
+          "file": "watch_11.jpg",
+          "sha256": "7a8b814ae382af130e58628b08c7ce9ce79b147987952934f55717fe9e5e6097"
+        },
+        {
+          "file": "watch_12.jpg",
+          "sha256": "8d38d7170d435784d8112a528f9007e31cea44a437f2b250ed65f667d4026ca7"
+        },
+        {
+          "file": "watch_13.jpg",
+          "sha256": "a1740564d0fbef18733509c156cb6795629fc51f443d51c6210e2ece96c03bdd"
+        },
+        {
+          "file": "watch_14.jpg",
+          "sha256": "c81fdad298d655fedad11c0f6a78e6b75e97636b7b82ebf95dcc5b476efb6ca4"
+        },
+        {
+          "file": "watch_15.jpg",
+          "sha256": "8d57482d34e93eac4aa50e2a9d449e764fe5dc1d40339f6cb16d6e7bda38def0"
+        },
+        {
+          "file": "watch_16.jpg",
+          "sha256": "6bf6605555a362e7d5731a32ab30a345ad35132acd7076fe8f5a6a3ce2628bb3"
+        },
+        {
+          "file": "watch_17.jpg",
+          "sha256": "9cf80b8769f301a8d0514205a708228e660d46c0767814c74dbaaa48f0044a7e"
+        },
+        {
+          "file": "watch_18.jpg",
+          "sha256": "621464da7a7ded6cc6e76fbe4d342137c5ad0ad3fd0f9e162020b2d9a8ff4e0e"
+        },
+        {
+          "file": "watch_19.jpg",
+          "sha256": "69c5f4b3ed12180cc6ac875be40ff1473b0783f50cbdfe0067f5942c6d45bf93"
+        },
+        {
+          "file": "watch_20.jpg",
+          "sha256": "e484ad749b894f1f533d8b7d6af1fc9d2bcbe99679f7064c01927b8dc06fec90"
+        },
+        {
+          "file": "watch_21.jpg",
+          "sha256": "8f88bff76b04110d992cb28ffd42ea70197d42255bcd6632e9545f3feacc32d9"
+        },
+        {
+          "file": "watch_22.jpg",
+          "sha256": "56acde8c2920fa52a48029f5f5f16c5ee16238218ae807f493a2aaf8448f80af"
+        },
+        {
+          "file": "watch_23.jpg",
+          "sha256": "96cd042d60452ea445445043df78bd76d90e13b653d58b3e94a338d06e50339d"
+        },
+        {
+          "file": "watch_24.jpg",
+          "sha256": "1f66039c38d128288f5123a34c812cac9b8c9c2bcc94860e50870d524c4953cb"
+        },
+        {
+          "file": "watch_25.jpg",
+          "sha256": "f7e8444621917296c5f594402055f634f37ea03a24afe9ce0424086d79610ad5"
+        },
+        {
+          "file": "watch_26.jpg",
+          "sha256": "503a87dd3e7687e9f975c181a7702b3e114e3b8ce578f91aa8e46ba2cd93de70"
+        },
+        {
+          "file": "watch_27.jpg",
+          "sha256": "3eff05fc080e56fffec938f374ac4ac354f5c166c4f2eb33f5bbb421fb34dce6"
+        },
+        {
+          "file": "watch_28.jpg",
+          "sha256": "e3c95a0edf0f6af462bdb4d380fc31831c8acf0cf691c68cc4cd218a5d8d3136"
+        },
+        {
+          "file": "watch_29.jpg",
+          "sha256": "3f0574fbdd444f04558fe00895886d105b690bedb01e15bff35819b5cdff1918"
+        },
+        {
+          "file": "watch_30.jpg",
+          "sha256": "6f17feb0ff708e9973381c753fa1f5b0427030e5668a4fefbb6cc8901a9057b6"
+        },
+        {
+          "file": "water_bottle_1.jpg",
+          "sha256": "c22d1ecba7f33a5f14926ddeb92f701a9e54318b3866096a634710329621861f"
+        },
+        {
+          "file": "water_bottle_2.jpg",
+          "sha256": "e393631a95819f2a4e93f7c3b662f24a132af8348a9df40d5e3addb1fe6c3d2b"
+        },
+        {
+          "file": "water_bottle_3.jpg",
+          "sha256": "5f62856755afc350a31fd3341f86cddc6b53192a9aa239eddb7093451a7fa902"
+        },
+        {
+          "file": "water_bottle_4.jpg",
+          "sha256": "74e7d892b4a75b36d7cdf2018c5cbbc20b7bca6e433c2098b8abfa3ee1223fb7"
+        },
+        {
+          "file": "water_bottle_5.jpg",
+          "sha256": "f67ef326ae735ed2f626fa98a271bcb597625853e8f7d2e87826573802592baa"
+        },
+        {
+          "file": "water_bottle_6.jpg",
+          "sha256": "ad584cee72ec5987fc5b3a5cdd35260b79ef75479152a01f51a55ab61580120c"
+        },
+        {
+          "file": "water_bottle_7.jpg",
+          "sha256": "fead9b66b23801cd1cd06a417c9b2dc2ec0c83dd37c382d8866044e1cf0397fd"
+        },
+        {
+          "file": "water_bottle_8.jpg",
+          "sha256": "2a809548ab9e004b4de6423f644aa72f9b0025f2dcbc8b3c2478e10f57fe8be3"
+        },
+        {
+          "file": "water_bottle_9.jpg",
+          "sha256": "dae19bf2a0f517ed51902a559363d76080226bc200ab493662e077152b1888b0"
+        },
+        {
+          "file": "water_bottle_10.jpg",
+          "sha256": "19e2611c69c1aeb14e9a3631fb2d4eeabc16c9a0e9d21c3fa1eeee76911c0156"
+        },
+        {
+          "file": "water_bottle_11.jpg",
+          "sha256": "e1756edab941ef119919492e498b121f0f46609579acf6c2f3d9144449216425"
+        },
+        {
+          "file": "water_bottle_12.jpg",
+          "sha256": "ea7eb2cf13cfd45fb1680fb27232d203af54c7a833707dfe8f68418c84358029"
+        },
+        {
+          "file": "water_bottle_13.jpg",
+          "sha256": "a0890019b35bd89e2fc6dfea84ebc963f05ef81c67108bb8e26a883b44c78ba5"
+        },
+        {
+          "file": "water_bottle_14.jpg",
+          "sha256": "f6a3d25cbb467a8b9174a74082d098e20f5e6844a288dca0bac8454f86cacdff"
+        },
+        {
+          "file": "water_bottle_15.jpg",
+          "sha256": "09eb38a6dd44ce1dce539319801302124dab01db6216f7954327bc23d8ba3a7a"
+        },
+        {
+          "file": "water_bottle_16.jpg",
+          "sha256": "6558247a71b1a084385a6071459c66e4220aab47e13329189bbe5e79e930e14a"
+        },
+        {
+          "file": "water_bottle_17.jpg",
+          "sha256": "f2f54bad9ce6b3d97322b67a1506d2b7b455e4710a468b58c96411401573b620"
+        },
+        {
+          "file": "water_bottle_18.jpg",
+          "sha256": "f972815bb57415703f5448076347aee9a9e54983b72863210daad8dff6423dd7"
+        },
+        {
+          "file": "water_bottle_19.jpg",
+          "sha256": "27c8c1c50719e44dcd0f38c68b04e4b458b991624379a52853c339c4b28dc22a"
+        },
+        {
+          "file": "water_bottle_20.jpg",
+          "sha256": "965583569221c5fc58c859f85814883a68a7e711ff91a21be0565e74b223c716"
+        },
+        {
+          "file": "water_bottle_21.jpg",
+          "sha256": "63964df369336518f1647937ebdb3b2e5b98105113c398c1fbd5c2b0053c8c75"
+        },
+        {
+          "file": "water_bottle_22.jpg",
+          "sha256": "c98f6046168742c229d5e80aeabce476858003a3e867d92298cbabcd7a7ca89f"
+        },
+        {
+          "file": "water_bottle_23.jpg",
+          "sha256": "170fe2419b8827291eeeb2b398f1362ebd1ac8b7905a3b91b9d9c09ac37e0f6b"
+        },
+        {
+          "file": "water_bottle_24.jpg",
+          "sha256": "10d2a9b2f1169ad3a9263af385e3ce8f7090477779aba7c8e099f7912b2afdfe"
+        },
+        {
+          "file": "water_bottle_25.jpg",
+          "sha256": "ad7c41beff26839a6de7209fe7bb7ce8ba916a67aed5323d6286b05b37b79f85"
+        },
+        {
+          "file": "water_bottle_26.jpg",
+          "sha256": "6fe651bdab0aaa46ccf5dff9792ee9e84136889718cb54bd509f4138f767cd30"
+        },
+        {
+          "file": "water_bottle_27.jpg",
+          "sha256": "647f8139eca94915c9c34afe1cc77d4d5105bbb8480fb3cd2e53fb3b173d1a91"
+        },
+        {
+          "file": "water_bottle_28.jpg",
+          "sha256": "dfa2feb85d51f549577bc0be3d411daa09f14a67bd7b0f92bf52f346f3a0d5a8"
+        },
+        {
+          "file": "water_bottle_29.jpg",
+          "sha256": "d4df77f58d119bd271c5c424e1ab7f1ec3d0c9d353e085ca561c6501f46fd493"
+        },
+        {
+          "file": "water_bottle_30.jpg",
+          "sha256": "c3879d6d58fe6eaf1592525fce558eff7c42c1f8e8188d1c4976431f4d61db90"
+        }
+      ]
+    },
+    "eval": {
+      "counts": {
+        "watch": 10,
+        "water bottle": 10
+      },
+      "images": [
+        {
+          "file": "watch_1.jpg",
+          "sha256": "01fd171216e91ac95786c6eb0b4b6e28bf351ab1c8033303518581ac770c41f7"
+        },
+        {
+          "file": "watch_2.jpg",
+          "sha256": "67a1fee9c0ea712a70a1859b0ef535ed894c340b2ccde871b9469e0d562688df"
+        },
+        {
+          "file": "watch_3.jpg",
+          "sha256": "2cb82f7c74f5003eea6f49ba7faf703f27472cf2f62f2f7340f1ba7d41dd4504"
+        },
+        {
+          "file": "watch_4.jpg",
+          "sha256": "f5be702f3d8d786d02f19c48ea9db4b5ba42d260ce44d7bb161078d90c4e469e"
+        },
+        {
+          "file": "watch_5.jpg",
+          "sha256": "e5b406b125cae1300939ca7143d7181b490cadd476c1a7e94fb2fb422a9899ca"
+        },
+        {
+          "file": "watch_6.jpg",
+          "sha256": "29e94456d715982aceabf0c9aa48ab2be9d9420adf0547f345b3db388c4a8aaf"
+        },
+        {
+          "file": "watch_7.jpg",
+          "sha256": "070cc8acd8013dc3719ba44ff8269b45d05254631c4fb32fd14bcd333e9d9b81"
+        },
+        {
+          "file": "watch_8.jpg",
+          "sha256": "112a08b686962cf07e0c754daecd2c91c1daca7d7050e3b66a1bd8a68b038e3d"
+        },
+        {
+          "file": "watch_9.jpg",
+          "sha256": "fcf92518afcc53f838498109089051f89207c10036bbac3cb4ecb41c97c67d2f"
+        },
+        {
+          "file": "watch_10.jpg",
+          "sha256": "cdb61b3d1ee013ac0d0964706541b7ee381f562880f3a5dfd528a068f5ed42cf"
+        },
+        {
+          "file": "water_bottle_1.jpg",
+          "sha256": "082aec5bd5c8b0132b1c7db48a43dfaf96a6aad1b84332cca0c4022febaac23e"
+        },
+        {
+          "file": "water_bottle_2.jpg",
+          "sha256": "7dc54a4e81188ec0c93314117a2146f8b0278f35be8bcc3ace4673fe27506f7a"
+        },
+        {
+          "file": "water_bottle_3.jpg",
+          "sha256": "f57b2ffd546a2867e1820ddee385243c3d051504f42476eb49d9189daef4f971"
+        },
+        {
+          "file": "water_bottle_4.jpg",
+          "sha256": "9a80c1fe34631a7d026f4873f6a6d4eac6f6addba039da0731c71a17f88da37d"
+        },
+        {
+          "file": "water_bottle_5.jpg",
+          "sha256": "8b9eecd5ff47c9258d5e3dd2f9e407834272af67da0a2a72b46f4a510b5c1186"
+        },
+        {
+          "file": "water_bottle_6.jpg",
+          "sha256": "eb522e8bb36e66ca920eff2d6533ae150a9d2d3f8d7141b93fafaf9f5a6ee63c"
+        },
+        {
+          "file": "water_bottle_7.jpg",
+          "sha256": "c49868f01ae8944c176a439b2e3303d638331ce484cac9e111276dc9cb4e5e7d"
+        },
+        {
+          "file": "water_bottle_8.jpg",
+          "sha256": "7c741d719fe20164c9d4461500a1a130bfac6ab9ccbf0811f50dfc8b93d80329"
+        },
+        {
+          "file": "water_bottle_9.jpg",
+          "sha256": "eca96541778aa5ab48a89e4a0b69365585bff01b1bb10868f7f2a1068e39a5a2"
+        },
+        {
+          "file": "water_bottle_10.jpg",
+          "sha256": "971c70378a94ca277f5c9b76a6257b59495c7f3797eaec3dc08bc3a0e7f92a71"
+        }
+      ]
+    }
+  },
+  "exact_train_eval_duplicates": 0,
+  "candidate_dataset": "scratch/p1-dataset-v1/data.yaml",
+  "visual_review": "All 80 annotated images reviewed as contact sheets; not a recognition accuracy test.",
+  "limits": [
+    "Mostly held views in one room; limited background and tabletop diversity.",
+    "Evaluation is a separate capture session but uses the same room and physical items.",
+    "Candidate training and saved-image evaluation completed; live glasses-camera checks remain pending."
+  ],
+  "combined_dataset": {
+    "classes": {
+      "0": "water bottle",
+      "1": "toothbrush",
+      "2": "toothpaste",
+      "3": "charger",
+      "4": "phone",
+      "5": "headphones",
+      "6": "keys",
+      "7": "watch"
+    },
+    "train_images": 131,
+    "validation_images": 30
+  }
+}

@@ -84,6 +84,27 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 1 (watch/bottle candidate training and comparison), Codex
+**Changed:** Per user request and demotraining.md, trained an eight-class candidate on frozen bootstrap plus Person 1's 60 training photos, using 20 separately captured Person 1 evaluation photos alongside bootstrap validation for checkpoint selection. Used fresh pinned Python 3.11.9 environment via the team installer, YOLO11s pretrained initialization, Apple M5 MPS, 45 epochs, 205.289 s training time. Candidate stays separate at `scratch/p1-runs/candidate-v1/weights/best.pt`. Added all 80 images, refs/capture metadata, JSON reports, training CSV, full arguments/checksums and a reproduction/limitations README under Person 1 data. Downloaded published experimental baseline for comparison. Created ignored `scratch/p1-candidate-v1.zip` for weight handoff.
+
+**Tested:** Own evaluation at app confidence and correct-class IoU >= 0.5: baseline watch 0/10, bottle 4/10, 8 extra/unmatched boxes; candidate watch 10/10, bottle 10/10, 2 extra bottle boxes in water_bottle_3.jpg. Own median CPU model-call latency: baseline 19.04 ms, candidate 18.30 ms, four threads. Frozen bootstrap validation: baseline 9/13 target matches versus candidate 11/13, extra/unmatched boxes 3 versus 2, no per-class count drops. Remaining failures: charger_5 miss, toothbrush_6 miss, toothpaste_8 phone confusion. Full pinned-env pytest 207 passed, 1 skipped; existing FastAPI/httpx warning. Repository ruff clean; `python -m app --fake vision audio` publishes processed frames and shuts down cleanly. Verified all 84 remote source-data blobs against local Git hashes before PR creation.
+
+**Decisions:** No deployment or runtime/shared-default changes. These validation sets influence checkpoint selection, so scores are selection-biased and do not establish independent accuracy. Captures mostly show held objects in one room; tabletop, adjacent-object, glasses-camera and full scene/audio sign-off remain pending. Candidate weight SHA-256: c90fce38071b39e49e38406f321028326ba1e1e5e7ed30627545c6baddf44057.
+
+**Teammates need to know:** Used `codex/p1-watch-bottle-data` because remote `p1-vision` has unrelated unmerged voice-demo commits; no teammate branch rewritten. Earlier Person 4-labelled captures remain untracked and excluded. GitHub connector publishes data/results because terminal Git push lacks credentials. Model weights, environments, caches and scratch runs remain out of Git. Review datasets, combine the four contributions and evaluate one final eight-class candidate before installing it.
+
+
+### 2026-11-14, Person 1 (watch/water bottle capture), Codex
+**Changed:** User corrected their identity to Person 1. Stopped the earlier Person 4 capture and preserved its 19 headphones-labelled photos without relabelling or including them in Person 1 data. Updated checkout to the team training handoff and ran existing webcam capture tools for Person 1 train and separate evaluation sessions. Saved 30 train + 10 eval images each for watch and water bottle, refs.json and capture_info.json. Added `training_data/person1/results/capture-validation.json` with counts, hashes and limits. Prepared ignored `scratch/p1-dataset-v1` from frozen bootstrap plus these additions: 131 train images, 30 validation images, all eight classes retained.
+
+**Tested:** All 80 images readable, boxes in bounds, unique image hashes within each session and no exact train/evaluation overlap. Reviewed both full annotated contact sheets. Existing extension tool accepted the dataset and preserved class IDs. Python 3.11 full pytest: 207 passed, 1 skipped, existing FastAPI/httpx warning. No runtime or model code changed.
+
+**Decisions:** Captures are mostly held views of the same physical items in one room, so do not claim independent scene or glasses-camera accuracy. Candidate training/evaluation and live checks remain pending. No checkpoint trained or installed during capture validation.
+
+**Teammates need to know:** Data remains local/uncommitted. Source photos/labels/reports are under Person 1; candidate dataset and contact sheets are ignored scratch files. Previous Person 4-labelled data is preserved separately and is not part of this contribution.
+
+
+
 ### 2026-11-14, Person 4 (second clip: teammate's table video), Claude Code
 **Changed:** Notes only. Ran the same stage-by-stage trace on the table video a teammate sent (`IMG_3646.mov`: 8.6 s, 3840 x 2160, 24 fps, sampled to 42 frames at 5 fps). The clip was not committed.
 
