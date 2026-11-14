@@ -32,6 +32,7 @@ CAMERA_OFFLINE_SECONDS = CAMERA_STALE_SECONDS * 5  # stale this long reads as st
 STARTUP_GRACE_SECONDS = 10.0  # a started module may take this long to show evidence
 NAMING_NO_ANSWER_SECONDS = NAME_TIMEOUT_SECONDS * 2  # well past the namer's own timeout
 STATUS_VALUES = ("starting", "active", "degraded", "offline", "unknown")
+NOT_STARTED_DETAIL = "Not started in this run"  # app/ lifecycle wording
 
 
 @dataclass
@@ -130,6 +131,14 @@ class HealthMonitor:
             self._reported[msg.module] = _Reported(msg.status, mode, msg.detail, msg.ts, now)
 
     # Read side.
+
+    def not_started(self, module: str) -> bool:
+        """True when app/ said this module folder is not running in this launch."""
+        with self._lock:
+            reported = self._reported.get(module)
+            return reported is not None and reported.status == "offline" and (
+                reported.detail == NOT_STARTED_DETAIL
+            )
 
     def diagnostics(self) -> dict[str, dict[str, Any]]:
         """Return camera, scene, naming, storage, audio and hazard entries for now."""

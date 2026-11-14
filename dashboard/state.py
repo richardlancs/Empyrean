@@ -310,7 +310,12 @@ class DashboardState:
             "speech": speech,
             "diagnostics": self.health.diagnostics(),
             "capabilities": {
-                "last_seen": bool(self.last_seen is not None and self.last_seen.available),
+                # Searching needs a bus and a storage module running in this launch.
+                "last_seen": bool(
+                    self.last_seen is not None
+                    and self.last_seen.available
+                    and not self.health.not_started("storage")
+                ),
                 "thumbnails": bool(
                     self.thumbnails is not None and getattr(self.thumbnails, "receiving", False)
                 ),

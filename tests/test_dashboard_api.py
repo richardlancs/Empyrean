@@ -416,3 +416,25 @@ def test_touch_reaches_websocket_through_register() -> None:
         bus.publish(TouchEvent(NOW, 1, "bottle", "Heinz ketchup", "touch", BOTTLE))
         pushed = ws.receive_json()
     assert pushed["current_touch"]["text"] == "Heinz ketchup"
+
+
+def test_port_probe_ignores_time_wait_but_not_a_listener() -> None:
+    """After a restart with a page attached, TIME_WAIT must not block the dashboard."""
+    import socket
+    import sys
+
+    from dashboard.server import _port_is_free
+
+    server = socket.socket()
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", 0))
+    server.listen()
+    port = server.getsockname()[1]
+    client = socket.create_connection(("127.0.0.1", port))
+    accepted, _ = server.accept()
+    assert _port_is_free("127.0.0.1", port) is False  # still listening
+    accepted.close()  # server side closes first, so the server port goes to TIME_WAIT
+    server.close()
+    client.close()
+    if sys.platform != "win32":
+        assert _port_is_free("127.0.0.1", port) is True

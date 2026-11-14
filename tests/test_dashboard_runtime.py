@@ -336,3 +336,15 @@ def test_idle_naming_is_not_failed_and_not_forever_starting() -> None:
     state.on_name_request(NameRequest(clock.now, 1, "bottle", b"\xff\xd8\xff\xd9"))
     state.on_name_result(NameResult(clock.now, 1, "Heinz ketchup", True))
     assert state.snapshot()["diagnostics"]["naming"]["status"] == "active"
+
+
+def test_search_capability_is_false_when_storage_is_not_running() -> None:
+    """--only dashboard: the page can say search is unavailable instead of waiting 8 s."""
+    bus = SyncBus()
+    dashboard = register(bus, DashboardState(clock=Clock()), serve=False)
+    assert dashboard.state.snapshot()["capabilities"]["last_seen"] is True
+    bus.publish(ModuleStatus(NOW, "storage", "offline", "unknown", "Not started in this run"))
+    assert dashboard.state.snapshot()["capabilities"]["last_seen"] is False
+    # A running store that is merely offline (database down) still answers "unavailable".
+    bus.publish(ModuleStatus(NOW, "storage", "offline", "real", "Tiger Data unavailable"))
+    assert dashboard.state.snapshot()["capabilities"]["last_seen"] is True

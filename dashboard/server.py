@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import mimetypes
 import socket
+import sys
 import threading
 from pathlib import Path
 from typing import Any
@@ -113,8 +114,16 @@ class Dashboard:
 
 
 def _port_is_free(host: str, port: int) -> bool:
-    """Return True if nothing is listening on host:port."""
+    """Return True if nothing is listening on host:port.
+
+    SO_REUSEADDR matches what uvicorn sets, so connections left in TIME_WAIT by
+    a page that was open before a restart do not block the new server. A live
+    listener still makes bind() fail. Windows is left as is: there the option
+    would let two servers share the port.
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        if sys.platform != "win32":
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             probe.bind((host, port))
         except OSError:
