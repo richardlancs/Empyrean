@@ -44,7 +44,6 @@ mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/javascript", ".mjs")
 mimetypes.add_type("text/css", ".css")
 mimetypes.add_type("image/svg+xml", ".svg")
-mimetypes.add_type("application/wasm", ".wasm")  # Rive runtime (streaming compile)
 
 __all__ = ["INDEX_PATH", "STATIC_DIR", "Dashboard", "create_app", "register"]
 
