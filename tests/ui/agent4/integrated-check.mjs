@@ -90,7 +90,7 @@ if (scenario === "normal") {
   await field.press("Enter");
   const found = await waitText(a.page, "find-panel", /Recorded at/, 10000);
   check("last-touch search through the UI is found with its touch time", found !== null, label);
-  await a.page.screenshot({ path: `${shots}/last-touch-found-1440.png` });
+  await a.page.locator("#find-panel").screenshot({ path: `${shots}/last-touch-found-1440.png` });
   await field.fill("zebra");
   await field.press("Enter");
   const missing = await waitText(a.page, "find-panel", /not (found|seen)|No recorded|have not seen/i, 10000);

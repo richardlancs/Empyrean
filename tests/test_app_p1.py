@@ -72,15 +72,32 @@ def test_cli_fake_vision_starts() -> None:
         text=True,
         env=env,
     )
+    # Wait for the line instead of a fixed 1.4 s sleep: cold pyttsx3/pygame
+    # startup can take seconds (DEVLOG "Needs attention", Person 4, 2026-11-14).
+    lines: list[str] = []
+    found = threading.Event()
+
+    def read() -> None:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            lines.append(line)
+            if "Published synthetic FrameResult" in line:
+                found.set()
+                return
+
+    reader = threading.Thread(target=read, daemon=True)
+    reader.start()
     try:
-        time.sleep(1.4)
+        found.wait(20.0)  # a silent hang still ends at the deadline
     finally:
         proc.terminate()
         try:
-            output, _ = proc.communicate(timeout=5.0)
+            proc.wait(timeout=5.0)
         except subprocess.TimeoutExpired:
             proc.kill()
-            output, _ = proc.communicate(timeout=5.0)
+            proc.wait(timeout=5.0)
+        reader.join(timeout=5.0)
+    output = "".join(lines)
     assert "Published synthetic FrameResult" in output, output
 
 
