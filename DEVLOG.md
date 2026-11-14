@@ -22,7 +22,7 @@ Problems in someone else's folder go here. The owner removes the line once fixed
 
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
 - **Person 1 (`vision/`, branch `p1-vision`):** `vision/vision.py` uses Grounding DINO through `torch` and `transformers`, not YOLO nano with ByteTrack. The stack table does not include those, and AGENTS.md rule 8 needs all four to agree. It also reads the camera and draws on its own, and does not publish `FrameResult` on a bus, so scene, namer and storage cannot run behind it yet. Found by Person 3, 2026-11-14.
-- **Person 4 (`audio/`, branch `voice-dashboard`):** `audio/speak_test.py` uses Piper and `winsound`, which only runs on Windows. The stack table says `pyttsx3`. It is a standalone test that does not subscribe to `TouchEvent`, `NameResult` or `SpeakRequest`, so touch-to-speech and the late-name rule cannot be checked end to end yet. No dashboard code exists. Found by Person 3, 2026-11-14.
+- **Person 4 (`dashboard/`):** audio is now on the agreed stack (`pyttsx3`, `pygame`) on branch `p4-output` and replaces the Piper test in PR #4. No dashboard code exists yet. Updated by Person 4, 2026-11-14.
 - **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
 - **Person 1 (`app/` bus):** Person 3's modules are ready to be registered. Requests for `app/`:
   1. **Bus shape.** `namer.register(bus)`, `storage.register(bus)`, `fakes.namer.fake_namer.register(bus)` and `fakes.storage.fake_store.register(bus)` call only `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, keyed on the `contracts` class. If the bus uses a different shape, tell Person 3 before building against it.
@@ -67,6 +67,41 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14 03:20, Person 4 (audio, fakes/audio), Claude Code
+**Changed:**
+
+- New `audio/` module (SPEC.md 4.8 and the late-name rule in 4.5). `register(bus)` subscribes to `HazardEvent`, `TouchEvent`, `NameResult` and `SpeakRequest`, hazard first, and publishes nothing.
+  - **Alarm:** a `HazardEvent` starts the beeps on the handler's own thread, cuts off speech at the next word, empties the queue, then speaks "Stop. Stairs." (and the other phrases from 4.8) after the 0.61 s of beeps.
+  - **Touch:** kind `touch` speaks `name`, or the class label if the name is empty. `release` is silent. Retouch speaks again.
+  - **Late name:** if the label was spoken and a `NameResult` arrives within `LATE_NAME_WINDOW_SECONDS` while the object is still touched, the name is spoken once. If the label has not been spoken yet, the name replaces it.
+  - **Queue:** one waiting item; a newer item replaces it unless the waiting one has a higher priority. `SpeakRequest` answers never replace a waiting touch name.
+  - Handlers only update state under a lock and return. Speech runs on one `audio-speech` thread that owns the `pyttsx3` engine. If `pyttsx3` or `pygame` cannot start, audio logs once and keeps running (speech is logged, hazards are spoken without beeps).
+  - A `NameResult` that reaches audio before its `TouchEvent` is used for that touch. With Person 1's bus each message type is delivered on its own thread, so this ordering can happen.
+- `audio/sounds/alarm.wav`: three 0.15 s 880 Hz beeps, 54 KB, made once by `python -m audio.make_alarm` and committed.
+- `python -m audio`: runs the module alone on the real speaker with a scripted touch, late name, retouch, answer and hazard.
+- `fakes/audio`: `register(bus)` for `--fake audio`. Same rules, but prints what would be heard and takes about as long as speaking it.
+- `tests/test_audio.py`: 19 smoke tests.
+- `audio/requirements.txt`: `pyttsx3==2.99`, `pygame==2.6.1`. Move these to the root requirements file once it exists.
+
+**Tested:**
+
+- Windows 11, Python 3.11.18 venv made with uv. `tests/test_audio.py`: 19 passed. `ruff check` and `ruff format` clean on the new files.
+- Full `pytest` on Python 3.14 (system Python): 147 passed, 1 skipped.
+- Full `pytest` on the 3.11 venv: storage tests cannot load, because Windows Application Control blocks `psycopg-binary`'s DLL inside the venv ("An Application Control policy has blocked this file"). Everything else passed. Not an audio problem; see below.
+- `python -m audio` on the laptop speakers: every phrase in order, the release silent, the late name spoken once. First phrase started 234 ms after its event (engine start-up), later ones 0 ms. "Stop. Stairs." started 625 ms after the hazard, so the 4 s answer was cut off within the 0.61 s beep. JBL not connected.
+- On a scratch merge of `main` and PR #9's `p1-vision`: `python -m app --fake vision namer storage` speaks "Heinz ketchup" on each scripted touch. With `--fake ... hazard audio`, the beeps cut off speech and the right phrase follows about 0.6 s later.
+
+**Decisions:**
+
+- Touch speech does not cut off a spoken answer that is already playing; only an alarm cuts anything off (4.8 says only that). A touch made during the alarm beeps is dropped.
+- The late-name window is measured from when audio receives the `TouchEvent`, on audio's own clock.
+
+**Teammates need to know:**
+
+- **Person 1:** `audio/` and `fakes/audio/` follow `app/`'s `register(bus)` shape and need no change in `app/`.
+- **Everyone on Windows:** if `psycopg` fails with "Application Control policy has blocked this file" in a new venv, that is Windows blocking the DLL, not a code bug. The system Python install loaded it fine.
+- **Person 4 next:** dashboard. Close PR #4 once this branch merges.
 
 ### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code: demo validation
 **Changed:**
