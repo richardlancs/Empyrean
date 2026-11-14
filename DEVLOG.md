@@ -56,6 +56,51 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14 00:26, Person 3 Richard Lan (namer, storage), Grok Bot (Cursor agent CLI, headless, Grok 4.7)
+**Changed:** First Grok Bot automation run. `.p3/grokbot.sh` sends the `p3-grok-data` diff to Grok 4.7 through Cursor's agent CLI, in read-only ask mode, and saves a contract check, a risk note and a DEVLOG draft. The script lives on Person 3's machine and is not in the repo.
+
+**Tested:** The run finished and saved a 207-word report.
+
+**Decisions:** The bot found no `SPEC.md` section 5 field mismatches. It flagged the section 9 values copied into the temporary `_pending.py` shims, which is expected until `config/` lands.
+
+**Teammates need to know:** The bot raised a real risk. Each module currently has its own copy of the message classes. If `scene/` publishes its own `NameRequest` class, the namer will not match it, and touches will speak the COCO class instead of the brand. The fix is for everyone to import from one shared `contracts/`. Please land `contracts/` and `config/` soon.
+
+### 2026-11-14 00:10, Person 3 Richard Lan (storage), Claude Code
+**Changed:** Connected to the live Tiger Data service (`db-51800`, trial). No code changes.
+
+**Tested:** `python -m storage --selftest` created both tables and printed "Selftest ketchup ..., 4 minutes ago, next to mug and cereal box." `timescaledb_information.hypertables` lists `hazard_events` and `touch_events`. With `.env` loaded, `pytest tests/test_storage.py` gave 17 passed, including the live round trip.
+
+**Decisions:** none.
+
+**Teammates need to know:** The Tiger Data log and last-seen query are working against the real database. Each run of the selftest leaves one `selftest-*` session row in `touch_events`. Get the connection string from Person 3; it is never committed.
+
+### 2026-11-13 23:50, Person 3 Richard Lan (namer), Claude Code
+**Changed:** First live Grok calls. The namer now sends no `reasoning` field, and `GROK_MODEL` is set to `grok-4.20-0309-non-reasoning`.
+
+**Tested:** A real photo of a Sour Strips bag came back as "Sour Strips Rainbow Candy" through `python -m namer` and `fakes.namer.eval_names`. The Grok call took 0.5 to 0.8 s. `pytest tests`: 22 passed, 1 skipped.
+
+**Decisions:** On a 320 px crop, the reasoning models were too slow for the 4 s `NAME_TIMEOUT_SECONDS`. `grok-4.7` took 3.8 to 5.0 s, even with low reasoning effort, and `grok-4.3` took up to 12 s. Two of them also guessed the wrong brand ("Airheads", "Toxic Waste"). `grok-4.20-0309-non-reasoning` was correct every time in about 0.6 s. Non-reasoning models reject the `reasoning` parameter with HTTP 400.
+
+**Teammates need to know:** Person 1: hazard tier B has a 3 s timeout, so use `grok-4.20-0309-non-reasoning` there too. Do not send a `reasoning` field with it. The SPEC 12 open question about the Grok model name is answered: `grok-4.20-0309-non-reasoning`.
+
+### 2026-11-13 23:10, Person 3 Richard Lan (namer, storage, fakes), Claude Code (lead session plus 3 parallel subagents)
+**Changed:** First build of everything Person 3 owns. `namer/` names objects through Grok vision. `storage/` logs touch and hazard events to Tiger Data and answers last-seen queries. `fakes/namer/` and `fakes/storage/` let teammates run without Grok or Tiger Data. Tests are in `tests/test_namer.py` and `tests/test_storage.py`.
+
+**Tested:** `python -m pytest tests -q` gave 22 passed and 1 skipped (the live Tiger Data round trip, which needs `TIGER_DATABASE_URL`). `ruff check` is clean on all Person 3 paths. Both fake demos run. No live Grok or Tiger Data call has been made yet because there is no `.env` on this machine.
+
+**Decisions:**
+
+- **Temporary shim.** `contracts/` and `config/` do not exist yet, so each Person 3 folder has an identical `_pending.py` that copies `SPEC.md` sections 5 and 9 word for word. Delete all four copies once the real folders land. Storage imports it in one place (`storage/_deps.py`).
+- **Grok endpoint.** The namer calls `POST https://api.x.ai/v1/responses` with an `input_image` part and `store: false`, because the current docs.x.ai image guide uses that endpoint. Reading the reply is only tested against mocks so far.
+- **Namer details.** `GROK_MODEL` has no default. Duplicate requests for an object already being named share one call. Failed names are not cached, so a later request retries.
+- **Storage details.** The 3 s connect timeout, queue size of 1000 and 10 s reconnect interval are constants in `storage/`, not `SPEC.md` section 9 thresholds. Last-seen uses `ILIKE` with backslash escaping. A `LastSeenQuery` that arrives while the queue is full is dropped.
+
+**Teammates need to know:**
+
+- **Person 1:** `namer.register(bus)` and `storage.register(bus)` expect `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`. Tell Person 3 if the bus API differs. `storage.register` returns the Store; call `.stop()` on shutdown.
+- **Person 2 and Person 4:** `fakes.namer.fake_namer.FakeNamer` answers in 300 to 900 ms, and every 10th answer fails. `fakes.storage.fake_store.FakeStore` answers last-seen queries in the spec's sentence format.
+- **All:** decide whether the three storage constants above belong in `config/`.
+
 ### 2026-11-13 22:05, planning session, Claude
 **Changed:** Added the stack to `SPEC.md`, `AGENTS.md`, `CLAUDE.md`, this file, the project PDF and the whiteboard.
 
@@ -102,7 +147,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 |---|---|---|
 | 1 | Vision and hazard | |
 | 2 | Touch logic | |
-| 3 | Grok and data | |
+| 3 | Grok and data | Richard Lan |
 | 4 | Audio and dashboard | |
 
 ## Agent usage summary
