@@ -1,0 +1,46 @@
+/* AGENT 1 PREVIEW STUB styles. Agent 2 owns the real experience.css. Tokens only. */
+
+.experience-touch {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.experience-touch__label {
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-semibold);
+}
+
+.experience-touch__name {
+  font-size: var(--text-display);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+}
+
+.experience-heading {
+  margin-bottom: var(--space-2);
+}
+
+.experience-camera__feed {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  background: var(--color-text);
+}
+
+.experience-object {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.experience-object__name {
+  flex: 1 1 10rem;
+  min-width: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.experience-find__result:not(:empty) {
+  margin-top: var(--space-2);
+}

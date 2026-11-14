@@ -1,0 +1,44 @@
+/* AGENT 1 PREVIEW STUB styles. Agent 3 owns the real operations.css. Tokens only. */
+
+.operations-health {
+  padding-block: var(--space-1);
+}
+
+.operations-health__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+.operations-warning__title {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+}
+
+.ui-panel--danger .operations-warning__title {
+  color: var(--color-danger);
+}
+
+.ui-panel--sim .operations-warning__title {
+  color: var(--color-sim);
+}
+
+.operations-heading {
+  margin-bottom: var(--space-2);
+}
+
+.operations-event {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.operations-event__text {
+  flex: 1 1 10rem;
+  min-width: 0;
+  font-weight: var(--weight-semibold);
+}
