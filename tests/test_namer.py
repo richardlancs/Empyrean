@@ -111,6 +111,23 @@ def request(object_id: int, size: int = 100, label: str = "bottle") -> NameReque
     )
 
 
+def test_publishes_the_contracts_name_result_class() -> None:
+    """The namer publishes contracts.NameResult itself, not a look-alike copy."""
+
+    async def handler(_req: httpx.Request) -> httpx.Response:
+        return reply("Heinz ketchup")
+
+    out = Collector()
+    namer = make_namer(handler, out)
+    try:
+        namer.on_name_request(request(1))
+        [result] = out.wait_for(1)
+    finally:
+        namer.stop(timeout=5)
+    assert type(result) is NameResult
+    assert (result.object_id, result.name, result.ok) == (1, "Heinz ketchup", True)
+
+
 def test_reply_is_trimmed_and_cut() -> None:
     seen: list[httpx.Request] = []
 
