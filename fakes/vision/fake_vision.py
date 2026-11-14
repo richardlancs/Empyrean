@@ -61,8 +61,7 @@ class FakeVision:
             if frame_id == 1 or frame_id % PROCESS_FPS == 0:
                 log.info("Published synthetic FrameResult %d", frame_id - 1)
             deadline += interval
-            if deadline < time.monotonic():
-                deadline = time.monotonic()
+            deadline = max(deadline, time.monotonic())
             self._stop.wait(max(0.0, deadline - time.monotonic()))
 
     def stop(self) -> None:

@@ -94,6 +94,7 @@ def test_grok_below_threshold_is_ignored() -> None:
 def test_httpx_payload_uses_scaled_jpeg_and_timeout(monkeypatch: Any) -> None:
     """Tier B uses the specified image width and timeout in the Responses API."""
     import base64
+
     import cv2
 
     from config.thresholds import HAZARD_GROK_TIMEOUT_SECONDS, HAZARD_GROK_WIDTH
@@ -125,3 +126,10 @@ def test_httpx_payload_uses_scaled_jpeg_and_timeout(monkeypatch: Any) -> None:
     raw = base64.b64decode(uri.partition(",")[2])
     decoded = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_COLOR)
     assert decoded.shape[1] == HAZARD_GROK_WIDTH
+
+
+def test_parse_accepts_json_inside_a_code_fence() -> None:
+    """A ```json fenced reply parses the same as bare JSON."""
+    body = '{"hazard": true, "type": "stairs_down", "confidence": 0.9}'
+    for text in (body, f"```json\n{body}\n```", f"```\n{body}\n```", f"  ```JSON\n{body}```  "):
+        assert parse_hazard_response({"output_text": text}) == ("stairs_down", 0.9)

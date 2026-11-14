@@ -96,3 +96,74 @@ def test_fake_vision_stabilizes_then_touches_and_releases() -> None:
     assert all(frame.hands for frame in frames[10:25])
     assert all(not frame.hands for frame in frames[25:])
     assert all(frame.image.shape == (360, 640, 3) for frame in frames)
+
+
+class FlakyCapture:
+    """Stand in for cv2.VideoCapture with a scripted list of read results."""
+
+    def __init__(self, reads: list[bool]) -> None:
+        self.reads = reads
+        self.released = False
+
+    def isOpened(self) -> bool:
+        """Report the device as open."""
+        return True
+
+    def set(self, _prop: int, _value: float) -> bool:
+        """Accept capture settings."""
+        return True
+
+    def read(self) -> tuple[bool, Any]:
+        """Return the next scripted result, then keep succeeding."""
+        ok = self.reads.pop(0) if self.reads else True
+        return ok, np.zeros((720, 1280, 3), dtype=np.uint8) if ok else None
+
+    def release(self) -> None:
+        """Record the release."""
+        self.released = True
+
+
+def _wait_for_frame(camera: Any, timeout: float = 3.0) -> bool:
+    """Poll until the camera has published a frame."""
+    import time
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if camera.latest_after(-1) is not None:
+            return True
+        time.sleep(0.01)
+    return False
+
+
+def test_camera_survives_a_few_failed_reads(monkeypatch: Any) -> None:
+    """Startup read failures do not end capture."""
+    from vision import vision
+
+    device = FlakyCapture([False, False, False, True])
+    monkeypatch.setattr(vision.cv2, "VideoCapture", lambda _index: device)
+    monkeypatch.setattr(vision, "READ_RETRY_SECONDS", 0.001)
+    camera = vision.LatestCamera(0)
+    try:
+        assert _wait_for_frame(camera)
+        assert not camera.stopped
+    finally:
+        camera.close()
+
+
+def test_camera_reopens_after_repeated_failures(monkeypatch: Any) -> None:
+    """A device that keeps failing is released and reopened."""
+    from vision import vision
+
+    broken = FlakyCapture([False] * 100)
+    fresh = FlakyCapture([])
+    devices = [broken, fresh]
+    monkeypatch.setattr(vision.cv2, "VideoCapture", lambda _index: devices.pop(0))
+    monkeypatch.setattr(vision, "READ_RETRY_SECONDS", 0.001)
+    monkeypatch.setattr(vision, "READ_FAILURES_BEFORE_REOPEN", 5)
+    camera = vision.LatestCamera(0)
+    try:
+        assert _wait_for_frame(camera)
+        assert broken.released
+        assert not camera.stopped
+    finally:
+        camera.close()

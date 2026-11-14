@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import os
+import re
 import threading
 import time
 from collections import deque
@@ -39,12 +40,13 @@ GROK_PROMPT = (
 VEHICLE_LABELS = frozenset(("car", "bus", "truck", "motorcycle", "bicycle"))
 VALID_TYPES = frozenset(("stairs_down", "drop_off", "vehicle", "obstacle"))
 LOOKBACK_SECONDS = 1.0
+CODE_FENCE = re.compile(r"^```[A-Za-z0-9_-]*\s*(.*?)\s*```$", re.DOTALL)
 
 
 def _reply_text(data: Any) -> str:
     """Extract the response text from an xAI Responses API envelope."""
     if not isinstance(data, dict):
-        raise ValueError("Unexpected Grok response")
+        raise TypeError("Unexpected Grok response")
     if isinstance(data.get("output_text"), str):
         return data["output_text"]
     for item in data.get("output", []):
@@ -56,9 +58,15 @@ def _reply_text(data: Any) -> str:
     raise ValueError("No Grok output text")
 
 
+def _strip_code_fence(text: str) -> str:
+    """Remove one surrounding Markdown code fence, such as ```json ... ```."""
+    match = CODE_FENCE.match(text)
+    return match.group(1).strip() if match else text
+
+
 def parse_hazard_response(data: Any) -> tuple[str, float] | None:
     """Validate Grok's JSON decision, returning only an actionable hazard."""
-    text = _reply_text(data).strip()
+    text = _strip_code_fence(_reply_text(data).strip())
     decision = json.loads(text)
     if not isinstance(decision, dict) or decision.get("hazard") is not True:
         return None
@@ -196,19 +204,13 @@ class HazardDetector:
                 kind, confidence = result
                 if kind in VALID_TYPES and confidence >= HAZARD_GROK_MIN_CONFIDENCE:
                     self._emit(kind, "grok", confidence, time.time())
-        except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        except Exception as exc:  # noqa: BLE001 - tier B failure must never stop the hazard path
             with self._lock:
                 first = not self._grok_failed_logged
                 self._grok_failed_logged = True
             if first:
                 log.warning("Grok hazard check unavailable (%s); local tier remains active",
                             type(exc).__name__)
-        except Exception:
-            with self._lock:
-                first = not self._grok_failed_logged
-                self._grok_failed_logged = True
-            if first:
-                log.warning("Grok hazard check failed; local tier remains active")
         finally:
             with self._lock:
                 self._grok_busy = False

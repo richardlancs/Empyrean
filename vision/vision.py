@@ -26,6 +26,10 @@ YOLO_WEIGHTS = MODEL_DIR / "yolo11n.pt"
 HAND_MODEL = MODEL_DIR / "hand_landmarker.task"
 CAPTURE_WIDTH = PROCESS_WIDTH * 2
 CAPTURE_HEIGHT = PROCESS_HEIGHT * 2
+# Camera recovery timing. Module constants, not SPEC.md section 9 thresholds.
+READ_RETRY_SECONDS = 0.05
+READ_FAILURES_BEFORE_REOPEN = 20
+REOPEN_WAIT_SECONDS = 1.0
 
 
 def _clamp(value: float, maximum: int) -> float:
@@ -146,8 +150,8 @@ def load_processor() -> VisionProcessor:
             "hand_landmarker/float16/1/hand_landmarker.task "
             "and put it in vision/models/."
         )
-    from ultralytics import YOLO
     import mediapipe as mp
+    from ultralytics import YOLO
 
     detector = YOLO(str(YOLO_WEIGHTS))
     options = mp.tasks.vision.HandLandmarkerOptions(
@@ -163,6 +167,7 @@ class LatestCamera:
     """Capture continuously and overwrite older frames rather than queueing."""
 
     def __init__(self, index: int) -> None:
+        self._index = index
         self._capture = cv2.VideoCapture(index)
         if not self._capture.isOpened():
             self._capture.release()
@@ -177,14 +182,38 @@ class LatestCamera:
         self._thread = threading.Thread(target=self._capture_loop, name="vision-capture", daemon=True)
         self._thread.start()
 
+    def _reopen(self) -> bool:
+        """Release and reopen the device after repeated read failures."""
+        self._capture.release()
+        capture = cv2.VideoCapture(self._index)
+        if not capture.isOpened():
+            capture.release()
+            return False
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, CAPTURE_WIDTH)
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, CAPTURE_HEIGHT)
+        capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        self._capture = capture
+        return True
+
     def _capture_loop(self) -> None:
+        failures = 0
         while not self._stop.is_set():
             ok, frame = self._capture.read()
             if not ok:
-                if not self._stop.is_set():
-                    log.error("Camera read failed; capture stopped")
-                self._stop.set()
-                return
+                failures += 1
+                if failures == 1:
+                    log.warning("Camera read failed; retrying")
+                if failures % READ_FAILURES_BEFORE_REOPEN == 0:
+                    if self._reopen():
+                        log.info("Camera reopened")
+                    else:
+                        self._stop.wait(REOPEN_WAIT_SECONDS)
+                else:
+                    self._stop.wait(READ_RETRY_SECONDS)
+                continue
+            if failures:
+                log.info("Camera reads recovered after %d failures", failures)
+                failures = 0
             captured_ts = time.time()
             with self._lock:
                 self._latest = (self._sequence, captured_ts, frame)

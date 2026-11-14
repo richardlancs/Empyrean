@@ -13,8 +13,8 @@ from typing import Any
 from dotenv import load_dotenv
 
 from app.bus import Bus
-from contracts import FrameResult, NameResult
 from config.thresholds import PROCESS_FPS
+from contracts import FrameResult, NameResult
 
 log = logging.getLogger("app")
 MODULES = ("hazard", "scene", "namer", "storage", "audio", "dashboard", "vision")
@@ -168,8 +168,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         running = start(only=args.only, fakes=args.fake)
     except ValueError as exc:
         parser.error(str(exc))
+    stop = threading.Event()
     try:
-        threading.Event().wait()
+        # A timed wait lets Ctrl+C interrupt the main thread on Windows.
+        while not stop.wait(0.5):
+            pass
     except KeyboardInterrupt:
         log.info("Shutting down")
     finally:

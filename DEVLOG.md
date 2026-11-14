@@ -67,6 +67,32 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, PR #9 review fixes on `p1-vision` (app, vision, hazard), Claude Code
+Made by the PR #9 reviewer's agent on Person 1's branch, at that reviewer's explicit request. Person 1, please check it.
+
+**Changed:**
+
+- Merged `origin/main` into `p1-vision`. The only conflict was this file, and both sets of entries are kept. Person 1's commit was not rebased or rewritten.
+- `hazard/hazard.py`: `parse_hazard_response` strips one surrounding Markdown code fence (```` ```json ````) before `json.loads`, so a fenced Grok reply no longer turns tier B off for the whole run. The worker's two `except` branches are now one `except Exception` with a `noqa: BLE001` reason, and `_reply_text` raises `TypeError` for a non-dict reply (ruff `TRY004`).
+- `vision/vision.py`: `LatestCamera` no longer stops for good on the first failed `read()`. It retries every 0.05 s, and after 20 failures in a row it releases and reopens the device, waiting 1 s between reopen attempts. It logs once per outage and once on recovery. These timings are module constants, not `SPEC.md` section 9 thresholds.
+- `app/__main__.py`: the main thread waits with `while not stop.wait(0.5)` instead of an untimed `Event().wait()`, so Ctrl+C reaches it on Windows and `Store.stop()` runs.
+- `ruff check --fix` sorted the imports in `app/__main__.py`, `vision/vision.py` and `tests/test_hazard_p1.py`, and fixed `PLR1730` in `fakes/vision/fake_vision.py`.
+- New tests: fenced and bare JSON parse the same way, the camera survives a few failed reads, and it reopens after repeated failures.
+- Removed the Person 1 `vision/` line under "Needs attention", and the sentence calling the storage timing test flaky, since #8 made it deterministic.
+
+**Tested (Windows 11, Python 3.11.18 venv):**
+
+- `ruff check .`: clean.
+- `pytest --ignore=tests/test_register.py --ignore=tests/test_storage.py`: 113 passed, 2 failed. The failures are the two `storage` cases in `test_p3_shared_classes.py`. They, and the two ignored files, fail at import because Windows Application Control blocks psycopg's `pq` DLL on this laptop. They fail the same way with these changes stashed.
+- `python -m app --fake vision`: starts, and scene receives frames. Storage cannot import here for the same psycopg reason, and the app carries on. No `.env` on this machine, so Grok was off.
+- Ctrl+C check: a script that calls `_thread.interrupt_main()` after 2 s. With the fix, `main` returned 0 after 2.5 s and logged "Shutting down". Without it, the process hung until it was killed.
+- Not tested: a real Logitech camera unplug and replug, or a live Grok reply in a code fence.
+
+**Teammates need to know:**
+
+- Person 1: Person 1's entry below lists the tool as "ChatGPT GPT-6", which is not one of the coding agents in the stack table. If that is correct, it should be explained in the SpaceXSI write-up. If not, please correct it.
+- Anyone on this laptop: psycopg's binary is blocked by an Application Control policy, so storage cannot run here until that is allowed or another laptop is used.
+
 ### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code: demo validation
 **Changed:**
 
