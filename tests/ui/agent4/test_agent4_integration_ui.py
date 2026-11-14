@@ -16,6 +16,7 @@ def test_integration_node_tests_pass() -> None:
     """Fake modules and fake camera clips are labelled as fakes in the merged UI."""
     result = subprocess.run(
         ["node", "--test", str(HERE / "integration.test.mjs")],
+        check=False,
         capture_output=True,
         text=True,
         timeout=60,
