@@ -30,6 +30,7 @@ Any change to `contracts/`, `config/`, `SPEC.md` or `AGENTS.md`. Needs all four 
 |---|---|---|
 | 2026-11-13 21:10 | First version of all four files | pending team review |
 | 2026-11-13 22:05 | Stack table added to `SPEC.md` section 2.1, `AGENTS.md` and `CLAUDE.md` | pending team review |
+| 2026-11-13 23:40 | Initial `contracts/messages.py` and `config/thresholds.py`, copied from SPEC.md sections 5 and 9. No value changed | pending team review |
 
 ## Stack
 
@@ -55,6 +56,40 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 2 (scene), Claude Code
+**Changed:** Two fixes in `scene/`, after a review of Cursor's work.
+
+- Held-merge only lets a detection still in state `new` inherit a held object, as SPEC 4.6 says ("any new detection"). Before, a stable object next to the hand (a mug beside the ketchup) took over the held object's name and the real object dropped back to `idle`.
+- A `touching` or `held` object that stays lost past `LOST_KEEP_SECONDS` now publishes a `release` `TouchEvent` before it is removed. Before, it disappeared with its touch still open. New public helper `scene.touch.release_on_removal`.
+
+**Tested:** `python -m pytest`: 47 passed (5 new: merge ignores stable neighbours, `release_on_removal` unit test, release on removal, no event for an untouched removal, and a scene-level ketchup and mug test). `python -m ruff check .`: clean. `python -m fakes.scene`: unchanged output. `python -m app` not run, `app/` does not exist yet.
+
+**Decisions:** Existing merge tests now mark the inheriting detection as `new`, which matches the spec.
+
+**Teammates need to know:**
+
+- Person 4 and Person 3: every `touch` now gets a matching `release` for the same `object_id`, except after a held-merge, where the release comes from the new id.
+- Open: while a hand covers a touched object, its snapshot state is `lost`, not `touching`, so the dashboard will draw it dashed during most touches. Not changed yet, to be agreed with Person 4.
+- The repo has no `.gitignore` and no requirements file. `scene/` needs `opencv-python` and tests need `numpy`.
+
+### 2026-11-14 00:45, Person 2 (scene), Cursor
+**Changed:** Scene database tracks objects through `new`, `idle`, and `lost`, and publishes a `SceneSnapshot` every frame. Touch dwell, release, held, and held-merge are in `scene/touch.py`. Name crops and one retry are in `scene/naming.py`. `SceneDatabase` wires both and publishes `NameRequest` and `TouchEvent`. `fakes/scene` plays a script of those three messages. Added `contracts/` and `config/` from SPEC sections 5 and 9, because those packages were not in the repo yet.
+
+**Tested:** `python -m pytest` — 42 passed. `python -m ruff check` on `scene`, `fakes`, `tests`, `contracts`, and `config` — clean. `python -m fakes.scene` prints the script. Did not run `python -m app --only scene` because `app/` does not exist yet.
+
+**Decisions:**
+
+- Bus topics are the message class names: `SceneSnapshot`, `NameRequest`, `TouchEvent`.
+- A touch is stored as a phase (`open`, `touching`, `held`) so a covered object can stay in contact while its public state is `lost`.
+- The namer still owns the in-flight cap, the one-request-per-second limit, and the timeout. Scene sends one request when an object first becomes idle, and one retry if the `NameResult` fails.
+
+**Teammates need to know:**
+
+- Confirm `contracts/` and `config/`. The values match the spec.
+- Person 3 can build the namer against `NameRequest` from `python -m fakes.scene`. Apply the reply with `SceneDatabase.handle_name`.
+- Person 4 can build audio and the dashboard against `TouchEvent` and `SceneSnapshot` from the same fake.
+- This laptop has Python 3.14, not 3.11.
 
 ### 2026-11-13 22:05, planning session, Claude
 **Changed:** Added the stack to `SPEC.md`, `AGENTS.md`, `CLAUDE.md`, this file, the project PDF and the whiteboard.
@@ -101,7 +136,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Person | Role | Name |
 |---|---|---|
 | 1 | Vision and hazard | |
-| 2 | Touch logic | |
+| 2 | Touch logic | An |
 | 3 | Grok and data | |
 | 4 | Audio and dashboard | |
 
@@ -111,6 +146,6 @@ Fill this in as you go. It becomes the SpaceXSI section of the Devpost write-up.
 
 | Tool | What we used it for |
 |---|---|
-| Cursor | |
+| Cursor | Scene database, touch state machine, and name crops. Touch and naming were written at the same time, then wired into `SceneDatabase`. |
 | Grok Bot | |
-| Other | |
+| Other | Claude Code reviewed Cursor's scene module and fixed the held-merge and release-on-removal bugs. |
