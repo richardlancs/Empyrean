@@ -6,6 +6,7 @@ fake and the tests run on machines without them.
 
 from __future__ import annotations
 
+import gc
 import logging
 import os
 import sys
@@ -27,30 +28,47 @@ def _init_com_for_thread() -> None:
     comtypes.CoInitialize()
 
 
+def _speak_once(pyttsx3: Any, text: str, should_stop: Callable[[], bool]) -> None:
+    """Speak text on a brand-new engine, cutting off at a word boundary on should_stop()."""
+    engine = pyttsx3.init()
+
+    def on_word(name: Any, location: int, length: int) -> None:
+        """Cut speech off at the next word boundary once an alarm arrives."""
+        if should_stop():
+            engine.stop()
+
+    engine.connect("started-word", on_word)
+    engine.say(text)
+    engine.runAndWait()
+
+
 class Pyttsx3Speaker:
-    """Offline text to speech. Create it and call it on one thread only."""
+    """Offline text to speech. Create it and call it on one thread only.
+
+    pyttsx3 2.99 on Windows (SAPI5) plays only the first runAndWait of an engine:
+    later calls return in about 85 ms with no sound. So every phrase gets a fresh
+    engine, which takes about 26 ms to start. pyttsx3.init() caches engines weakly,
+    so the old one must be garbage collected before the next init() or the same
+    broken engine comes back.
+    """
 
     def __init__(self) -> None:
-        """Start the pyttsx3 engine on the current thread."""
+        """Check on the current thread that a pyttsx3 engine can start."""
         _init_com_for_thread()
         import pyttsx3
 
-        self._engine: Any = pyttsx3.init()
-        self._should_stop: Callable[[], bool] = lambda: False
-        self._engine.connect("started-word", self._on_word)
-
-    def _on_word(self, name: Any, location: int, length: int) -> None:
-        """Cut speech off at the next word boundary once an alarm arrives."""
-        if self._should_stop():
-            self._engine.stop()
+        self._pyttsx3 = pyttsx3
+        pyttsx3.init()  # raise now, so the manager falls back to logging at startup
+        gc.collect()
 
     def say(self, text: str, should_stop: Callable[[], bool]) -> None:
         """Speak text, blocking until it ends or should_stop() turns true."""
         if should_stop():
             return
-        self._should_stop = should_stop
-        self._engine.say(text)
-        self._engine.runAndWait()
+        try:
+            _speak_once(self._pyttsx3, text, should_stop)
+        finally:
+            gc.collect()  # drop the used engine so the next init() builds a new one
 
 
 class LogSpeaker:
