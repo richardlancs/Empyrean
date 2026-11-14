@@ -133,11 +133,10 @@ class DashboardState:
                 if msg.name and not track["name"]:
                     track["name"] = msg.name
                 if self._current_touch_id == msg.object_id:
-                    # Another object still in a hand takes over; otherwise keep
-                    # showing this one, marked released.
+                    # Another object still in a hand takes over; otherwise nothing
+                    # is touched and current_touch becomes null.
                     active = [t for t in self._touches.values() if t["state"] != "released"]
-                    if active:
-                        self._current_touch_id = active[-1]["object_id"]
+                    self._current_touch_id = active[-1]["object_id"] if active else None
         self._notify()
 
     def on_scene(self, msg: SceneSnapshot) -> None:
@@ -284,7 +283,10 @@ class DashboardState:
                     else None
                 )
                 objects.append(item)
-            current_touch = self._current_touch_view(now)
+            current_touch = self._touch_view(self._current_touch_id, now)
+            last_touch = self._touch_view(
+                next(reversed(self._touches)) if self._touches else None, now
+            )
             speech = dict(self._speech) if self._speech else None
             speech_reported = self._speech_reported
         return {
@@ -296,6 +298,7 @@ class DashboardState:
             "events": events,
             "objects": objects,
             "current_touch": current_touch,
+            "last_touch": last_touch,
             "speech": speech,
             "diagnostics": self.health.diagnostics(),
             "capabilities": {
@@ -337,11 +340,11 @@ class DashboardState:
         result = entry.get("result")
         return result if result in ("named", "fallback", "failed") else "unknown"
 
-    def _current_touch_view(self, now: float) -> dict[str, Any] | None:
-        """The object in the hand right now, or the one released most recently."""
-        if self._current_touch_id is None:
+    def _touch_view(self, object_id: int | None, now: float) -> dict[str, Any] | None:
+        """One touched object as the page shows it; state is touching, held or released."""
+        if object_id is None:
             return None
-        track = self._touches.get(self._current_touch_id)
+        track = self._touches.get(object_id)
         if track is None:
             return None
         name = track["name"] or ""

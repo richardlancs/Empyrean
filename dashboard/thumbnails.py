@@ -24,7 +24,7 @@ LOGGER = logging.getLogger("dashboard")
 
 MAX_ITEMS = 32
 FRAMES_KEPT = 3  # SceneSnapshot follows its FrameResult closely
-REFRESH_SECONDS = 1.0
+REFRESH_SECONDS = 5.0  # also how often an object's thumbnail_url changes
 MAX_EDGE_PIXELS = 160
 PAD_FRACTION = 0.08
 JPEG_QUALITY = 75
