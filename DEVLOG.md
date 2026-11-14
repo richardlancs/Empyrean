@@ -18,7 +18,7 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 ## Needs attention
 
-- **IN PROGRESS — Person 4: missed tabletop objects in video (assigned by user, 2026-11-14).** Person 4 leads this investigation now. Coordinate with Person 1 for vision changes and Person 2 for camera footage and scene changes. See the handoff entry below; coordinate with Person 4 before duplicating work. First evidence (Person 4 trace entry below): a small, far bottle is seen by YOLO in every frame but dropped by the 2% area filter, and by the 0.5 confidence gate before ByteTrack. A large black bottle with a handle is not recognised as a bottle at all. Proposal for all four to agree: `DET_MIN_AREA_FRACTION = 0.002` and `DET_MIN_CONFIDENCE = 0.3`. Still to do: confirm on Person 2's glasses-camera footage.
+- **IN PROGRESS — Person 4: missed tabletop objects in video (assigned by user, 2026-11-14).** Person 4 leads this investigation now. Coordinate with Person 1 for vision changes and Person 2 for camera footage and scene changes. See the handoff entry below; coordinate with Person 4 before duplicating work. First evidence (Person 4 trace entry below): a small, far bottle is seen by YOLO in every frame but dropped by the 2% area filter, and by the 0.5 confidence gate before ByteTrack. A large black bottle with a handle is not recognised as a bottle at all. Fix agreed by all four and merged in PR #19: `DET_MIN_AREA_FRACTION = 0.002` and `DET_MIN_CONFIDENCE = 0.3`. Still to do: rehearse the demo objects at arm's length on the glasses camera (see the demo readiness entry), then close this item. Unrecognised objects remain a model limit.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
@@ -71,6 +71,23 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 4 (demo readiness from the trace), Claude Code
+**Changed:** Notes only. What the tabletop trace below means for the demo.
+
+**Tested:** Nothing new; this reads the existing trace.
+
+**Decisions:**
+
+- **The clip was for verification, not calibration.** Nothing was tuned or trained on it. It tested the suggested thresholds (area 0.002, confidence 0.3) on fixed frames, so every setting saw the same input.
+- **The touch demo is mostly unaffected by the far-object problem.** A touched object is at arm's length and normally fills well over 2% of the frame, so the area filter kept it even at the old 2%. The far-object fix matters for the Objects list and things across the table. It is now live: PR #19 set confidence 0.3 and area 0.002, agreed by all four.
+- **The demo risk is objects YOLO does not recognise.** The large black bottle with a handle was never labelled a bottle, even up close (raw: "suitcase", 0.07). An unrecognised object cannot be touched or named, whatever the thresholds. This is a model limit; changing models needs team approval (AGENTS.md rule 7).
+- **Demo objects:** use ones the COCO model knows well and check each on the real camera, for example a plain plastic water bottle, a cup or mug, a phone, a banana or apple, a book, scissors. Avoid unusual shapes, handles, and dark or reflective bottles.
+
+**Teammates need to know:**
+
+- **Person 2:** before the demo, rehearse with the glasses camera at arm's length with the exact demo objects. Each one should appear in the dashboard's Objects list and be named on touch. This also settles whether the glasses-camera clip is still needed. The laptop clip already answers the threshold question; only the distance and angle differ.
+- **All:** the threshold proposal was agreed and merged in PR #19. Re-check for false detections on the real camera in a busy scene.
 
 ### 2026-11-14, Person 2 (shared `config/` and `SPEC.md`, agreed by all four), Claude Code
 **Changed:**
