@@ -23,6 +23,7 @@ Problems in someone else's folder go here. The owner removes the line once fixed
 - **Repo root:** there is still no root requirements file (AGENTS.md rule 8). Pins are split across `audio/requirements.txt` (`pyttsx3==2.99`, `pygame==2.6.1`) and `dashboard/requirements.txt` (`fastapi==0.162.7`, `uvicorn[standard]==0.54.0`, `opencv-contrib-python==4.11.0.86`). `ultralytics`, `mediapipe`, `httpx`, `psycopg`, `python-dotenv`, `numpy`, `pytest` and `ruff` are pinned nowhere. Earlier tested versions for some: `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. Whoever sets up the demo laptop should write one root file from that machine's working environment. Install `opencv-contrib-python` only, never alongside `opencv-python`.
 - **Person 1 (`fakes/hazard/fake_hazard.py`, start order):** still open. `FakeHazard` starts its thread in its constructor and `hazard` is first in `app`'s `MODULES`, so with `--fake hazard` the first `HazardEvent` (vehicle, yolo) is published before audio and dashboard subscribe. Start the thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
 - **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` still uses a fixed `time.sleep(1.4)`. It passes on Person 2's laptop (2026-11-14) but failed on Person 4's, where audio startup is slower. Wait for the expected output line instead.
+- **Person 1 (voice questions):** read the "voice questions plan for Person 1" entry before building. Confirm first that a Google Home can pass questions to our process at all.
 - **Person 1 (`hazard/`):** the narrowed tier B prompt has only been tested on scenes with no hazard (0 of 10 flagged). Test it on real stairs, a doorway and a wall before the demo. If it misses them, loosen the "do not count" list.
 - **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed and the Objects panel to your folder (`dashboard/video.py`, `server.py`, `state.py`, `__init__.py`, `index.html`, `requirements.txt`, and the dashboard tests). Keep, change or revert, then remove this line.
 - **Person 4 (`dashboard/`, not built yet from SPEC.md 4.9):** the processed-FPS readout and the "last touched" search box. Nothing publishes `LastSeenQuery` in the running app, so the last-seen answer (working in `storage/`) cannot be reached from the page.
@@ -70,6 +71,32 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 2 (docs only), Claude Code: voice questions plan for Person 1
+**Changed:** No code. Records a feature Person 1 is starting, so his agent has the context.
+
+**Planned, not built: voice questions.**
+- **What:** the wearer asks a question out loud and hears a spoken answer. Person 1 plans to use a Google Home speaker for this. The dashboard shows each question and its answer.
+- **Kinds of question:**
+  - About what the camera sees now: "is this item in front of me?", "what am I holding?"
+  - General: "what's the weather today?"
+  - History: "where did I last touch the ketchup?" `storage/` already answers this through `LastSeenQuery`.
+- **Who:** Person 1.
+
+**Check before building** (Person 2's agent's notes, not team decisions):
+1. **Getting the question off a Google Home.** Google shut down Conversational Actions for third-party apps in 2023, as far as the agent knows. A Nest or Home speaker may not pass the spoken question to our process at all. Confirm this first. If it cannot, the fallback is `SPEC.md` stretch goal 10.3: use the webcam's microphone, and use the Google Home only as a speaker or not at all.
+2. **Stack.** A Google Home and any speech-to-text library are outside the stack table, so all four must agree first (AGENTS.md rule 8).
+3. **Messages.** A question message and an answer message are probably needed. `SpeakRequest` (priority `normal`, `source` set to the sender's folder) can already carry the spoken answer to `audio/`, and `LastSeenQuery` already exists for the history case. Any new message goes in `contracts/` with all four agreeing (AGENTS.md rule 2).
+4. **Answers about the scene.** Use the current frame or the latest `SceneSnapshot` from the bus, and send them to Grok from a background worker (AGENTS.md rule 4). Never read another module's internals.
+5. **General answers.** Grok does not know today's weather unless the API call turns on a live search tool, if the Grok API offers one. Check that, or say "I can't check that" rather than guess.
+6. **Hazard first.** If answers play through the Google Home instead of the JBL, a `HazardEvent` alarm cannot cut them off, which breaks `SPEC.md` 4.8 and AGENTS.md rule 5. Keep spoken answers on the JBL through `audio/` via `SpeakRequest`.
+7. **Dashboard.** The question-and-answer panel is in `dashboard/`, Person 4's folder, with Person 3 working on the UI. Agree who adds it.
+8. **Folder.** Decide which folder the feature lives in and add it to the ownership table, so it is clear it belongs to Person 1.
+9. **Timing.** This is new scope close to the Saturday-midnight feature freeze (`SPEC.md` 8). Touch-to-name stays the priority if time runs short.
+
+**Tested:** Docs only; nothing to run.
+
+**Teammates need to know:** Person 1: give this entry to your agent before starting. Person 2's `scene/` needs no change: `SceneSnapshot` already carries what the scene questions need.
 
 ### 2026-11-14, Person 2 (docs only), Claude Code: status review and demo mode plan
 **Changed:** No code. Reviewed the whole repository against `SPEC.md` and brought the Markdown files in line with `main` at `64f878b`.
