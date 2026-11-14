@@ -6,6 +6,8 @@ Consumes: TouchEvent, HazardEvent, LastSeenQuery (SPEC.md section 5).
 Publishes: SpeakRequest(priority="normal", source="storage") with the SPEC.md
 section 4.10 last-seen sentence, for example
 "Heinz ketchup, 4 minutes ago, next to mug and cereal box."
+A query with a request_id also gets a LastSeenResult (found or not_found; the
+fake is never unavailable). register() announces a ModuleStatus with mode "fake".
 """
 
 from __future__ import annotations
@@ -18,6 +20,8 @@ from typing import Any
 from contracts import (
     HazardEvent,
     LastSeenQuery,
+    LastSeenResult,
+    ModuleStatus,
     SpeakRequest,
     TouchEvent,
 )
@@ -93,8 +97,23 @@ class FakeStore:
     def on_last_seen_query(self, msg: LastSeenQuery) -> None:
         """Answer a last-seen query with a SpeakRequest."""
         now = time.time()
-        text = last_seen_sentence(self.find_last_seen(msg.text), now)
+        match = self.find_last_seen(msg.text)
+        text = last_seen_sentence(match, now)
         self._publish(SpeakRequest(ts=now, text=text, priority="normal", source="storage"))
+        request_id = getattr(msg, "request_id", None)
+        if request_id is None:
+            return
+        self._publish(
+            LastSeenResult(
+                ts=now,
+                request_id=str(request_id),
+                status="found" if match is not None else "not_found",
+                answer=text,
+                matched_at=match.ts if match is not None else None,
+                label=(match.name or match.class_label) if match is not None else "",
+                neighbours=list(match.neighbours[:MAX_NEIGHBOURS]) if match is not None else [],
+            )
+        )
 
     def stop(self) -> None:
         """Do nothing: the fake has no worker. Present so app/ can stop it like Store."""
@@ -106,6 +125,15 @@ def register(bus: Any) -> FakeStore:
     bus.subscribe(TouchEvent, store.on_touch_event)
     bus.subscribe(HazardEvent, store.on_hazard_event)
     bus.subscribe(LastSeenQuery, store.on_last_seen_query)
+    bus.publish(
+        ModuleStatus(
+            ts=time.time(),
+            module="storage",
+            status="active",
+            mode="fake",
+            detail="Fake in-memory store: nothing is saved to Tiger Data",
+        )
+    )
     return store
 
 

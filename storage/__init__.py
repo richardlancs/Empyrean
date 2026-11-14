@@ -22,7 +22,9 @@ def register(bus: Any) -> Store:
     Handlers only enqueue and return. All database work, and every SpeakRequest
     answer published through bus.publish, happens on the store's worker thread.
     """
-    store = Store(bus.publish, os.environ.get("TIGER_DATABASE_URL"))
+    store = Store(
+        bus.publish, os.environ.get("TIGER_DATABASE_URL"), status_publish=bus.publish
+    )
     bus.subscribe(TouchEvent, store.on_touch_event)
     bus.subscribe(HazardEvent, store.on_hazard_event)
     bus.subscribe(LastSeenQuery, store.on_last_seen_query)
