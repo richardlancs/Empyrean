@@ -31,11 +31,23 @@ from contracts import FrameResult, HazardEvent
 
 log = logging.getLogger("hazard")
 GROK_URL = "https://api.x.ai/v1/responses"
+# Narrower than the SPEC.md 4.7 wording, which made Grok flag ordinary rooms as an
+# obstacle (or stairs) about every 6 seconds. See DEVLOG 2026-11-14.
 GROK_PROMPT = (
-    "This is the forward view of a blind pedestrian; is there an immediate hazard "
-    "in the walking path within about 3 metres? Reply with only a JSON object "
-    "with fields hazard (true or false), type (one of stairs_down, drop_off, "
-    "vehicle, obstacle, none) and confidence (0 to 1)."
+    "This is the forward view from a camera worn at eye level by a blind pedestrian, "
+    "tilted about 20 degrees down so their hands and any tabletop are in view. "
+    "Is there an immediate hazard the wearer would hit or fall from within their "
+    "next two steps if they walked straight ahead? "
+    "Count only: a downward step, stair edge or drop at floor level directly ahead "
+    "(stairs_down or drop_off); a moving vehicle approaching (vehicle); or a solid "
+    "object directly in the walking path at body or head height within about "
+    "1 metre (obstacle). "
+    "Do not count: objects on a table or desk, objects in or near the wearer's "
+    "hands, furniture or walls beside the path, floors and rugs, open space, or "
+    "anything far away. A table edge seen from above is not a drop. If you are not "
+    "sure, answer hazard false. "
+    "Reply with only a JSON object with fields hazard (true or false), type (one "
+    "of stairs_down, drop_off, vehicle, obstacle, none) and confidence (0 to 1)."
 )
 VEHICLE_LABELS = frozenset(("car", "bus", "truck", "motorcycle", "bicycle"))
 VALID_TYPES = frozenset(("stairs_down", "drop_off", "vehicle", "obstacle"))

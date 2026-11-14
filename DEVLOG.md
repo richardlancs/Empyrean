@@ -70,6 +70,24 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 2 working in Person 4's `audio/` and Person 1's `hazard/`, Claude Code: silent speech and false hazards
+**Changed:**
+- **Bug fix, `audio/backends.py`:** names were never heard after startup. With `pyttsx3==2.99` on Windows (SAPI5), only an engine's first `runAndWait()` makes sound. Every later call returns in about 85 ms in silence. That covered every touched name and the spoken "Stop. Obstacle."; only the `pygame` beeps were audible. `Pyttsx3Speaker` now builds a fresh engine for each phrase (about 26 ms) and garbage-collects the old one, because `pyttsx3.init()` caches engines weakly. Cutting off at a word boundary for alarms works the same way. The constructor still starts an engine once, so a broken install still falls back to `LogSpeaker` at startup.
+- **Departs from SPEC.md 4.7, `hazard/hazard.py`:** `GROK_PROMPT` is narrower than the spec's wording. It tells Grok the camera is tilted down toward the hands, that only a step, stair edge or drop directly ahead, an approaching vehicle, or a solid object in the path within about 1 m counts, and lists what does not count: tabletop items, things in hands, furniture beside the path, a table edge seen from above. It ends with "if you are not sure, answer hazard false". Nothing else in hazard changed. The cooldown, the 0.6 cutoff, the single-positive rule and tier A are untouched.
+- New `tests/test_audio_pyttsx3.py`: checks there is a new engine per phrase, and that a phrase cut off by an alarm does not silence the next one.
+
+**Tested:**
+- On this laptop's real speakers, through `Pyttsx3Speaker` on a worker thread: before the fix, phrases 2 and later took 85 ms (silent). After it, every phrase took 1 to 1.5 s, including the three phrases after one cut off mid-sentence.
+- Against real Grok, using one earlier screenshot and four live webcam frames (a room and a countertop close-up, none with a real hazard), two calls each: the old prompt flagged 8 of 10 (7 obstacle, 1 drop_off). The new prompt flagged 0 of 10.
+- **Not tested:** whether the new prompt still flags real stairs, a drop or an obstacle. None were on camera.
+- The terminal log of the session that prompted this showed 22 alarms in about 2 minutes ("Obstacle", and "Stairs" 4 times, indoors), Grok confidence 0.70 to 0.90.
+- Full `pytest`: 182 passed, 1 skipped. `ruff check` is clean on `audio/` and `hazard/`. `hazard.py` was already not `ruff format`-clean before this change and was not reformatted.
+
+**Teammates need to know:**
+- Person 1: please test the new prompt on real stairs and a doorway or wall before the demo. If it misses them, loosen the "do not count" list rather than going back to the old prompt.
+- All four: SPEC.md 4.7's prompt text now differs from the code, so it needs updating once you agree.
+- Person 4: the speech fix is in your `audio/backends.py`. Please review it.
+
 ### 2026-11-14, Person 2 working in Person 1's `vision/`, Claude Code: YOLO nano to YOLO small
 **Changed:** `vision/vision.py` now loads `vision/models/yolo11s.pt` instead of `yolo11n.pt`, and its missing-weights message names the new file. Nothing else changed. Person 2 asked for the swap after the real camera missed a held backpack. It is outside Person 2's lane and is a model swap (AGENTS.md rule 7), so it is logged here for Person 1 and the team.
 
