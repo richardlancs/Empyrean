@@ -13,7 +13,7 @@ Instructions for Claude Code in this repository.
 
 ## Stack
 
-Python 3.11. OpenCV for capture and drawing. Ultralytics YOLO nano with ByteTrack for objects. MediaPipe Hands for fingertips. Grok vision over the Grok API with `httpx` for naming and hazard checks. Tiger Data with `psycopg` 3 for history. `pyttsx3` for speech and `pygame` mixer for the alarm. FastAPI on Uvicorn serving one plain HTML page with MJPEG video and a WebSocket. `python-dotenv`, `pytest`, `ruff`. Git and GitHub.
+Python 3.11. OpenCV for capture and drawing. Ultralytics YOLO small (`yolo11s.pt`) with ByteTrack for objects. MediaPipe Hands for fingertips. Grok vision over the Grok API with `httpx` for naming and hazard checks. Tiger Data with `psycopg` 3 for history. `pyttsx3` for speech and `pygame` mixer for the alarm. FastAPI on Uvicorn serving one plain HTML page with MJPEG video and a WebSocket. `python-dotenv`, `pytest`, `ruff`. Git and GitHub.
 
 The full table is in `AGENTS.md` and `SPEC.md` section 2.1. Do not introduce anything outside it.
 

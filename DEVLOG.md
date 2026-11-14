@@ -20,20 +20,19 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
-- **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
-- **Person 1 (`app/` start order):** with `--fake hazard`, the fake hazard starts publishing as soon as it is registered, before audio and dashboard have subscribed, so its first `HazardEvent` (vehicle, yolo) reaches nobody. Start the fake's thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
-- **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` fails on Person 4's Windows laptop, on a clean copy of `main` as well. Run directly, `python -m app --fake vision` starts fine, but audio startup (pyttsx3 and pygame) takes longer than the test's 1.4 s wait before vision publishes its first frame. Wait for the expected output line instead of a fixed sleep. Found by Person 4, 2026-11-14.
-- **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
-- **Person 1 (`app/` bus):** Person 3's modules are ready to be registered. Requests for `app/`:
-  1. **Bus shape.** `namer.register(bus)`, `storage.register(bus)`, `fakes.namer.fake_namer.register(bus)` and `fakes.storage.fake_store.register(bus)` call only `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, keyed on the `contracts` class. If the bus uses a different shape, tell Person 3 before building against it.
-  2. **Load `.env` before registering.** Call `load_dotenv()` at the top of `app/` before any `register(bus)`. `storage.register` reads `TIGER_DATABASE_URL` once, when the `Store` is created. If it is not set at that moment, storage drops every write for the whole run, even if `.env` is loaded later. Do not rely on the Grok client loading `.env` the first time it calls Grok, because that happens after storage has already read the variable.
-  3. **Publishing from worker threads.** `namer` publishes `NameResult` from its own worker thread, and `storage` publishes `SpeakRequest` from its `storage-writer` thread. The fakes do the same, except the fake store, which answers on the delivering thread. `bus.publish` must be safe to call from any thread: guard the subscriber list with a lock or copy it before delivering. Subscribers that run on the frame thread, such as scene, must not be called with the bus lock held. Person 3's handlers only enqueue and return, so delivering to them inline is safe.
-  4. **Scene adapter.** `SceneDatabase` calls `publish(topic_name, msg)`, where the topic is the class name. Until Person 2 changes that, wire it with `SceneDatabase(lambda _topic, msg: bus.publish(msg))`, or with `fakes.scene` for `--fake scene`.
-  5. **Shutdown.** Keep what each `register` returns and call `stop()` on it at shutdown: `Namer.stop(timeout=...)`, `Store.stop()`, `FakeNamer.stop(timeout=...)`, and `FakeStore.stop()`, which does nothing. `Store.stop()` waits up to 5 s for its worker to finish and close the database connection.
-  6. **`--fake namer storage`.** Use the `register` functions in `fakes/namer/fake_namer.py` and `fakes/storage/fake_store.py`. They subscribe to the same message types as the real modules, so the rest of `app/` does not change.
+- **Repo root:** there is still no root requirements file (AGENTS.md rule 8). Pins are split across `audio/requirements.txt` (`pyttsx3==2.99`, `pygame==2.6.1`) and `dashboard/requirements.txt` (`fastapi==0.162.7`, `uvicorn[standard]==0.54.0`, `opencv-contrib-python==4.11.0.86`). `ultralytics`, `mediapipe`, `httpx`, `psycopg`, `python-dotenv`, `numpy`, `pytest` and `ruff` are pinned nowhere. Earlier tested versions for some: `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. Whoever sets up the demo laptop should write one root file from that machine's working environment. Install `opencv-contrib-python` only, never alongside `opencv-python`.
+- **Person 1 (`fakes/hazard/fake_hazard.py`, start order):** still open. `FakeHazard` starts its thread in its constructor and `hazard` is first in `app`'s `MODULES`, so with `--fake hazard` the first `HazardEvent` (vehicle, yolo) is published before audio and dashboard subscribe. Start the thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
+- **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` still uses a fixed `time.sleep(1.4)`. It passes on Person 2's laptop (2026-11-14) but failed on Person 4's, where audio startup is slower. Wait for the expected output line instead.
+- **Person 1 (`hazard/`):** the narrowed tier B prompt has only been tested on scenes with no hazard (0 of 10 flagged). Test it on real stairs, a doorway and a wall before the demo. If it misses them, loosen the "do not count" list.
+- **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed and the Objects panel to your folder (`dashboard/video.py`, `server.py`, `state.py`, `__init__.py`, `index.html`, `requirements.txt`, and the dashboard tests). Keep, change or revert, then remove this line.
+- **Person 4 (`dashboard/`, not built yet from SPEC.md 4.9):** the processed-FPS readout and the "last touched" search box. Nothing publishes `LastSeenQuery` in the running app, so the last-seen answer (working in `storage/`) cannot be reached from the page.
+- **Person 4 (`audio/backends.py`, please review):** Person 2's fix that builds a fresh `pyttsx3` engine per phrase. Confirm it on the JBL.
+- **Person 3 (`namer/grok_client.py`, please review):** Person 2 rewrote `INSTRUCTION` so Grok names a brand only when it is printed and readable. Rerun `fakes.namer.eval_batch`, then remove this line.
+- **Person 3 (naming on real crops):** accuracy on Logitech camera crops of the demo objects is still unmeasured. `fakes.namer.crop_recorder` and `eval_batch --manifest` are ready for it.
+- **Persons 1 and 4:** add your names to the Team table at the bottom. Person 1: an early entry lists the tool as "ChatGPT GPT-6", which is not in the stack table's coding agents. Confirm or correct it for the SpaceXSI write-up.
+- **All:** `SPEC.md` section 12 still has open questions (SpaceXSI prize rules, HackUMass category count, submission deadline, which laptop runs the demo). A full run on the Logitech webcam and the JBL together is not recorded in this log yet.
 
-- **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed to your folder at their own request, outside the ownership rule. New `dashboard/video.py`, plus edits to `dashboard/server.py`, `dashboard/__init__.py`, `dashboard/index.html`, `dashboard/requirements.txt` and `tests/test_dashboard.py`, and a new `tests/test_dashboard_video.py`. Details are in the 2026-11-14 Person 2 entry below. Keep it, change it or revert it as you see fit, then remove this line. Nothing in `vision/` or `app/` changed, so Person 1 has nothing to do.
-- **Person 3 (`namer/grok_client.py`, please review):** Person 2 rewrote `INSTRUCTION` at their own request, outside the ownership rule, so Grok names a brand only when it is printed and readable. Details are in the 2026-11-14 Person 2 naming entry below. Keep, change or revert it, then remove this line.
+Closed on 2026-11-14 (checked against the code on `main` at `64f878b`): the scene/namer threading race (`app/__main__.py` wraps `handle_frame` and `handle_name` in one lock), and all six of Person 3's `app/` bus requests (bus shape, `load_dotenv()` before registering, thread-safe `publish`, scene adapter, `stop()` at shutdown, fake paths).
 
 ## Contract changes
 
@@ -45,6 +44,7 @@ Any change to `contracts/`, `config/`, `SPEC.md` or `AGENTS.md`. Needs all four 
 | 2026-11-13 22:05 | Stack table added to `SPEC.md` section 2.1, `AGENTS.md` and `CLAUDE.md` | pending team review |
 | 2026-11-13 23:40 | Initial `contracts/messages.py` and `config/thresholds.py`, copied from SPEC.md sections 5 and 9. No value changed | pending team review |
 | 2026-11-14 01:03 | PR #2 merged to `main`: `Box` and `Point` are tuples, the fixed value sets are `Literal`, list fields default to empty, the dataclasses are no longer frozen, and `tests/test_contracts.py` checks them against SPEC.md. No threshold changed | Person 3 (author), Person 2 (adopted in `scene/`). Persons 1 and 4 still to confirm |
+| 2026-11-14 | Docs brought in line with the code on `main`. `SPEC.md` 2.1, 3.1 and 4.2, `AGENTS.md` and `CLAUDE.md`: YOLO nano to YOLO small (`yolo11s.pt`). `SPEC.md` 4.5: naming prompt names a brand only when readable, and scene owns the one retry. `SPEC.md` 4.7: narrowed tier B prompt. `SPEC.md` 6 and 12: Grok model name resolved. `contracts/README.md`: proposal text replaced with the current shapes. No message field and no threshold changed | All four, as confirmed by Person 2 to the agent |
 
 ## Stack
 
@@ -54,7 +54,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 |---|---|
 | Language | Python 3.11 |
 | Camera capture and drawing | OpenCV (`opencv-python`) |
-| Object detection and tracking | Ultralytics YOLO nano, COCO weights, ByteTrack |
+| Object detection and tracking | Ultralytics YOLO small (`yolo11s.pt`), COCO weights, ByteTrack |
 | Hand tracking | MediaPipe Hands |
 | Brand naming and hazard check | Grok vision model over the Grok API, called with `httpx` |
 | Database | Tiger Data (Postgres with time-series hypertables), `psycopg` 3 |
@@ -70,6 +70,45 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 2 (docs only), Claude Code: status review and demo mode plan
+**Changed:** No code. Reviewed the whole repository against `SPEC.md` and brought the Markdown files in line with `main` at `64f878b`.
+- `SPEC.md`, `AGENTS.md`, `CLAUDE.md`, `contracts/README.md`: see the new row in "Contract changes". Person 2 confirmed all four teammates agreed.
+- This file: "Needs attention" rewritten to what is still open, with the fixed items listed as closed. Stack table says YOLO small.
+
+**Where the project stands:**
+
+| Piece | State |
+|---|---|
+| Bus and `python -m app`, with `--fake` and `--only` | Working. All seven modules register and shut down cleanly |
+| Vision (YOLO small, ByteTrack, MediaPipe hands) | Working on a real webcam, about 49 ms per frame for detection |
+| Scene and touch (touch, release, retouch, held, held-merge) | Working, with tests for the 4.6 table |
+| Naming through Grok | Working live. Brands only when readable on the object |
+| Audio (name on touch, late name, alarm cuts speech) | Working on laptop speakers after the per-phrase engine fix. The JBL played before that fix |
+| Dashboard | Camera feed with overlays, Objects panel, event log, hazard banner, Simulate alert. No FPS readout or last-touched search yet |
+| Hazard tier A and tier B | Running. Tier B prompt narrowed; untested on a real hazard |
+| Tiger Data log and last-seen answer | Working in `storage/` against the live database. Not reachable from the page yet |
+| Stretch goals (SPEC.md 10) | Not started |
+
+**Tested:** Windows 11, `.venv` Python 3.11.18. Full `pytest`: 182 passed, 1 skipped (the live DB test), before and after the doc edits. `ruff check .`: clean. `python -m app --fake vision` was not run by hand this session; `test_cli_fake_vision_starts` starts it and passed.
+
+**Planned, not built: demo mode and actual mode.** Recorded here for later. Nothing below exists yet.
+- **What:** one switch on the dashboard page at `http://localhost:8000` flips the running app between *actual mode* (live camera, as now) and *demo mode*.
+- **Demo mode:** the app plays a recording a few minutes long of someone holding and touching a fixed set of objects, instead of the live camera. The set of objects is decided in advance and given to Claude Code to program in.
+- **Who:** Persons 1 and 2 choose the objects and make the recording.
+- **To settle before building** (these are Person 2's agent's notes, not team decisions):
+  1. *Where the recording lives.* AGENTS.md rule 10 caps committed video at 20 seconds and 10 MB, and `.gitignore` only lets video through under `fakes/vision/`. A recording a few minutes long has to stay out of git and be copied to the demo laptop by hand, unless all four agree to change the rule.
+  2. *What "programmed in" means for the object set.* Either the recording runs through the real pipeline and the list is only used to check names, or demo mode uses fixed names for those objects and skips Grok so the demo does not depend on the network. Decide which.
+  3. *How the switch reaches the app.* The page can only talk to `dashboard/`, and modules may only talk over the bus. No message in `SPEC.md` section 5 carries a mode change, so this needs either a new message (all four agree) or the switch handled in `app/` in a way the team accepts. Switching at run time also means stopping the camera and starting playback without restarting the process, which `vision/` does not support today.
+  4. *Folders touched.* The switch is in `dashboard/` (Person 4). Playback and the mode change are in `app/`, `vision/` and `fakes/vision/` (Person 1). Fixed names, if chosen, touch `namer/` or `fakes/namer/` (Person 3).
+  5. *Hazard and storage in demo mode.* Decide whether tier B Grok checks run on the recording, and whether demo touches are written to Tiger Data (they would mix with real history unless the session is marked).
+  6. *Page wording.* Show clearly on the page which mode is on, so a recording is never presented as live.
+- The existing `python -m app --fake vision` is scripted synthetic frames, not a recording, and is chosen at start-up, not from the page. Demo mode is a separate thing.
+
+**Teammates need to know:**
+- Everyone: pull, and read the rewritten "Needs attention" list. It has an item for each person.
+- Persons 1 and 2: when you record, use the Logitech camera on the glasses at 1280 x 720, set each object down for 1 to 2 seconds before touching it, and keep the list of objects in the order they appear.
+- Nobody should start building demo mode until points 1 to 3 above are decided.
 
 ### 2026-11-14, Person 2 working in Person 3's `namer/`, Claude Code: brand names only when readable
 **Changed:**
@@ -636,4 +675,5 @@ Fill this in as you go. It becomes the SpaceXSI section of the Devpost write-up.
 |---|---|
 | Cursor | Scene database, touch state machine, and name crops. Touch and naming were written at the same time, then wired into `SceneDatabase`. |
 | Grok Bot | Person 3: `.p3/grokbot.sh` runs Cursor's agent CLI headless with `grok-4.7-high-fast`, read-only, on the Person 3 diff, and saves a contract check, a risk note and a DEVLOG draft. Its 2026-11-13 23:13 run caught the private message-class risk that led to the shared `contracts/`. Reports from 23:13 and 00:26 are in `scratch/grokbot/`, which is local and git-ignored. |
-| Other | Claude Code reviewed Cursor's scene module and fixed the held-merge and release-on-removal bugs. |
+| Claude Code | Person 3: built `namer/`, `storage/` and their fakes, the live Grok and Tiger Data checks, and the shared-class tests. Person 4: audio manager and dashboard. Person 2: reviewed Cursor's scene module and fixed the held-merge and release-on-removal bugs, then added the dashboard camera feed and Objects panel, the YOLO small swap, the speech fix and the narrower Grok prompts. Also reviewed PR #9 and kept these docs current. |
+| Other | Person 1's first `app/`, `vision/` and `hazard/` entry lists ChatGPT GPT-6. To be confirmed by Person 1. |
