@@ -1,5 +1,5 @@
 // Composition root. Wires the store, the transport clients, the announcer, the
-// shell and the two feature modules together. Holds no feature logic.
+// shell and the three feature modules together. Holds no feature logic.
 //
 // Dependency direction:  app.js -> components/, core/, features/*/index.js
 //                        features -> core/ helpers (optional) and the context only
@@ -19,7 +19,7 @@ import { createSocketClient, dashboardSocketUrl } from "./core/socket-client.js"
 import { createStore, reportError } from "./core/store.js";
 import { createAppShell } from "./components/app-shell.js";
 
-/** The two feature entry modules and the mounts each one owns. */
+/** The feature entry modules and the mounts each one owns. */
 export const FEATURES = Object.freeze([
   Object.freeze({
     name: "experience",
@@ -32,6 +32,12 @@ export const FEATURES = Object.freeze([
     url: "/static/features/operations/index.js",
     exportName: "mountOperations",
     areas: Object.freeze(["health", "warning", "events", "demo"]),
+  }),
+  Object.freeze({
+    name: "questions",
+    url: "/static/features/questions/index.js",
+    exportName: "mountQuestions",
+    areas: Object.freeze(["questions"]),
   }),
 ]);
 

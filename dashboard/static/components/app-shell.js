@@ -1,5 +1,5 @@
 // The page frame: skip link, header (purpose, Prototype label, display options),
-// the eight feature mounts in semantic order, and the footer.
+// the nine feature mounts in semantic order, and the footer.
 // The shell owns these elements but never their contents once a feature mounts:
 // each feature fills and updates its own mounts.
 
@@ -8,6 +8,7 @@ export const AREAS = Object.freeze([
   Object.freeze({ key: "health", id: "health-panel", label: "System status" }),
   Object.freeze({ key: "warning", id: "warning-panel", label: "Warnings" }),
   Object.freeze({ key: "touch", id: "touch-panel", label: "Current touch" }),
+  Object.freeze({ key: "questions", id: "questions-panel", label: "Ask a question" }),
   Object.freeze({ key: "camera", id: "camera-panel", label: "Camera view" }),
   Object.freeze({ key: "objects", id: "objects-panel", label: "Recognized objects" }),
   Object.freeze({ key: "find", id: "find-panel", label: "Find a last touch" }),
@@ -88,7 +89,7 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
       }),
       h(doc, "ol", { className: "app-welcome__steps" }, [
         h(doc, "li", {}, "The glasses camera sees objects and hands."),
-        h(doc, "li", {}, "When a fingertip lands on an object, the speaker says its name."),
+        h(doc, "li", {}, "Touch an object and ask “What am I touching?”: the speaker says its name."),
         h(doc, "li", {}, "This page mirrors that. The wearer never needs to use it."),
       ]),
     ]),

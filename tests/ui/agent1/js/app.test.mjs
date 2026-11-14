@@ -28,7 +28,7 @@ function fakeWindow({ storage = fakeStorage(), prefersMore = false } = {}) {
 }
 
 function recordingFeatures() {
-  const calls = { experience: [], operations: [], cleanups: [] };
+  const calls = { experience: [], operations: [], questions: [], cleanups: [] };
   const modules = {
     "/static/features/experience/index.js": {
       mountExperience(ctx) {
@@ -45,6 +45,12 @@ function recordingFeatures() {
         // returns no cleanup: the app must still release its subscription
       },
     },
+    "/static/features/questions/index.js": {
+      mountQuestions(ctx) {
+        calls.questions.push(ctx);
+        return () => calls.cleanups.push("questions");
+      },
+    },
   };
   return { calls, importModule: async (url) => modules[url] };
 }
@@ -59,7 +65,7 @@ test("app: shell exposes all eight mounts with the contract ids, in reading orde
   assert.deepEqual(Object.keys(ctx.roots), AREAS.map((a) => a.key));
   const ids = Object.values(ctx.roots).map((el) => el.id);
   assert.deepEqual(ids, [
-    "health-panel", "warning-panel", "touch-panel", "camera-panel",
+    "health-panel", "warning-panel", "touch-panel", "questions-panel", "camera-panel",
     "objects-panel", "find-panel", "events-panel", "demo-panel",
   ]);
   for (const key of ["subscribe", "request", "announce"]) assert.equal(typeof ctx[key], "function");
@@ -101,11 +107,14 @@ test("app: a failed feature shows a visible error in its own mounts only", async
       win,
       importModule: async (url) => {
         if (url.includes("operations")) throw new TypeError("Failed to fetch dynamically imported module");
-        return { mountExperience: (ctx) => void ctx.roots.touch.append("ok") };
+        return {
+          mountExperience: (ctx) => void ctx.roots.touch.append("ok"),
+          mountQuestions: () => () => {},
+        };
       },
     });
     const results = await app.ready;
-    assert.deepEqual(results.map((r) => r.status), ["mounted", "failed"]);
+    assert.deepEqual(results.map((r) => r.status), ["mounted", "failed", "mounted"]);
     const doc = win.document;
     for (const id of ["health-panel", "warning-panel", "events-panel", "demo-panel"]) {
       const slot = doc.getElementById(id);
@@ -128,7 +137,7 @@ test("app: destroy runs cleanups, releases every subscription and closes the soc
   await app.ready;
   assert.equal(app.store.listenerCount(), 2);
   app.destroy();
-  assert.deepEqual(calls.cleanups, ["experience"]);
+  assert.deepEqual(calls.cleanups, ["experience", "questions"]);
   assert.equal(app.store.listenerCount(), 0);
   assert.ok(FakeWebSocket.last.closed);
   assert.equal(win.listeners.has("online"), false);
@@ -195,6 +204,7 @@ test("app: FEATURES matches the shared contract", () => {
     [
       ["/static/features/experience/index.js", "mountExperience", ["touch", "camera", "objects", "find"]],
       ["/static/features/operations/index.js", "mountOperations", ["health", "warning", "events", "demo"]],
+      ["/static/features/questions/index.js", "mountQuestions", ["questions"]],
     ],
   );
 });

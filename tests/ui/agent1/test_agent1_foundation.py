@@ -110,6 +110,7 @@ def test_index_is_a_minimal_entry_document() -> None:
         ("link", "/static/styles/components.css"),
         ("link", "/static/features/experience/experience.css"),
         ("link", "/static/features/operations/operations.css"),
+        ("link", "/static/features/questions/questions.css"),
         ("script", "/static/app.js"),
     ]
     module = [

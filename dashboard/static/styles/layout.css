@@ -149,6 +149,7 @@
     "health"
     "warning"
     "touch"
+    "questions"
     "camera"
     "objects"
     "find"
@@ -166,6 +167,7 @@
 .app-slot--health  { grid-area: health; }
 .app-slot--warning { grid-area: warning; }
 .app-slot--touch   { grid-area: touch; }
+.app-slot--questions { grid-area: questions; }
 .app-slot--camera  { grid-area: camera; }
 .app-slot--objects { grid-area: objects; }
 .app-slot--find    { grid-area: find; }
@@ -214,6 +216,7 @@
       "health  health"
       "warning warning"
       "touch   touch"
+      "questions questions"
       "camera  camera"
       "objects find"
       "events  events"
@@ -234,6 +237,7 @@
       "health  health"
       "warning warning"
       "touch   camera"
+      "questions camera"
       "objects camera"
       "find    events"
       "demo    events";

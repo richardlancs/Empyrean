@@ -31,7 +31,7 @@ test("normalize: legacy state gains every optional field, with honest defaults",
     assert.equal(s.diagnostics[key].last_update_ts, null);
   }
   assert.equal(s.diagnostics.camera.fps, null);
-  assert.deepEqual(s.capabilities, { last_seen: false, thumbnails: false, overlays: false, speech_status: false, mode_switch: false });
+  assert.deepEqual(s.capabilities, { last_seen: false, thumbnails: false, overlays: false, speech_status: false, mode_switch: false, questions: false });
 });
 
 test("normalize: legacy latest_warning is split by its simulated flag", () => {

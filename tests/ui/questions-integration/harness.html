@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Questions fixture harness</title>
+<!-- The real shell styles and the real feature stylesheet, by relative path. -->
+<link rel="stylesheet" href="../../../dashboard/static/styles/tokens.css">
+<link rel="stylesheet" href="../../../dashboard/static/styles/base.css">
+<link rel="stylesheet" href="../../../dashboard/static/styles/components.css">
+<link rel="stylesheet" href="../../../dashboard/static/features/questions/questions.css">
+<style>
+  /* Fixture chrome only. Not production. */
+  body { margin: 0; padding: 16px; background: var(--color-page); color: var(--color-text); font-family: var(--font-sans); }
+  .fixture { max-width: 760px; margin: 0 auto; display: grid; gap: 16px; }
+  .fixture-banner { padding: 8px 12px; border: 2px dashed var(--color-sim); background: var(--color-sim-soft); color: var(--color-sim); font-size: 0.9375rem; }
+  .fixture-controls { border: 1px dashed var(--color-border-control); padding: 8px 12px; font-size: 0.9375rem; }
+  .fixture-controls summary { cursor: pointer; font-weight: 600; min-height: 32px; }
+  .fixture-row { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 8px; align-items: center; }
+  .fixture-row label { display: inline-flex; gap: 6px; align-items: center; }
+  .fixture-row select, .fixture-row input, .fixture-row button { font: inherit; min-height: 32px; }
+  .fixture-log { font-size: 0.875rem; color: var(--color-text-secondary); }
+  .fixture-log ol { margin: 4px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<div class="fixture">
+  <div class="fixture-banner" role="note">
+    <strong>FIXTURE HARNESS.</strong> Artificial test data from <code>tests/ui/questions-integration/harness.js</code>.
+    No camera, engine, storage or speaker is connected. The panel below is the real feature module.
+  </div>
+
+  <details class="fixture-controls" id="fixture-controls">
+    <summary>Fixture controls (artificial)</summary>
+    <div class="fixture-row">
+      <label>Server reply
+        <select id="fx-reply">
+          <option value="answer">200 answered (immediate)</option>
+          <option value="history-poll">202 looking_up, answered on 3rd poll</option>
+          <option value="history-push">202 looking_up, answered by socket push after 2 s</option>
+          <option value="history-unavailable">200 unavailable (history down)</option>
+          <option value="history-notfound">202 then answered: not found</option>
+          <option value="history-stuck">202 looking_up forever (15 s still waiting)</option>
+          <option value="scene-unavailable">200 unavailable (no camera view)</option>
+          <option value="503">503 no engine</option>
+          <option value="422">422 rejected</option>
+          <option value="network">network error</option>
+        </select>
+      </label>
+      <label>Latency ms <input id="fx-latency" type="number" min="0" step="100" value="300" size="5"></label>
+    </div>
+    <div class="fixture-row">
+      <label>Connection
+        <select id="fx-connection">
+          <option value="connected">connected</option>
+          <option value="connecting">connecting</option>
+          <option value="reconnecting">reconnecting</option>
+        </select>
+      </label>
+      <label>capabilities.questions
+        <select id="fx-cap">
+          <option value="true">true</option>
+          <option value="false">false</option>
+          <option value="absent">absent (older backend)</option>
+        </select>
+      </label>
+    </div>
+    <div class="fixture-row">
+      <label>Speech recognition
+        <select id="fx-voice">
+          <option value="fake">fake (scripted)</option>
+          <option value="unsupported">unsupported</option>
+          <option value="browser">real browser API</option>
+        </select>
+      </label>
+      <label>Fake mic outcome
+        <select id="fx-mic">
+          <option value="ok">says "where did I last touch my keys"</option>
+          <option value="not-allowed">error not-allowed</option>
+          <option value="audio-capture">error audio-capture</option>
+          <option value="network">error network</option>
+          <option value="no-speech">error no-speech</option>
+          <option value="silence">nothing until stopped</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="fx-contrast"> High-contrast theme</label>
+    </div>
+    <div class="fixture-row">
+      <button type="button" id="fx-push-other">Push another page's question</button>
+      <button type="button" id="fx-remount">Unmount and remount</button>
+    </div>
+  </details>
+
+  <section id="questions-root" aria-label="Ask a question"></section>
+
+  <div class="fixture-log" aria-label="Fixture log">
+    <strong>Announcements (fixture log of ctx.announce)</strong>
+    <ol id="fx-announcements"></ol>
+    <strong>Requests</strong>
+    <ol id="fx-requests"></ol>
+  </div>
+</div>
+<script type="module" src="./harness.js"></script>
+</body>
+</html>

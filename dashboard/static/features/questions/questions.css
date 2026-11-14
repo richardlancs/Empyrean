@@ -1,0 +1,330 @@
+/* Questions feature styles. Every selector is scoped under .questions-panel.
+   Colours, space and type come from styles/tokens.css, so the light and
+   high-contrast themes (:root[data-theme]) apply; fallbacks are the light
+   values. The panel stays in normal flow: no fixed or sticky positioning. */
+
+.questions-panel {
+  --q-text: var(--color-text, #1F1F1F);
+  --q-muted: var(--color-text-secondary, #57524A);
+  --q-surface: var(--color-surface, #FFFFFF);
+  --q-sunken: var(--color-surface-sunken, #F1EDE5);
+  --q-border: var(--color-border, #E4DED3);
+  --q-control: var(--color-border-control, #7A7367);
+  --q-control-w: var(--border-width-control, 1px);
+  --q-rule: var(--color-rule, #E4DED3);
+  --q-rule-w: var(--rule-width, 1px);
+  --q-accent: var(--color-accent, #1947B8);
+  --q-accent-hover: var(--color-accent-hover, #123A99);
+  --q-on-accent: var(--color-on-accent, #FFFFFF);
+  --q-accent-soft: var(--color-accent-soft, #E8EEFB);
+  --q-caution: var(--color-caution, #1F1F1F);
+  --q-caution-soft: var(--color-caution-soft, #FBEFC4);
+  --q-caution-fill: var(--color-caution-fill, #F2C94C);
+  --q-danger: var(--color-danger, #B42318);
+  --q-danger-soft: var(--color-danger-soft, #FDECEA);
+  --q-focus: var(--color-focus, #1947B8);
+  --q-focus-w: var(--focus-width, 3px);
+  --q-s1: var(--space-1, 8px);
+  --q-s2: var(--space-2, 16px);
+  --q-s3: var(--space-3, 24px);
+  --q-target: var(--target-min, 44px);
+
+  display: grid;
+  gap: var(--q-s2);
+  min-width: 0;
+  color: var(--q-text);
+  background: var(--q-surface);
+  border: var(--border-width, 1px) solid var(--q-border);
+  border-radius: var(--radius, 12px);
+  padding: var(--q-s2);
+  font-size: var(--text-body, 1.0625rem);
+  line-height: var(--leading-body, 1.5);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 45em) {
+  .questions-panel { padding: var(--q-s3); }
+}
+
+.questions-panel p { margin: 0; }
+
+/* Module label bar, matching the other panels: a square, the title, a rule. */
+.questions-panel .questions-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding-bottom: 6px;
+  border-bottom: var(--q-rule-w) solid var(--q-rule);
+  font-size: 0.9375rem;
+  font-weight: var(--weight-black, 800);
+  letter-spacing: var(--tracking-label, 0.02em);
+}
+.questions-panel .questions-heading::before {
+  content: "";
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--q-text);
+}
+.questions-panel .questions-subheading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: var(--weight-bold, 700);
+}
+
+.questions-panel .questions-label { font-weight: var(--weight-semibold, 600); }
+.questions-panel .questions-muted { color: var(--q-muted); font-size: var(--text-small, 0.9375rem); }
+
+.questions-panel .questions-notice {
+  padding: 6px 12px;
+  border-left: 4px solid var(--q-caution);
+  background: var(--q-caution-soft);
+  color: var(--q-caution);
+  border-radius: var(--radius-sm, 6px);
+}
+
+/* ---- Form ---- */
+.questions-panel .questions-form { display: grid; gap: var(--space-half, 4px); }
+.questions-panel .questions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--q-s1);
+}
+
+.questions-panel .questions-input,
+.questions-panel .questions-button {
+  min-height: var(--q-target);
+  font: inherit;
+  border-radius: var(--radius-sm, 6px);
+}
+.questions-panel .questions-input {
+  flex: 1 1 14rem;
+  min-width: 0;
+  padding: 0 12px;
+  border: var(--q-control-w) solid var(--q-control);
+  background: var(--q-surface);
+  color: var(--q-text);
+}
+.questions-panel .questions-input[readonly] { background: var(--q-sunken); }
+
+.questions-panel .questions-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--q-s1);
+  min-width: var(--q-target);
+  padding: 0 var(--q-s2);
+  border: var(--q-control-w) solid var(--q-control);
+  background: var(--q-surface);
+  color: var(--q-text);
+  font-weight: var(--weight-medium, 500);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--duration-fast, 120ms) var(--easing, ease);
+}
+.questions-panel .questions-button:hover { background: var(--q-sunken); }
+.questions-panel .questions-button-primary {
+  background: var(--q-accent);
+  border-color: var(--q-accent);
+  color: var(--q-on-accent);
+  font-weight: var(--weight-semibold, 600);
+}
+.questions-panel .questions-button-primary:hover { background: var(--q-accent-hover); border-color: var(--q-accent-hover); }
+.questions-panel .questions-button:disabled,
+.questions-panel .questions-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  background: var(--q-sunken);
+  border-color: var(--q-border);
+  color: var(--q-muted);
+}
+.questions-panel .questions-button[aria-disabled="true"] { cursor: progress; }
+
+.questions-panel :focus-visible {
+  outline: var(--q-focus-w) solid var(--q-focus);
+  outline-offset: var(--focus-offset, 2px);
+}
+
+/* ---- Voice ---- */
+.questions-panel .questions-voice {
+  display: grid;
+  gap: var(--space-half, 4px);
+  padding-top: var(--q-s2);
+  border-top: var(--q-rule-w) solid var(--q-rule);
+}
+.questions-panel .questions-mic svg { flex: none; }
+/* Listening: filled, with a square "recording" mark; state is also in aria-pressed and the status text. */
+.questions-panel .questions-mic[aria-pressed="true"] {
+  background: var(--q-accent-soft);
+  border-color: var(--q-accent);
+  color: var(--q-accent);
+  box-shadow: inset 0 0 0 1px var(--q-accent);
+  font-weight: var(--weight-semibold, 600);
+}
+.questions-panel .questions-mic[aria-pressed="true"]::after {
+  content: "";
+  width: 0.6em;
+  height: 0.6em;
+  background: currentColor;
+}
+.questions-panel .questions-voice-status { font-weight: var(--weight-medium, 500); }
+.questions-panel .questions-voice-status[data-phase="listening"],
+.questions-panel .questions-voice-status[data-phase="transcript"] { color: var(--q-accent); font-weight: var(--weight-semibold, 600); }
+.questions-panel .questions-voice-status[data-phase="error"] { color: var(--q-danger); }
+.questions-panel .questions-voice-status[data-phase="unsupported"] { color: var(--q-text); }
+.questions-panel .questions-interim { font-style: italic; color: var(--q-muted); }
+
+/* ---- Examples ---- */
+.questions-panel .questions-examples { display: grid; gap: var(--space-half, 4px); }
+.questions-panel .questions-example-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--q-s1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.questions-panel .questions-example { font-size: var(--text-small, 0.9375rem); }
+
+/* ---- Answer: a ruled block whose left edge carries the state ---- */
+.questions-panel .questions-answer {
+  display: grid;
+  gap: var(--q-s1);
+  padding-top: var(--q-s2);
+  border-top: var(--q-rule-w) solid var(--q-rule);
+}
+.questions-panel .questions-status { font-weight: var(--weight-medium, 500); }
+.questions-panel .questions-status[data-phase="error"] { color: var(--q-danger); font-weight: var(--weight-semibold, 600); }
+
+.questions-panel .questions-result {
+  display: grid;
+  gap: var(--space-half, 4px);
+  padding: 12px var(--q-s2);
+  border-left: 6px solid var(--q-border);
+  background: var(--q-sunken);
+}
+.questions-panel .questions-asked { color: var(--q-muted); font-size: var(--text-small, 0.9375rem); }
+.questions-panel .questions-asked-label { font-weight: var(--weight-semibold, 600); }
+.questions-panel .questions-asked-text { color: var(--q-text); }
+.questions-panel .questions-result-label {
+  font-size: var(--text-badge, 0.8125rem);
+  font-weight: var(--weight-bold, 700);
+  letter-spacing: var(--tracking-label, 0.02em);
+  text-transform: uppercase;
+}
+.questions-panel .questions-result-title { font-weight: var(--weight-bold, 700); }
+.questions-panel .questions-result-body { font-size: var(--text-large, 1.25rem); font-weight: var(--weight-semibold, 600); }
+.questions-panel .questions-result-detail,
+.questions-panel .questions-result-speech { color: var(--q-muted); font-size: var(--text-small, 0.9375rem); }
+
+.questions-panel .questions-result[data-tone="answer"] { border-left-color: var(--q-accent); background: var(--q-accent-soft); }
+/* In progress: dashed edge and plain weight so it never reads as a final answer. */
+.questions-panel .questions-result[data-tone="pending"] { border-left-style: dashed; border-left-color: var(--q-control); }
+.questions-panel .questions-result[data-tone="pending"] .questions-result-body { font-weight: var(--weight-regular, 400); font-style: italic; color: var(--q-muted); }
+.questions-panel .questions-result[data-tone="unavailable"] { border-left-color: var(--q-caution-fill); background: var(--q-caution-soft); color: var(--q-caution); }
+.questions-panel .questions-result[data-tone="unavailable"] .questions-result-body { font-size: inherit; font-weight: var(--weight-regular, 400); }
+.questions-panel .questions-result[data-tone="error"] { border-left-color: var(--q-danger); background: var(--q-danger-soft); }
+.questions-panel .questions-result[data-tone="error"] .questions-result-title { color: var(--q-danger); }
+.questions-panel .questions-result[data-tone="error"] .questions-result-body { font-size: inherit; font-weight: var(--weight-regular, 400); }
+
+/* ---- Recent questions (all pages) ---- */
+.questions-panel .questions-recent {
+  border-top: var(--q-rule-w) solid var(--q-rule);
+  padding-top: var(--q-s1);
+}
+.questions-panel .questions-recent summary {
+  min-height: var(--q-target);
+  display: flex;
+  align-items: center;
+  gap: var(--q-s1);
+  cursor: pointer;
+  font-weight: var(--weight-semibold, 600);
+  list-style: none;
+}
+.questions-panel .questions-recent summary::-webkit-details-marker { display: none; }
+/* A visible open/closed marker (display:flex removes the native one). */
+.questions-panel .questions-recent summary::before {
+  content: "";
+  flex: none;
+  width: 0;
+  height: 0;
+  border-block: 0.35em solid transparent;
+  border-inline-start: 0.55em solid currentColor;
+  transition: transform var(--duration-fast, 120ms) var(--easing, ease);
+}
+.questions-panel .questions-recent[open] summary::before { transform: rotate(90deg); }
+.questions-panel .questions-recent-list { margin: var(--q-s1) 0 0; padding: 0; list-style: none; display: grid; gap: var(--q-s1); }
+.questions-panel .questions-recent-item {
+  display: grid;
+  gap: 2px;
+  padding: var(--q-s1) 0 var(--q-s1) 12px;
+  border-left: 3px solid var(--q-border);
+}
+.questions-panel .questions-recent-item[data-status="answered"] { border-left-color: var(--q-accent); }
+.questions-panel .questions-recent-item[data-status="unavailable"] { border-left-color: var(--q-caution-fill); }
+.questions-panel .questions-recent-item[data-status="looking_up"] { border-left-style: dashed; }
+.questions-panel .questions-recent-q { font-weight: var(--weight-semibold, 600); }
+
+.questions-panel [hidden] { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .questions-panel * { transition: none !important; animation: none !important; }
+}
+
+/* Forced colours (Windows high contrast): system colours, borders carry state. */
+@media (forced-colors: active) {
+  .questions-panel,
+  .questions-panel .questions-result,
+  .questions-panel .questions-notice {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+  .questions-panel .questions-input {
+    background: Field;
+    color: FieldText;
+    border-color: FieldText;
+  }
+  /* Buttons keep their own system-colour pairs, so the primary and pressed
+     states stay readable (the UA would otherwise repaint only the background). */
+  .questions-panel .questions-button {
+    forced-color-adjust: none;
+    background: ButtonFace;
+    color: ButtonText;
+    border-color: ButtonText;
+  }
+  .questions-panel .questions-button-primary,
+  .questions-panel .questions-mic[aria-pressed="true"] {
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+  }
+  .questions-panel .questions-button:disabled,
+  .questions-panel .questions-button[aria-disabled="true"] {
+    background: Canvas;
+    color: GrayText;
+    border-color: GrayText;
+  }
+  .questions-panel .questions-muted,
+  .questions-panel .questions-asked,
+  .questions-panel .questions-result-detail,
+  .questions-panel .questions-result-speech,
+  .questions-panel .questions-interim,
+  .questions-panel .questions-status,
+  .questions-panel .questions-voice-status,
+  .questions-panel .questions-result-title,
+  .questions-panel .questions-asked-text { color: CanvasText; }
+  .questions-panel .questions-heading::before { background: CanvasText; }
+  .questions-panel .questions-recent summary::before {
+    forced-color-adjust: none;
+    border-block-color: transparent;
+    border-inline-start-color: CanvasText;
+  }
+  .questions-panel .questions-result { border-left-width: 6px; border-left-style: solid; }
+  .questions-panel .questions-result[data-tone="pending"] { border-left-style: dashed; }
+  .questions-panel .questions-result[data-tone="unavailable"] { border-left-style: double; border-left-width: 8px; }
+  .questions-panel .questions-result[data-tone="error"] { border-left-color: CanvasText; border-left-width: 10px; }
+  .questions-panel .questions-recent-item { border-left-color: CanvasText; }
+  .questions-panel :focus-visible { outline-color: Highlight; }
+}
