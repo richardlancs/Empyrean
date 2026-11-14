@@ -18,7 +18,9 @@ from config.thresholds import PROCESS_FPS
 from contracts import FrameResult, ModuleStatus, NameResult
 
 log = logging.getLogger("app")
-MODULES = ("hazard", "scene", "namer", "storage", "audio", "dashboard", "vision")
+# Dashboard first: it only subscribes, and must be listening before the other
+# modules announce their status (ModuleStatus) while they register.
+MODULES = ("dashboard", "hazard", "scene", "namer", "storage", "audio", "vision")
 FAKE_PATHS = {
     "vision": "fakes.vision.fake_vision",
     "hazard": "fakes.hazard.fake_hazard",

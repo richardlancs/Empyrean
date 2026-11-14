@@ -177,3 +177,13 @@ def test_two_viewers_get_their_own_overlays_from_the_live_server(running: tuple[
     plain = first_jpeg("boxes=0&hands=0&labels=0")
     selected = first_jpeg("selected_id=1")
     assert plain != selected
+
+
+def test_modules_own_status_reaches_the_dashboard(running: tuple[Any, int]) -> None:
+    """Statuses sent while modules register are not lost: the dashboard subscribes first."""
+    _, port = running
+    diagnostics = _wait(lambda: (_get(port, "/api/state") or {}).get("diagnostics"), 5)
+    assert diagnostics["storage"]["status"] == "active"
+    assert "nothing is saved to Tiger Data" in diagnostics["storage"]["detail"]
+    assert diagnostics["audio"]["status"] == "active"
+    assert "printed, not played" in diagnostics["audio"]["detail"]
