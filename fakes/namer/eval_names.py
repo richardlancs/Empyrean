@@ -15,7 +15,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from fakes.namer._pending import NAME_MAX_CHARS
+from config import NAME_MAX_CHARS
 
 DEFAULT_FOLDER = Path("scratch/eval")
 

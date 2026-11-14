@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from namer.namer import Namer, NameRequest, clean_name
+from contracts import NameRequest
+from namer.namer import Namer, clean_name
 
 __all__ = ["Namer", "clean_name", "register"]
 

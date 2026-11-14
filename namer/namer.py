@@ -14,13 +14,11 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from namer import _pending as c
+import config
+from contracts import NameRequest, NameResult
 from namer.grok_client import name_crop
 
 log = logging.getLogger("namer")
-
-NameRequest = c.NameRequest
-NameResult = c.NameResult
 
 _QUOTES = "\"'`“”‘’"
 
@@ -33,12 +31,12 @@ def clean_name(raw: str) -> str:
         previous = text
         text = text.strip().strip(_QUOTES).strip()
         text = text.removesuffix(".")
-    return text[: c.NAME_MAX_CHARS].rstrip()
+    return text[: config.NAME_MAX_CHARS].rstrip()
 
 
 def _default_client() -> httpx.AsyncClient:
     """Create the HTTP client used for Grok calls."""
-    return httpx.AsyncClient(timeout=c.NAME_TIMEOUT_SECONDS)
+    return httpx.AsyncClient(timeout=config.NAME_TIMEOUT_SECONDS)
 
 
 @dataclass(order=True)
@@ -126,7 +124,7 @@ class Namer:
         """Set up the loop state and HTTP client, then dispatch until drained."""
         self._wake = asyncio.Event()
         self._loop = asyncio.get_running_loop()
-        slots = asyncio.Semaphore(c.NAME_MAX_IN_FLIGHT)
+        slots = asyncio.Semaphore(config.NAME_MAX_IN_FLIGHT)
         client = self._client_factory()
         try:
             await self._dispatch(client, slots)
@@ -149,7 +147,9 @@ class Namer:
                 continue
             await slots.acquire()
             if last_start is not None:
-                delay = last_start + c.NAME_MIN_INTERVAL_SECONDS - self._loop.time()
+                delay = (
+                    last_start + config.NAME_MIN_INTERVAL_SECONDS - self._loop.time()
+                )
                 if delay > 0:
                     await asyncio.sleep(delay)
             self._drain_inbox()  # a larger crop may have arrived while waiting
@@ -200,7 +200,7 @@ class Namer:
         try:
             raw = await asyncio.wait_for(
                 name_crop(client, req.crop_jpeg, req.class_label),
-                c.NAME_TIMEOUT_SECONDS,
+                config.NAME_TIMEOUT_SECONDS,
             )
             name = clean_name(raw)
             if not name:

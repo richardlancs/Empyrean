@@ -1,13 +1,9 @@
-"""The one place storage/ imports messages and thresholds from.
-
-TODO: when contracts/ and config/ land, change only these imports and delete _pending.py.
-"""
+"""The one place storage/ imports messages and thresholds from (contracts/ and config/)."""
 
 from __future__ import annotations
 
-from storage._pending import (
-    PROCESS_HEIGHT,
-    PROCESS_WIDTH,
+from config import PROCESS_HEIGHT, PROCESS_WIDTH
+from contracts import (
     HazardEvent,
     LastSeenQuery,
     SpeakRequest,

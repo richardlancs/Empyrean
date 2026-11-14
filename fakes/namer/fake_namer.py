@@ -16,7 +16,8 @@ import threading
 import time
 from collections.abc import Callable
 
-from fakes.namer._pending import NAME_MAX_CHARS, NameRequest, NameResult
+from config import NAME_MAX_CHARS
+from contracts import NameRequest, NameResult
 
 FAKE_NAMES: dict[str, str] = {
     "bottle": "Heinz ketchup",
