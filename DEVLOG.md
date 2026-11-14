@@ -18,22 +18,33 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 ## Needs attention
 
-- **IN PROGRESS — Person 4: missed tabletop objects in video (assigned by user, 2026-11-14).** Person 4 leads this investigation now. Coordinate with Person 1 for vision changes and Person 2 for camera footage and scene changes. See the handoff entry below; coordinate with Person 4 before duplicating work. Root cause and fix remain unverified.
+- **TEAM PRIORITY — demo recognition remains failing (all four, 2026-11-14):** read `demotraining.md`. Person 1 owns watch/water bottle; Person 2 charger/toothpaste; Person 3 keys/phone; Person 4 headphones/toothbrush. Each person must collect separate training/evaluation sessions and train a full eight-class candidate using the frozen bootstrap plus their additions. Current live result: toothpaste works, watch is often classified charger, actual charger is sometimes absent. Headphones/keys also remain inconsistent. The model is experimental, not demo-ready.
+
+
+
+
+- **IN PROGRESS — Person 4: missed tabletop objects in video (assigned by user, 2026-11-14).** Person 4 leads this investigation now. Coordinate with Person 1 for vision changes and Person 2 for camera footage and scene changes. See the handoff entry below; coordinate with Person 4 before duplicating work. First evidence (Person 4 trace entry below): a small, far bottle is seen by YOLO in every frame but dropped by the 2% area filter, and by the 0.5 confidence gate before ByteTrack. A large black bottle with a handle is not recognised as a bottle at all. Fix agreed by all four and merged in PR #19: `DET_MIN_AREA_FRACTION = 0.002` and `DET_MIN_CONFIDENCE = 0.3`. Still to do: rehearse the demo objects at arm's length on the glasses camera (see the demo readiness entry), then close this item. Unrecognised objects remain a model limit.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
-- **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
-- **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
-- **Person 1 (`app/` bus):** Person 3's modules are ready to be registered. Requests for `app/`:
-  1. **Bus shape.** `namer.register(bus)`, `storage.register(bus)`, `fakes.namer.fake_namer.register(bus)` and `fakes.storage.fake_store.register(bus)` call only `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, keyed on the `contracts` class. If the bus uses a different shape, tell Person 3 before building against it.
-  2. **Load `.env` before registering.** Call `load_dotenv()` at the top of `app/` before any `register(bus)`. `storage.register` reads `TIGER_DATABASE_URL` once, when the `Store` is created. If it is not set at that moment, storage drops every write for the whole run, even if `.env` is loaded later. Do not rely on the Grok client loading `.env` the first time it calls Grok, because that happens after storage has already read the variable.
-  3. **Publishing from worker threads.** `namer` publishes `NameResult` from its own worker thread, and `storage` publishes `SpeakRequest` from its `storage-writer` thread. The fakes do the same, except the fake store, which answers on the delivering thread. `bus.publish` must be safe to call from any thread: guard the subscriber list with a lock or copy it before delivering. Subscribers that run on the frame thread, such as scene, must not be called with the bus lock held. Person 3's handlers only enqueue and return, so delivering to them inline is safe.
-  4. **Scene adapter.** `SceneDatabase` calls `publish(topic_name, msg)`, where the topic is the class name. Until Person 2 changes that, wire it with `SceneDatabase(lambda _topic, msg: bus.publish(msg))`, or with `fakes.scene` for `--fake scene`.
-  5. **Shutdown.** Keep what each `register` returns and call `stop()` on it at shutdown: `Namer.stop(timeout=...)`, `Store.stop()`, `FakeNamer.stop(timeout=...)`, and `FakeStore.stop()`, which does nothing. `Store.stop()` waits up to 5 s for its worker to finish and close the database connection.
-  6. **`--fake namer storage`.** Use the `register` functions in `fakes/namer/fake_namer.py` and `fakes/storage/fake_store.py`. They subscribe to the same message types as the real modules, so the rest of `app/` does not change.
+- **Voice goal audit (Person 4, 2026-11-14):** User requested question-only object speech, explicitly overriding SPEC touch announcements; shared spec is unchanged pending team agreement. Current camera answers are bounded tracked-object/touch summaries, not arbitrary visual QA. GROK_API_KEY, GROK_MODEL and TIGER_DATABASE_URL are absent locally, so brand naming, Grok hazards and history are not live-verified. Speech-finished bus signaling is absent; microphone pause is estimated, so reliable echo suppression remains open. Browser speech service fails in the in-app browser; real Chrome transcription was observed working. No new cross-module contracts were introduced.
 
-- **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed to your folder at their own request, outside the ownership rule. New `dashboard/video.py`, plus edits to `dashboard/server.py`, `dashboard/__init__.py`, `dashboard/index.html`, `dashboard/requirements.txt` and `tests/test_dashboard.py`, and a new `tests/test_dashboard_video.py`. Details are in the 2026-11-14 Person 2 entry below. Keep it, change it or revert it as you see fit, then remove this line. Nothing in `vision/` or `app/` changed, so Person 1 has nothing to do.
-- **Person 3 (`namer/grok_client.py`, please review):** Person 2 rewrote `INSTRUCTION` at their own request, outside the ownership rule, so Grok names a brand only when it is printed and readable. Details are in the 2026-11-14 Person 2 naming entry below. Keep, change or revert it, then remove this line.
+- **Person 1 (`vision/`, please review):** Person 2 added demo mode to your folder: `vision/vision.py` (second detector, `set_mode`, `ModeChange` handling) and the new `vision/build_demo_weights.py` and `vision/capture_demo_refs.py`. See the "demo mode built" and "demo detector changed to YOLOE" entries. Keep, change or revert, then remove this line. Reference pictures of the eight demo objects still have to be taken on the Logitech camera.
+- **Person 4 (`dashboard/`, please review):** Person 2 added the Demo mode button, `POST /api/mode` and the `mode` field in the page state (`server.py`, `state.py`, `index.html`). Keep, change or revert, then remove this line.
+- **Persons 1, 3 and 4 (shared files):** Person 2 added `ModeChange` to `contracts/` and `DEMO_DET_MIN_CONFIDENCE` to `config/`, with matching rows in `SPEC.md` sections 5 and 9, before the other three confirmed. Say yes or ask for it to be reverted.
+- **Person 1 (voice questions):** read the "voice questions plan for Person 1" entry before building. Confirm first that a Google Home can pass questions to our process at all.
+- **Person 1 (`hazard/`):** the narrowed tier B prompt has only been tested on scenes with no hazard (0 of 10 flagged). Test it on real stairs, a doorway and a wall before the demo. If it misses them, loosen the "do not count" list.
+- **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed and the Objects panel to your folder (`dashboard/video.py`, `server.py`, `state.py`, `__init__.py`, `index.html`, `requirements.txt`, and the dashboard tests). Keep, change or revert, then remove this line.
+- **Person 4 (`dashboard/`, not built yet from SPEC.md 4.9):** the processed-FPS readout and the "last touched" search box. Nothing publishes `LastSeenQuery` in the running app, so the last-seen answer (working in `storage/`) cannot be reached from the page.
+- **Person 4 (`audio/backends.py`, please review):** Person 2's fix that builds a fresh `pyttsx3` engine per phrase. Confirm it on the JBL.
+- **Person 3 (`namer/grok_client.py`, please review):** Person 2 rewrote `INSTRUCTION` so Grok names a brand only when it is printed and readable. Rerun `fakes.namer.eval_batch`, then remove this line.
+- **Person 3 (naming on real crops):** accuracy on Logitech camera crops of the demo objects is still unmeasured. `fakes.namer.crop_recorder` and `eval_batch --manifest` are ready for it.
+- **Persons 1 and 4:** add your names to the Team table at the bottom. Person 1: an early entry lists the tool as "ChatGPT GPT-6", which is not in the stack table's coding agents. Confirm or correct it for the SpaceXSI write-up.
+- **All:** `SPEC.md` section 12 still has open questions (SpaceXSI prize rules, HackUMass category count, submission deadline, which laptop runs the demo). A full run on the Logitech webcam and the JBL together is not recorded in this log yet.
+
+Closed on 2026-11-14 (checked against the code on `main` at `64f878b`): the scene/namer threading race (`app/__main__.py` wraps `handle_frame` and `handle_name` in one lock), and all six of Person 3's `app/` bus requests (bus shape, `load_dotenv()` before registering, thread-safe `publish`, scene adapter, `stop()` at shutdown, fake paths).
+
+Closed during the Person 2 local update on 2026-11-14: fake-hazard playback now starts after subscribers register, and the CLI smoke test waits for a frame log instead of a fixed sleep (merged PR #17).
 
 ## Contract changes
 
@@ -45,6 +56,8 @@ Any change to `contracts/`, `config/`, `SPEC.md` or `AGENTS.md`. Needs all four 
 | 2026-11-13 22:05 | Stack table added to `SPEC.md` section 2.1, `AGENTS.md` and `CLAUDE.md` | pending team review |
 | 2026-11-13 23:40 | Initial `contracts/messages.py` and `config/thresholds.py`, copied from SPEC.md sections 5 and 9. No value changed | pending team review |
 | 2026-11-14 01:03 | PR #2 merged to `main`: `Box` and `Point` are tuples, the fixed value sets are `Literal`, list fields default to empty, the dataclasses are no longer frozen, and `tests/test_contracts.py` checks them against SPEC.md. No threshold changed | Person 3 (author), Person 2 (adopted in `scene/`). Persons 1 and 4 still to confirm |
+| 2026-11-14 | Docs brought in line with the code on `main`. `SPEC.md` 2.1, 3.1 and 4.2, `AGENTS.md` and `CLAUDE.md`: YOLO nano to YOLO small (`yolo11s.pt`). `SPEC.md` 4.5: naming prompt names a brand only when readable, and scene owns the one retry. `SPEC.md` 4.7: narrowed tier B prompt. `SPEC.md` 6 and 12: Grok model name resolved. `contracts/README.md`: proposal text replaced with the current shapes. No message field and no threshold changed | All four, as confirmed by Person 2 to the agent |
+| 2026-11-14 | New message `ModeChange` (`ts`, `mode`: `actual` or `demo`) in `contracts/` and `SPEC.md` section 5. New threshold `DEMO_DET_MIN_CONFIDENCE` = 0.25 in `config/` and `SPEC.md` section 9. YOLOE (`yoloe-11s-seg.pt`, Ultralytics, pretrained, no training) used as the detector in demo mode only, after YOLO-World was tried and dropped; `yolo11s.pt` unchanged in actual mode. No existing field or value changed | Person 2 only, who told the agent to build it. Persons 1, 3 and 4 still to confirm |
 | 2026-11-14 | Dashboard redesign (branch `design/light-dashboard-integration`, not yet on `main`). Additive only: `LastSeenQuery.request_id` (optional); new `LastSeenResult`, `SpeechStatus`, `ModuleStatus` messages; config `CAMERA_STALE_SECONDS` 2.0, `LAST_SEEN_TIMEOUT_SECONDS` 8.0, `THUMBNAIL_MAX_AGE_SECONDS` 30.0; SPEC sections 2.1, 4.9, 5 and 9 and the AGENTS.md stack row describe the layered dashboard. No existing field, unit or value changed | Authorised by the user for this redesign; team to review before merge |
 
 ## Stack
@@ -55,7 +68,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 |---|---|
 | Language | Python 3.11 |
 | Camera capture and drawing | OpenCV (`opencv-python`) |
-| Object detection and tracking | Ultralytics YOLO nano, COCO weights, ByteTrack |
+| Object detection and tracking | Ultralytics YOLO small (`yolo11s.pt`), COCO weights, ByteTrack |
 | Hand tracking | MediaPipe Hands |
 | Brand naming and hazard check | Grok vision model over the Grok API, called with `httpx` |
 | Database | Tiger Data (Postgres with time-series hypertables), `psycopg` 3 |
@@ -123,6 +136,185 @@ The approved stack, repeated here so every log reader has it. Changes go through
 **Decisions:** contract changes are additive only (see the contract changes table). `current_touch` is null when nothing is in a hand; the released object is in `last_touch`. The spoken last-seen answer is unchanged, including "I have not seen that." when the database is down; the page shows `unavailable` in that case. Missing evidence is `unknown`, never healthy. The CLI test now waits for the first frame instead of sleeping 1.4 s.
 **Teammates need to know:** run `python -m app --fake vision namer storage audio` for an offline demo. The API is in `docs/dashboard-redesign/api.md`; per-agent detail is in the four handoff files; the 50-item coverage is in `verification.md`. Restarting the app right after closing it no longer leaves the dashboard unserved (the port probe now ignores TIME_WAIT on macOS and Linux).
 
+
+### 2026-11-14, Person 4 (headphones and toothbrush captures), Claude Code
+**Changed:** Captured Person 4's training and evaluation data with `vision.capture_demo_refs` on the user's own laptop webcam (index 0, 1280 x 720, Windows). `training_data/person4/train/`: 46 headphones (34 held, 12 on a table) and 36 toothbrush (24 held, 12 on a table, 6 of those standing upright). `training_data/person4/eval/`: 12 headphones and 10 toothbrush, taken at a different table and background from training. One item per photo throughout. The toothbrush is an electric toothbrush; note it if the demo uses a manual one. Three sets were rejected and moved to the git-ignored `scratch/` instead: the first training session (a second headset worn around the neck, unboxed, in all 55 photos), 7 toothbrush photos with the headphones unboxed in the background, and a first eval attempt where 10 toothbrush photos were saved under the headphones label. The remaining toothbrush training files were renumbered 1 to 36 so the capture tool cannot overwrite them; `refs.json` matches the files on disk.
+
+**Tested:** Every box in both sessions drawn onto its photo and checked by eye. Some held toothbrush boxes are loose because they include the hand (train 3 to 6, 11, 12; eval 2, 3, 5). No training run or evaluation yet, so there are no accuracy results. Setup: fresh Python 3.11 `.venv` with `scripts/install_dependencies.py` succeeded; `pytest -q` in it: 207 passed, 1 skipped (existing httpx warning).
+
+**Decisions:** Rejected any photo showing an unboxed demo item, following `demotraining.md`: the tool writes one box per photo and `extend_demo_dataset` rejects a second box for the same file.
+
+**Teammates need to know:** Person 4 data is ready to extend the bootstrap with. Next for Person 4: `extend_demo_dataset`, a candidate training run, then `evaluate_demo_detector` on `training_data/person4/eval`. `capture_info.json` is rewritten each session, so the train copy records only the last of its four sessions (same camera for all).
+
+### 2026-11-14, Person 4 (second clip: teammate's table video), Claude Code
+**Changed:** Notes only. Ran the same stage-by-stage trace on the table video a teammate sent (`IMG_3646.mov`: 8.6 s, 3840 x 2160, 24 fps, sampled to 42 frames at 5 fps). The clip was not committed.
+
+**Tested:** Same frames for the old settings (conf 0.5, area 0.02) and the new ones from PR #19 (conf 0.3, area 0.002):
+
+| | Old settings | New settings |
+|---|---|---|
+| Bottle reaches `FrameResult` | 0 / 42 | 0 / 42 |
+| Objects kept in total | 16 | 26 |
+
+- **The scene:** the camera looks straight down at a table and moves fast, so many frames are blurred. On the table are a dark metal tumbler (partly lying down), a phone in a case, headphones, keys, a toothpaste tube, an electric toothbrush, a charger and a carabiner.
+- **The bottle is big but not recognised.** Raw YOLO labelled the tumbler "bottle" in only 10 of 42 frames, at confidence 0.05–0.38 (median 0.14). It reached 0.3 in only 2 frames, and was never tracked. Its box was 4–18% of the frame, so the area filter was never the problem here. Unlike the laptop clip, this is a recognition limit, not a filter.
+- **Most objects are outside COCO's 80 classes,** so YOLO mislabels them: toothpaste as "toothbrush", the phone as "remote" or "mouse", headphones as "mouse". Headphones, keys, toothpaste, chargers and carabiners have no COCO class.
+- **False detections:** one box covering most of the frame was labelled "remote" at 0.53 and passes both settings. The new settings add true detections ("cup", "cell phone") and wrong ones ("sink", "refrigerator").
+
+**Decisions:** PR #19 still helps small, far objects (laptop clip). It does not fix this clip, because the bottleneck is what the model recognises, plus camera angle and motion blur. No threshold change is proposed from this clip.
+
+**Teammates need to know:**
+
+- **Demo objects:** use COCO objects that look typical, such as a plain plastic water bottle, cup or mug, phone, banana, apple, book or scissors. Avoid metal tumblers, headphones, keys and toiletries.
+- **Camera:** hold it the way the glasses will be worn, looking forward and down at the table at about arm's length rather than straight down, and keep it steady. Re-check the demo objects that way.
+- **Person 3:** spoken names come from Grok's crop when naming succeeds, which can correct a wrong YOLO class. A whole-frame false box gives a useless crop.
+- **All:** if the demo must handle objects outside COCO, that needs a model change, which needs the team's approval (AGENTS.md rule 7).
+
+### 2026-11-14, Person 2 (team demo-training handoff and publication), Codex
+**Changed:** User explicitly authorized fine-tuning, vision integration, then publishing current work and dependencies to main for all four people. Added `demotraining.md` with two owned items per person, the complete class map, capture/label rules, separate evaluation sessions, executable training/evaluation commands and signoff requirements. Added per-person capture selection, a frozen 71-train/10-validation-image bootstrap (82 training boxes, 13 validation objects), dataset extension with hash-leakage protection, and candidate evaluation. Added tested Python 3.11 dependency pins, a two-step installer avoiding competing OpenCV wheels, and setup-only model downloads. No secrets or weight files are committed.
+**Training/results:** Three CPU runs used pretrained YOLO11s: frozen-backbone adaptation, unfrozen refinement, then additional manually labelled tabletop data. Fourteen new labelled frames came from two user-directed capture sequences; the first two tabletop snapshots stayed validation-only. Selected the third run's epoch-9 checkpoint by its fresh-table result (3/5 versus old visual prompts 0/5), rather than the aggregate-best final checkpoint (2/5 fresh). Old reference score was 5/8; all eight items are not solved. Latest user live report: toothpaste fine; watch frequently labelled charger; actual charger missed. Telemetry confirms the detector can call watch charger and Grok later correct its name; this is not purely a speech bug.
+**Integration:** Demo mode prefers local `demo-yolo11s.pt`, retains COCO vehicles and known demo classes, and deduplicates overlapping object boxes without suppressing vehicles. Public IDs are scoped to detector and class to close the observed bottle-to-laptop cached-name bug. DirectShow fixes the observed Windows camera-reopen hang. Shared contracts and configured thresholds were not changed in this training session. The earlier demo-mode contract additions remain recorded with their original review status.
+**Tested:** After merging incoming main (22e7996), full pytest: 207 passed, 1 skipped (live database), with the existing FastAPI/httpx deprecation warning. Ruff and diff whitespace checks passed. Both exact CLI startup checks (`python -m app --fake vision` and `python -m app --fake vision audio`) started all seven modules and delivered a scene frame; external credentials were blanked for these checks. A separate clean Windows Python 3.11 environment installed the pinned requirements and completed the documented installer; OpenCV, MediaPipe, PyTorch and Ultralytics imported, and 73 targeted tests passed. Windows Application Control blocked its freshly installed Postgres DLL, so full tests use the existing working venv; no security controls were bypassed. Live camera stayed close to 5 fps but latency sometimes exceeded 150 ms; an observed 60-frame sample had median 171.4 ms/max 277.8 ms, so latency is also not certified.
+**Own-webcam capture:** The user clarified that every person must image with their own webcam. The handoff now states this explicitly; `--camera-index` overrides machine-specific settings, and each capture session records its camera index, resolution, platform and UTC time. A test covers explicit index 0 overriding a local setting of 1. Nobody needs to wait for Person 2's Logitech; final combined-model validation must still include the glasses camera.
+**Teammates need to know:** Model weights are distributed separately as an explicitly failed/experimental GitHub prerelease baseline, with unchanged tensors, optimizer removed, class/status metadata and SHA-256 checksums. Pulling code alone does not install them. Do not overwrite another owner's data, train on holdouts, install a two-class head globally, or merge model files as if they were source. Preserve the microphone/audio work that reached main while this session ran; current main intentionally speaks object answers only in response to questions. Camera on Person 2's laptop remains active for testing.
+
+
+### 2026-11-14, Person 2 (demo item detection investigation), Codex
+**Changed:** No production code, threshold, model or runtime prompt file changed. Found localhost still in actual mode and switched the existing dashboard toggle to demo; vision logs confirm the processor switched. Confirmed all eight demo classes plus vehicles are present in the 75-prompt bank. Prepared a local YOLO-format dataset under `scratch/demo-detector-review/dataset/` from the existing 62 boxed reference photos: 54 training images and 8 validation images, one withheld per class. No training started.
+**Tested:** Compared the existing visual prompt bank with plain and descriptive text prompt banks on all 62 reference photos, confidence 0.25, matching expected class with box IoU at least 0.3. Existing visual results: water bottle 8/8, toothbrush 4/6, toothpaste 7/8, charger 2/5, phone 6/9, headphones 7/10, keys 0/7, watch 5/9. Text variants did worse overall and were not installed. Results are local at `scratch/demo-detector-review/results.json`. The visual prompt bank includes these photos, so these are diagnostic reference-set results, not independent accuracy estimates. Earlier leave-one-out results remain more informative about generalization.
+**Decisions:** Explained to the wearer that YOLOE is pretrained and the 62 photos are visual prompts, not weight training. Actual mode lacks five requested item classes; demo mode deliberately omits ordinary COCO classes such as laptop. No evidence supports claiming the eight items are demo-ready. Training or another model change needs explicit authorization under AGENTS.md rule 7; vision integration also needs the Person 2 cross-folder override.
+**Teammates need to know:** Keys and charger remain blockers despite switching modes. If fine-tuning is approved, use held-out images and fresh live tests of every object, check false positives with non-demo objects, measure CPU latency, and preserve the separate vehicle hazard path. This laptop has no CUDA GPU. Camera remains running in demo mode for the wearer.
+
+
+### 2026-11-14, Person 2 (adjacent-object naming fix in Person 3's namer), Codex
+**Changed:** User explicitly approved the cross-folder change and app restart in chat. `namer/grok_client.py` now directs Grok to name the object matching the target detector label, rather than another foreground or overlapping object in the same crop. If that target is obscured, return its plain detector label. No message, model, threshold, shared file, or speech behavior changed.
+**Tested:** Reproduced on saved Logitech crops: `1122-1.jpg` is labelled laptop by the detector but includes a prominent foreground bottle. Current prompt returned water bottle in 2/2 calls; candidate returned laptop in 2/2. A second laptop crop and a bottle crop were each run twice with both prompts; targeted outputs were laptop and water bottle respectively. After applying the actual code, three fresh calls returned laptop, laptop, water bottle. This is a three-image check, not a general accuracy claim. Full pytest: 188 passed, 1 skipped (live database); Ruff on the edited module clean. Comparison results are local at `scratch/adjacent-object-review/results.json`.
+**Decisions:** Restarted the owned camera process to load the prompt and clear old cached names. Live MJPEG feed and advancing frames verified at localhost:8000, actual mode. Camera logs are `scratch/camera-live-20261114/naming-fix-stderr.log` and `naming-fix-stdout.log`; process ID is in `app.pid`. App remains running for the user's side-by-side retest.
+**Teammates need to know:** Person 3: review the target-focused prompt. Person 1: see the new class-changing-ID item under Needs attention; the original live history proves stale names can survive a tracker class change. No vision or scene code was changed in this fix. Naming queues under heavy tracking churn also remain to investigate.
+
+
+### 2026-11-14, Person 2 (first live camera result), Codex
+**Changed:** No application code. Recorded the wearer-confirmed result of the actual-mode localhost rehearsal.
+**Tested:** User reports object detection and audible naming succeeded. Dashboard event history contains two water-bottle touches plus laptop and cell-phone touches; audio logs confirm those five phrases were sent to speech at a logged 0 ms after each event. This verifies touch-to-speech in this run, not yet a controlled same-ID release/retouch test. Previous full suite remains 188 passed, 1 skipped; no code changed afterward.
+**Decisions:** Next controlled test: hold contact for five seconds (one announcement), clear fingertips for at least one second, then retouch the same stationary object (one new announcement).
+**Teammates need to know:** Naming logs also show requests waiting 20-46 seconds in the queue despite Grok calls usually completing in under a second. Tracker IDs reached 1000+ during the moving camera session. Investigate ID stability and stale naming work after the controlled stationary test; these observations alone do not prove the cause. Live frame-latency warnings included 280 ms and 332 ms. Camera and app remain running for the wearer.
+
+
+### 2026-11-14, Person 2 (local main update and camera rehearsal), Codex
+**Changed:** Merged `origin/main` at `2c87254` into local `p2-demo-mode` at the user's request. Resolved config/spec conflicts with the approved confidence 0.3 and minimum area 0.002 while retaining the demo threshold 0.25, YOLO small documentation, and YOLOE demo mode. Kept both branches' development entries and removed the two Needs attention items fixed by PR #17. Backup branch: `codex/p2-demo-before-main-20261114`. Nothing pushed.
+**Tested:** Windows, existing Python 3.11.18 venv: full pytest 188 passed, 1 skipped (live database); Ruff on app, fake hazard, app/vision tests and config clean; staged diff whitespace check clean. Started the real app with `--record-crops`, `CAMERA_INDEX=1` from the existing environment and `YOLO_AUTOINSTALL=False` for this process. All seven modules started, MJPEG video is visible at localhost:8000, and Grok calls returned HTTP 200. One capture-to-publish warning at 159 ms, above the 150 ms target.
+**Decisions:** Begin the interactive camera test in actual mode, then compare demo mode. No microphone feature or new dependency installed. Startup logs and process ID are local under `scratch/camera-live-20261114/`; naming crops for this run are under `scratch/camera_crops/session-h9_j2of2/`.
+**Teammates need to know:** Live video is verified; tabletop object detection, touch/release/retouch and audible output still require the wearer to position an object and perform the test. Initial view faced the ceiling and produced no scene objects. Automated passing tests do not establish live demo accuracy.
+
+
+### 2026-11-14, Person 4 (voice PR preparation), Codex
+**Changed:** Committed audio behavior, dashboard voice flow and validation notes separately on `p4-output`. Merged current `origin/main` so the PR preserves the team's latest camera/detection changes; resolved the DEVLOG-only conflict by retaining main's entries and the voice notes without duplicating the earlier coordination entry. PR scope relative to main is only Person 4 runtime files, corresponding tests and DEVLOG.
+
+**Tested:** After merging main: Python 3.11 full suite 190 passed, 1 skipped, existing FastAPI/httpx warning; repository ruff clean; diff whitespace clean. Re-ran `python -m app --fake vision`: processed frames, HTTP 200, no startup errors and clean SIGINT shutdown. Earlier live Chrome recognition and Start/Stop checks are documented above. Remaining credential/browser/echo limits are included in the PR description.
+
+**Teammates need to know:** This PR intentionally makes object speech question-only at the user's request; it does not change shared contracts, thresholds or spec. No model/environment/secret artifacts are included. No merge to main is performed by this session.
+
+
+### 2026-11-14, Person 4 (Git/instructions and final-goal audit), Codex
+**Changed:** Moved the current uncommitted Person 4 work from `codex/p1-startup-crop-recording` to a new local `p4-output`, preserving existing commits and worktree changes. Remote `origin/p4-output` is an ancestor of this branch; nothing rewritten, committed, pushed or merged. Formatted the edited dashboard test. Checked scope: runtime edits are only audio/dashboard/fake audio; other changes are corresponding tests and this log. Shared contracts/config/spec and other owners' runtime files are untouched. Model assets and local Python environment are ignored by Git.
+
+**Tested:** Python 3.11 full pytest: 190 passed, 1 skipped (live database), existing FastAPI/httpx deprecation warning. Repository-wide `ruff check .`, formatting on Person 4 paths and changed tests, and `git diff --check` passed. Bounded subprocess smoke runs of `python -m app --fake vision` and `python -m app --only dashboard --fake vision scene` reached HTTP 200, published frames/scene state, had no startup errors and shut down cleanly on SIGINT. Real app restarted. Chrome UI verified microphone off after reload, Listening after Start, and off after Stop. Left the live dashboard running and microphone off.
+
+**Decisions:** Current user instructions take precedence over legacy touch-triggered speech requirements; record that difference without editing shared spec. No claim of complete product readiness: absent credentials, open-ended visual QA and estimated playback pause remain listed under Needs attention. Existing model code uses YOLO small, unlike the original nano spec; this audit did not change the model or its owner's code. Root dependency pinning is already listed as an owner task.
+
+**Teammates need to know:** Current local branch is `p4-output`; changes remain uncommitted for review. Live process uses `scratch/audio311/bin/python -m app`. Browser end-to-end transcription worked earlier in Chrome; this audit additionally verified actual Start/Stop UI. Tests establish silent default touch/name handling and requested-answer/alarm behavior. Do not claim brand/history/open-ended reasoning works without completing the pending integrations and live checks.
+
+
+
+### 2026-11-14, Person 4 (demo readiness from the trace), Claude Code
+**Changed:** Notes only. What the tabletop trace below means for the demo.
+
+**Tested:** Nothing new; this reads the existing trace.
+
+**Decisions:**
+
+- **The clip was for verification, not calibration.** Nothing was tuned or trained on it. It tested the suggested thresholds (area 0.002, confidence 0.3) on fixed frames, so every setting saw the same input.
+- **The touch demo is mostly unaffected by the far-object problem.** A touched object is at arm's length and normally fills well over 2% of the frame, so the area filter kept it even at the old 2%. The far-object fix matters for the Objects list and things across the table. It is now live: PR #19 set confidence 0.3 and area 0.002, agreed by all four.
+- **The demo risk is objects YOLO does not recognise.** The large black bottle with a handle was never labelled a bottle, even up close (raw: "suitcase", 0.07). An unrecognised object cannot be touched or named, whatever the thresholds. This is a model limit; changing models needs team approval (AGENTS.md rule 7).
+- **Demo objects:** use ones the COCO model knows well and check each on the real camera, for example a plain plastic water bottle, a cup or mug, a phone, a banana or apple, a book, scissors. Avoid unusual shapes, handles, and dark or reflective bottles.
+
+**Teammates need to know:**
+
+- **Person 2:** before the demo, rehearse with the glasses camera at arm's length with the exact demo objects. Each one should appear in the dashboard's Objects list and be named on touch. This also settles whether the glasses-camera clip is still needed. The laptop clip already answers the threshold question; only the distance and angle differ.
+- **All:** the threshold proposal was agreed and merged in PR #19. Re-check for false detections on the real camera in a busy scene.
+
+### 2026-11-14, Person 2 (shared `config/` and `SPEC.md`, agreed by all four), Claude Code
+**Changed:**
+- `config/thresholds.py`: `DET_MIN_CONFIDENCE` 0.5 to 0.3 and `DET_MIN_AREA_FRACTION` 0.02 to 0.002. These are the values Person 4 proposed in the tabletop detection trace entry below.
+- `SPEC.md` sections 4.2 and 9 now state the same two values. No code in `vision/`, no contracts, no model.
+- `tests/test_vision_p1.py` (Person 1's test): the fake detector's "low-confidence" box was hard-coded at 0.3, which is no longer below the threshold, so the test failed. It is now 0.2. The test still checks the same thing.
+
+**Tested:** On `main` at `d973e3a` plus this change, Windows, Python 3.11.18. Full `pytest`: 184 passed, 1 skipped (live database). `python -m app --fake vision audio` started every module and published frames. Ruff on `config/` and the edited test is clean. Not run on the real camera with the new values, and not checked against a glasses-camera clip.
+
+**Decisions:** Person 2's human confirmed that all four teammates accepted the new defaults (AGENTS.md rules 1 and 6). The change was made before Person 4's trace was run on a glasses-camera clip; Person 2 is sending that clip to Person 4.
+
+**Teammates need to know:**
+- **All:** pull `main` after this merges. Smaller and less certain objects now reach `FrameResult`, so expect more objects in the scene and possibly false detections in busy views. Say so here if you see them.
+- **Person 1:** more boxes reach ByteTrack. Latency was already over the 150 ms target on two Windows laptops (156 to 252 ms), so please measure it again.
+- **Person 4:** the "IN PROGRESS" item under Needs attention is yours to remove once the glasses-camera clip confirms the fix. The large black bottle that YOLO does not recognise is not helped by this.
+
+### 2026-11-14, Person 1 (app, fake hazard, tests), Codex
+**Changed:**
+- Fake hazard registration can defer playback; app starts it after all selected modules subscribe. The first vehicle event is no longer lost during startup. Direct fake users retain automatic startup by default; stopping an unstarted fake is safe.
+- CLI smoke test waits for a published-frame log with a bounded 15-second timeout instead of sleeping 1.4 seconds. It runs scene plus fake vision without loading audio, and cleans up the child process and output reader.
+- Added `python -m app --record-crops [DIRECTORY]`. Registers Person 3's existing background crop recorder before producers and stops it at shutdown. Each run gets a fresh `session-*` directory under `scratch/camera_crops` (or the selected directory), avoiding cross-run file collisions. The path is logged at startup.
+- Regression tests cover first fake-hazard delivery to a later subscriber, crop persistence across two sessions, and recorder shutdown. No audio files, shared contracts, thresholds, model choices, or other owners' modules changed.
+
+**Tested:**
+- Non-audio suite: `python -m pytest -q --ignore=tests/test_audio.py --ignore=tests/test_audio_pyttsx3.py --ignore=tests/test_speak_test.py`: 159 passed, 1 skipped (live database), one existing FastAPI/httpx deprecation warning.
+- After final cleanup, Person 1 app/hazard/vision tests: 15 passed. Ruff on app, fake hazard and app tests is clean; `git diff --check` is clean.
+- Tested on macOS with Python 3.14.10 in a new local `.venv`; Python 3.11 is not installed here. No real camera, Grok call, database credentials, or audio hardware used. Initial sandbox TCP failures disappeared with local port access enabled.
+
+**Decisions:**
+- Scope is Person 1's non-audio work. Existing module dependencies installed for tests only; no new runtime dependency added. Root dependency pinning remains pending Python 3.11 verification.
+- Voice input/transcription and spoken answers are outside this non-audio pass. New voice contracts and dependencies still need the agreement described in AGENTS.md and the voice-plan branch.
+
+**Teammates need to know:**
+- Run `python -m app --record-crops` on the demo laptop. Use the logged session's `manifest.csv`, fill `expected_brand` and `expected_product`, then run `python -m fakes.namer.eval_batch --manifest <session>/manifest.csv --results <session>/results.csv`.
+- Collect 5–10 real demo objects alone, with small labels, partly covered, and in groups. Real crop accuracy remains unmeasured here.
+- Still required: Python 3.11/Windows validation, Logitech camera tests, and real stairs/doorway/wall checks of the narrowed hazard prompt. Unit tests cannot establish the prompt's real-world detection accuracy.
+- Changes are local on `p1-vision`; not pushed or merged.
+
+### 2026-11-14, Person 4 (tabletop detection trace), Claude Code
+**Changed:** No code or config. Wrote a diagnostic script outside the repo that runs the same frames through each vision stage, separately from the app (never on the frame path). It covers raw `yolo11s` predictions at confidence 0.05, ByteTrack IDs with the app's settings, and `vision.tracked_objects()` itself for the app's filter. It repeats the tracker and filter stages for the experimental settings on separate tracker instances.
+
+**Tested:** One 14 s clip (70 frames at 5 fps) from the laptop's built-in webcam: a table with a chair, a small bottle about 3 m back, and a large black bottle with a handle up close. Same clip for every setting:
+
+| Setting | Small bottle reaches `FrameResult` | Bottle track IDs | Other objects kept |
+|---|---|---|---|
+| App now (conf 0.5, area 0.02) | 0 / 70 | none | chair 70 |
+| Area 0.002 only | 36 / 70 | one (stable) | chair 70 |
+| Conf 0.3 only | 0 / 70 | none | chair 70 |
+| Conf 0.3 + area 0.002 | 70 / 70 | one (stable) | chair 70 |
+
+- Raw YOLO saw the small bottle in 70 / 70 frames, at confidence 0.36–0.63 (median 0.51). Its box was 0.30–0.41% of the frame.
+- The two filters both bite. Every box is under the 2% area cut. About half the frames are also under 0.5, and `detector.track(conf=DET_MIN_CONFIDENCE)` drops those before ByteTrack sees them.
+- With both lowered, the bottle keeps one stable track ID for the whole clip, and no extra objects appeared in this scene.
+- The large black bottle up close was never labelled a bottle. Raw YOLO called it "suitcase" at 0.07. Thresholds cannot fix that; it is a model limit, and a model swap needs the team's say-so (AGENTS.md rule 7).
+- An earlier run aimed at the user's face saw no bottle at all and is not evidence.
+
+**Decisions:** Root cause for small and far objects: the area filter first, then the 0.5 confidence gate passed to the tracker. Neither setting alone recovers the bottle reliably. Proposed defaults, needing all four to agree: `DET_MIN_AREA_FRACTION = 0.002`, `DET_MIN_CONFIDENCE = 0.3`. Nothing in `config/` was changed.
+
+**Teammates need to know:**
+- **Person 2:** please send a short clip from the glasses camera of the failing table, so the same trace can be run on it before the defaults change. The trace script can be shared.
+- **Person 1:** the confidence passed to `detector.track()` is what gates ByteTrack. Lower defaults add a little per-frame work (more boxes to track); measure latency before and after.
+- **All:** lower thresholds may add false detections in busier scenes. This clip was a sparse table, so check the glasses-camera clip before agreeing.
+- The clip itself stays on Person 4's laptop and is not committed.
+
+### 2026-11-14, Person 4 (setup and real-camera check), Claude Code
+**Changed:** No code. On the Windows laptop, installed the vision stack into Python 3.11 (`opencv-contrib-python==4.11.0.86`, `ultralytics==8.4.212`, `torch==2.15.0+cpu`, `mediapipe==1.2.3`, `httpx==0.28.1`, `psycopg[binary]==3.3.9`). Removed the `opencv-python` that Ultralytics pulls in, as Person 2's note asks. Downloaded `vision/models/yolo11s.pt` (19.3 MB, Ultralytics GitHub releases v8.3.0) and `vision/models/hand_landmarker.task` (7.8 MB, MediaPipe storage); both are git-ignored.
+
+**Tested:** On `main` at `a5ea3af` (includes PRs #11–#15). `python -m app --fake vision audio`: the page loaded, the feed showed the fake frames with bottle and cup boxes, the Objects panel listed both, and Simulate alert added one entry. Full `pytest`: 181 passed, 1 skipped, 1 failed (`test_cli_fake_vision_starts`, the known timing failure). `python -m app` on the real webcam with no `.env`: every module started, the dashboard was Live with a 640 x 360 feed, and Grok hazard checks were disabled as expected. Vision logged capture-to-publish latency of 156–248 ms, over the 150 ms target, with `yolo11s` on CPU. No objects were listed during the run; the scene in view was not set up for the investigation yet.
+
+**Decisions:** The `lap` auto-install is logged for Person 1 under "Needs attention" rather than fixed here, because `vision/` is theirs.
+
+**Teammates need to know:** Person 1: the latency numbers above are from `yolo11s` on this laptop's CPU, worth weighing against the accuracy gain from PR #13. Person 4 starts the tabletop investigation next.
+
 ### 2026-11-14, coordination (Person 4 assignment), Codex
 **Changed:** Recorded the user's assignment of the missed tabletop-object investigation to Person 4, working on it now. Documentation only; no runtime code, thresholds, contracts, or folder ownership changed.
 
@@ -140,6 +332,184 @@ The approved stack, repeated here so every log reader has it. Changes go through
 - **All four:** agree before committing shared configuration defaults. No model swap or training is authorized by this handoff.
 - **Completion:** run relevant regression tests and full `pytest`, document results and remaining camera limitations, and remove the Needs attention item once fixed.
 
+
+### 2026-11-14, Person 2 working in `vision/`, Claude Code: demo detector changed to YOLOE with reference pictures
+**Changed:** Demo mode detected nothing on the real camera, so the demo detector was replaced. The button, `ModeChange`, the threshold and the dashboard are as in the entry below.
+- **Why YOLO-World failed.** On one real frame from the Logitech camera (bottle, toothpaste, laptop, hand), resized to 640 x 360, YOLO-World small scored the water bottle 0.05 and the toothpaste 0.03 against a cutoff of 0.25. Plainer wording and the v2 small, medium and large weights were tried: the best toothpaste score was 0.08, and the large model took about 350 ms per frame. YOLOE with text prompts was no better (toothpaste 0.09 small, 0.19 medium).
+- **What works: YOLOE visual prompts.** YOLOE is given a picture of each object with a box around it and turns that into an embedding. Nothing is trained. With the bottle and toothpaste boxed on that one frame, the small model scored toothpaste 0.90 to 0.99 and bottle 0.63 to 0.89 on altered copies of the frame (flipped, darker, rotated and scaled), and found nothing on a laptop-only crop.
+- **`vision/capture_demo_refs.py` (new):** `python -m vision.capture_demo_refs`. OpenCV window on the camera; for each demo object press SPACE, drag a box, ENTER. Saves 640 x 360 pictures and `refs.json` to `vision/demo_refs/`.
+- **`vision/build_demo_weights.py` (rewritten):** reads `refs.json`, averages the embeddings per object, adds text embeddings for car, bus, truck, motorcycle and bicycle (for hazard tier A), saves `vision/models/demo-prompts.pt`. Warns for any demo object with no picture.
+- **`vision/vision.py`:** demo mode loads `yoloe-11s-seg.pt` and `demo-prompts.pt` and calls `set_classes`. If either file is missing, demo mode is refused as before.
+- **`SPEC.md` 5:** the `ModeChange` note now describes YOLOE and the two commands.
+
+**Tested:**
+- `python -m vision.build_demo_weights --refs <folder>` on a folder holding that one frame with two boxes: wrote prompts for water bottle, toothpaste and the five vehicle classes.
+- `load_processor` with `clip` and `mobileclip` imports blocked, then `VisionProcessor.process` on four altered copies of the frame, six frames each. Actual mode: laptop only (the bottle scores 0.46, under `DET_MIN_CONFIDENCE`). Demo mode: toothpaste and water bottle tracked in every variant, no vehicle reported. A second, lower box around bottle plus arm (0.34) appeared in one variant.
+- Speed on this CPU-only laptop, detector plus hands: actual median 88 ms, worst 100 ms; demo median 103 ms, worst 119 ms.
+- **Fix, same day:** the first real run of `capture_demo_refs` showed no window and no message. Three copies had been started in three terminals and were competing for the camera; each hung opening it or looped on failed reads without saying so. The tool now logs "Opening camera N", gives up with a clear message after 15 s if the camera will not open or 5 s if it sends no picture, logs "Camera ready" once it does, and keeps its window on top.
+- **Second fix:** after those copies were force-stopped, camera 1 (the external webcam) still hung on OpenCV's default Windows backend but opened in 0.3 s through DirectShow (`CAP_DSHOW`). The tool now falls back to DirectShow when the default backend does not open within 15 s. `vision/vision.py` still uses the default backend only, so **Person 1**: if the app's camera hangs the same way, unplugging and replugging the webcam may clear it, or the same fallback could go into `LatestCamera`.
+- **Reference pictures taken (Person 2, 13:15 to 13:30):** 62 pictures in `vision/demo_refs/` on the Logitech camera: water bottle 8, toothbrush 6, toothpaste 8, charger 5, phone 9, headphones 10, keys 7, watch 9. Every box was checked by eye on a contact sheet: all on the right object; toothbrush 3 and 5 and charger 5 are loose.
+- **Accuracy, leave-one-out** (each picture detected with prompts built from the other 61, cutoff `DEMO_DET_MIN_CONFIDENCE` 0.25, counted as found when the right name is on a box overlapping the object): averaged prompt per object 18/62 (29%); one prompt per picture 25/62 (40%); both together 28/62 (45%). Both together is what `build_demo_weights` now saves (75 prompts named like `keys/3`; `vision.tracked_objects` cuts the `/3` so the label stays `keys`). Per object with both: water bottle 6/8, toothpaste 4/8, phone 5/9, headphones 6/10, watch 4/9, toothbrush 2/6, charger 1/5, keys 0/7. Headphones and keys are often boxed as water bottle.
+- **Why it is low:** not a bug. The prompt computed by `build_demo_weights` is identical to Ultralytics' own `refer_image` path, and even a picture's own prompt scores it low (headphones_5 0.09, keys_3 0.19, water_bottle_2 0.44). YOLOE visual prompts are weak on these webcam pictures. The 0.98 on the first screenshot was a lucky case.
+- **Next, if demo mode must be reliable:** fine-tune a detector on these 62 labelled pictures (they already have boxes). That is training, so AGENTS.md rule 7 needs the human's say-so; on this CPU-only laptop expect roughly half an hour, not measured.
+- **Not tested:** live demo mode on the camera with the 62-picture prompts. Earlier note, now out of date: `capture_demo_refs` had not been run successfully yet (it needs a person at the camera, and the camera was in use). Six of the eight objects (toothbrush, charger, phone, headphones, keys, watch) have never been through the detector. The test frames were copies of the reference frame, which flatters the scores; the real check is the live camera after proper reference pictures.
+
+**Teammates need to know:**
+- On the demo laptop: stop the app, run `python -m vision.capture_demo_refs` (two or three pictures per object, in demo lighting), then `python -m vision.build_demo_weights`, then start the app and press Demo mode.
+- The build needs a network connection the first time: `yoloe-11s-seg.pt` (28 MB) and `mobileclip_blt.ts` (600 MB, only used for the vehicle text prompts). Run time needs only `yoloe-11s-seg.pt` and `demo-prompts.pt`, both git-ignored.
+- `vision/models/demo-prompts.pt` on Person 2's laptop currently holds only water bottle and toothpaste, from the one test frame. It is replaced by the next build.
+- Ultralytics' CLIP package was installed into Person 2's venv for the YOLO-World attempt and is no longer needed.
+- `vision/demo_refs/` pictures are not git-ignored. Decide whether to commit them.
+- `.gitignore` gained one line, `mobileclip_*.ts`, so the 600 MB text encoder cannot be committed by accident.
+- `pytest`: 185 passed, 1 skipped, and `test_cli_fake_vision_starts` failing on some runs and passing on others, as in the entry below. `ruff check .`: clean.
+
+### 2026-11-14, Person 2 working in `vision/`, `dashboard/`, `contracts/` and `config/`, Claude Code: demo mode built
+**Changed:** Person 2 is responsible for the demo and told the agent to build demo mode now, across other people's folders and the shared files. The owners have not reviewed it. Branch `p2-demo-mode`.
+- **What demo mode is:** the live camera as always, but objects are detected by YOLO-World with a fixed class list instead of COCO `yolo11s.pt`. Five of the eight demo objects (toothpaste, charger, headphones, keys, watch) have no COCO class, so they could never be touched or named in actual mode. No model is trained.
+- **`contracts/`, `SPEC.md` 5:** new `ModeChange` (`ts`, `mode`). Dashboard publishes it; vision subscribes. If vision cannot switch, it publishes `ModeChange` with `mode="actual"` so the page shows what is really running.
+- **`config/`, `SPEC.md` 9:** new `DEMO_DET_MIN_CONFIDENCE` = 0.25, because open-vocabulary scores run lower than COCO scores. The value is a guess, not measured.
+- **`vision/vision.py`:** `load_processor` also loads `vision/models/demo-world.pt` if it exists. `VisionProcessor.set_mode` picks the detector for the next frame, rebuilds the tracker on the first frame after a switch, and offsets track ids so an id is never reused across modes (scene keeps names by id). `Vision.on_mode` only stores the request; the frame loop applies it. Nothing is downloaded at run time.
+- **`vision/build_demo_weights.py` (new):** `python -m vision.build_demo_weights`, run once in a setup shell. Loads `yolov8s-world.pt`, sets the classes, saves `demo-world.pt`. Classes are the eight demo objects plus car, bus, truck, motorcycle and bicycle, so hazard tier A still sees vehicles in demo mode.
+- **`dashboard/`:** "Demo mode: on/off" button in the header, `POST /api/mode` with `{"mode": "actual" | "demo"}`, a `mode` field in the page state, and a "Demo mode: detecting the demo objects only" tag while it is on.
+- **Not changed:** `namer/`. In demo mode the detector label is already specific ("toothpaste"), and it reaches Grok as the existing hint. `scene/`, `audio/`, `hazard/` and `storage/` are untouched. `--fake vision` ignores the mode.
+- **Dropped from the earlier proposal:** playing recorded clips. Demo mode is live only.
+
+**Tested:**
+- `pytest`: 185 passed, 1 skipped (live DB). `ruff check .`: clean. New tests: detector switch, demo threshold, fresh tracker and unique ids; refusal without demo weights; the button publishing `ModeChange`; page state following a `ModeChange` from the bus; a bad mode value rejected.
+- On the page at `localhost:8000`: the button is there and the "on" rendering was checked by hand. A click on a running `python -m app` without demo weights went back to "off", as designed.
+- **Weights built on Person 2's laptop** with `python -m vision.build_demo_weights`: it downloaded `yolov8s-world.pt` (26 MB) and the CLIP ViT-B/32 text encoder (338 MB), installed Ultralytics' CLIP package into the venv, and wrote `vision/models/demo-world.pt` (27 MB) with the 13 class names. The saved file loads through `load_processor` with the `clip` import blocked, so run time needs no CLIP.
+- **Speed, CPU only, one 1280 x 720 noise frame repeated 20 times through `VisionProcessor.process` (detector plus hands):** actual mode median 77 ms, worst 88 ms; demo mode median 90 ms, worst 104 ms. Both fit the 200 ms frame budget at 5 fps. Switching actual, demo, actual in one process worked.
+- **`test_cli_fake_vision_starts` failed in 3 of 6 runs** after the build, and passed on a run with these changes stashed. It is the fixed `time.sleep(1.4)` test already listed under "Needs attention", and a second `python -m app` was running on this laptop at the time. The other 184 tests passed every run.
+- **Not tested:** detection of the real objects. No image of any demo object has been through the demo detector, on a camera or from a file. Unknown: whether each of the eight is found, at what confidence, and how well ByteTrack follows them.
+
+**Decisions:** demo touches are written to Tiger Data like any others; nothing marks them as demo.
+
+**Teammates need to know:**
+- Building the weights needs a network connection and installs Ultralytics' CLIP package into the environment (a dependency used only by the build script, AGENTS.md rule 8). Until `demo-world.pt` exists on the demo laptop the button does nothing.
+- After building, test all eight objects on the Logitech camera and tune `DEMO_DET_MIN_CONFIDENCE` and the class wording in `build_demo_weights.py` (for example "phone charger" for "charger").
+- `DET_MIN_AREA_FRACTION` (2% of the frame) still applies, so keys and a toothbrush must be close to the camera.
+- See the three new "Needs attention" lines.
+
+### 2026-11-14, Person 2 (docs only), Claude Code: demo button and recordings proposal
+**Changed:** No code. Person 2 is responsible for the demo and asked how to build a demo button and whether to train the model on recorded clips. This is the agent's proposal for the team to accept or change. Nothing below is built or agreed yet.
+
+**Proposal:**
+- **No model training.** YOLO only finds boxes; the specific name comes from Grok reading the crop. Fine-tuning is against AGENTS.md rule 7, needs hundreds of hand-labelled frames, and would not improve the spoken names.
+- **Demo mode = live camera plus a known object list.** The camera, scene, audio and hazard paths stay exactly as they are. The only difference is that the namer is told the demo objects.
+  1. *Object list.* One file listing the demo objects by spoken name ("Heinz ketchup", "Diet Coke can"). Persons 1 and 2 choose the objects. Where the file lives needs agreeing (`config/` is shared; `namer/` is Person 3's).
+  2. *Namer (`namer/`, Person 3).* In demo mode the Grok instruction adds: this is most likely one of the listed objects; if none match, give the plain name as now.
+  3. *Button (`dashboard/`, Person 4).* A toggle beside Simulate alert, a `POST /api/mode` endpoint that publishes the mode change, and a visible "Demo mode" label so the page never hides which mode is on.
+  4. *New message (`contracts/`, all four).* Nothing in `SPEC.md` section 5 carries a mode change. Suggested shape: `ModeChange` with `mode: Literal["actual", "demo"]` and `ts`. Dashboard publishes it, namer subscribes.
+- **Recordings are for testing and backup, not training.**
+  - *Accuracy:* record each demo object on the Logitech camera, save crops with `fakes.namer.crop_recorder`, score with `eval_batch --manifest`. This closes the open "naming on real crops" item.
+  - *Backup:* if a clip should stand in for the camera, choose it at start-up (for example an env var holding the video path that `vision/` passes to `cv2.VideoCapture`), not from the page. `vision/` cannot swap sources while running.
+  - Committed clips go under `fakes/vision/`, each under 20 seconds and 10 MB (AGENTS.md rule 10). Longer ones are copied to the demo laptop by hand.
+- **Differs from the earlier plan** (entry below): that one had the button switch the app to playing a recording. This one keeps the live camera and moves clip playback to a start-up option, which avoids run-time source switching in `vision/`. Person 1, who started on per-object clips, should say whether that fits what he has built.
+
+**Demo objects (chosen by Person 2, later the same day):** water bottle, toothbrush, toothpaste, charger, phone, headphones, keys, watch.
+
+**Problem found with that list:** `vision/` runs plain COCO `yolo11s.pt`, and a touch only happens on an object YOLO has boxed. Checked against the COCO class list, not yet on camera:
+
+| Object | COCO class | Expected |
+|---|---|---|
+| Water bottle | `bottle` | Detected |
+| Toothbrush | `toothbrush` | Detected, but thin objects are often missed |
+| Phone | `cell phone` | Detected |
+| Watch | none (`clock` is wall clocks) | Missed or mislabelled |
+| Toothpaste | none | Missed or mislabelled |
+| Charger | none | Missed or mislabelled |
+| Headphones | none | Missed or mislabelled |
+| Keys | none | Missed or mislabelled |
+
+Five of the eight have no COCO class, so no box, no touch and no spoken name. The Grok object list in this proposal does not help there, because Grok is only asked about boxes YOLO produced. Options, for the team to choose:
+1. *Change the objects* to ones COCO has (bottle, cup, phone, toothbrush, book, scissors, remote, mouse, keyboard, banana, apple, orange, spoon, fork, backpack, umbrella). No code change. Lowest risk.
+2. *Open-vocabulary weights in Ultralytics* (YOLO-World, for example `yolov8s-world.pt`, with the class list set to the demo objects). No training, same library, but it is a model swap in `vision/` (Person 1), so AGENTS.md rule 7 and the stack table need all four to agree, and speed and tracking on the demo laptop must be measured first.
+3. *Fine-tune YOLO on recorded clips.* Not recommended: needs hand labelling and training time, and breaks rule 7.
+Whichever is chosen, test each object on the Logitech camera before relying on it.
+
+**Person 2's choice: option 2, in demo mode only.** Actual mode keeps `yolo11s.pt` unchanged. Demo mode runs YOLO-World with the eight demo objects as its class list. This still needs the other three to agree (model and stack change, AGENTS.md rules 7 and 8) and it is Person 1's folder. Design notes for Person 1 (Person 2's agent's notes):
+- *What the venv has.* Checked on Person 2's laptop: `ultralytics 8.4.212` already includes `YOLOWorld`. Torch is CPU only, no GPU. The `clip` package is not installed.
+- *One-off weights build, off the frame path.* Setting a class list needs the `clip` package and downloads a text encoder, as far as the agent knows. Do it once in a setup shell: load `yolov8s-world.pt`, call `set_classes([...the eight names...])`, then `save("vision/models/demo_world.pt")`. The saved file should then load with plain `YOLO(...)` and need no `clip` at run time. Confirm this on the installed version. Neither weights file is committed.
+- *In `vision/`.* Load both detectors at start-up. Keep a current-mode flag, set from the bus when the mode message arrives, and call `.track(...)` on whichever detector is active. Reset the tracker when the mode flips so object ids from one model do not carry into the other. `TrackedObject.label` then carries the YOLO-World name ("toothpaste"), so no message shape changes.
+- *Speed.* `yolo11s` takes about 49 ms per frame here on CPU. YOLO-World small will be slower. Measure it on the demo laptop before agreeing; if it is too slow, try a smaller input size.
+- *Confidence.* Open-vocabulary scores run lower than COCO scores, so `DET_MIN_CONFIDENCE` (0.5) may hide real detections in demo mode. A separate demo threshold would be a new `config/` value, which needs all four.
+- *Naming.* With the label already specific, the Grok object list in step 2 above matters less, but still helps with brands.
+
+**To decide, all four:** (0) agree to YOLO-World in demo mode, (1) accept or change the proposal, (2) the `ModeChange` message, (3) where the object list lives, (4) whether demo-mode touches are written to Tiger Data.
+
+**Tested:** Docs only; nothing to run.
+
+**Teammates need to know:** see the new "Demo mode proposal" line in "Needs attention". `scene/` needs no change for any of this.
+
+### 2026-11-14, Person 2 (docs only), Claude Code: voice questions plan for Person 1
+**Changed:** No code. Records a feature Person 1 is starting, so his agent has the context.
+
+**Planned, not built: voice questions.**
+- **What:** the wearer asks a question out loud and hears a spoken answer. Person 1 plans to use a Google Home speaker for this. The dashboard shows each question and its answer.
+- **Kinds of question:**
+  - About what the camera sees now: "is this item in front of me?", "what am I holding?"
+  - General: "what's the weather today?"
+  - History: "where did I last touch the ketchup?" `storage/` already answers this through `LastSeenQuery`.
+- **Who:** Person 1.
+
+**Check before building** (Person 2's agent's notes, not team decisions):
+1. **Getting the question off a Google Home.** Google shut down Conversational Actions for third-party apps in 2023, as far as the agent knows. A Nest or Home speaker may not pass the spoken question to our process at all. Confirm this first. If it cannot, the fallback is `SPEC.md` stretch goal 10.3: use the webcam's microphone, and use the Google Home only as a speaker or not at all.
+2. **Stack.** A Google Home and any speech-to-text library are outside the stack table, so all four must agree first (AGENTS.md rule 8).
+3. **Messages.** A question message and an answer message are probably needed. `SpeakRequest` (priority `normal`, `source` set to the sender's folder) can already carry the spoken answer to `audio/`, and `LastSeenQuery` already exists for the history case. Any new message goes in `contracts/` with all four agreeing (AGENTS.md rule 2).
+4. **Answers about the scene.** Use the current frame or the latest `SceneSnapshot` from the bus, and send them to Grok from a background worker (AGENTS.md rule 4). Never read another module's internals.
+5. **General answers.** Grok does not know today's weather unless the API call turns on a live search tool, if the Grok API offers one. Check that, or say "I can't check that" rather than guess.
+6. **Hazard first.** If answers play through the Google Home instead of the JBL, a `HazardEvent` alarm cannot cut them off, which breaks `SPEC.md` 4.8 and AGENTS.md rule 5. Keep spoken answers on the JBL through `audio/` via `SpeakRequest`.
+7. **Dashboard.** The question-and-answer panel is in `dashboard/`, Person 4's folder, with Person 3 working on the UI. Agree who adds it.
+8. **Folder.** Decide which folder the feature lives in and add it to the ownership table, so it is clear it belongs to Person 1.
+9. **Timing.** This is new scope close to the Saturday-midnight feature freeze (`SPEC.md` 8). Touch-to-name stays the priority if time runs short.
+
+**Tested:** Docs only; nothing to run.
+
+**Teammates need to know:** Person 1: give this entry to your agent before starting. Person 2's `scene/` needs no change: `SceneSnapshot` already carries what the scene questions need.
+
+### 2026-11-14, Person 2 (docs only), Claude Code: status review and demo mode plan
+**Changed:** No code. Reviewed the whole repository against `SPEC.md` and brought the Markdown files in line with `main` at `64f878b`.
+- `SPEC.md`, `AGENTS.md`, `CLAUDE.md`, `contracts/README.md`: see the new row in "Contract changes". Person 2 confirmed all four teammates agreed.
+- This file: "Needs attention" rewritten to what is still open, with the fixed items listed as closed. Stack table says YOLO small.
+
+**Where the project stands:**
+
+| Piece | State |
+|---|---|
+| Bus and `python -m app`, with `--fake` and `--only` | Working. All seven modules register and shut down cleanly |
+| Vision (YOLO small, ByteTrack, MediaPipe hands) | Working on a real webcam, about 49 ms per frame for detection |
+| Scene and touch (touch, release, retouch, held, held-merge) | Working, with tests for the 4.6 table |
+| Naming through Grok | Working live. Brands only when readable on the object |
+| Audio (name on touch, late name, alarm cuts speech) | Working on laptop speakers after the per-phrase engine fix. The JBL played before that fix |
+| Dashboard | Camera feed with overlays, Objects panel, event log, hazard banner, Simulate alert. No FPS readout or last-touched search yet |
+| Hazard tier A and tier B | Running. Tier B prompt narrowed; untested on a real hazard |
+| Tiger Data log and last-seen answer | Working in `storage/` against the live database. Not reachable from the page yet |
+| Stretch goals (SPEC.md 10) | Not started |
+
+**Tested:** Windows 11, `.venv` Python 3.11.18. Full `pytest`: 182 passed, 1 skipped (the live DB test), before and after the doc edits. `ruff check .`: clean. `python -m app --fake vision` was not run by hand this session; `test_cli_fake_vision_starts` starts it and passed.
+
+**Planned, not built: demo mode and actual mode.** Recorded here for later. Nothing below exists yet.
+- **What:** one switch on the dashboard page at `http://localhost:8000` flips the running app between *actual mode* (live camera, as now) and *demo mode*.
+- **Demo mode:** the app plays a recording a few minutes long of someone holding and touching a fixed set of objects, instead of the live camera. The set of objects is decided in advance and given to Claude Code to program in.
+- **Who:** Persons 1 and 2 choose the objects and make the recording.
+- **Update (later, same day):** Person 1 is building it. Instead of one long recording, he is making a folder in the repo root holding short videos, one per object, each file named after the object it shows. Points to check against that (Person 2's agent's notes):
+  - *Folder ownership.* A new root folder is not in anyone's lane in AGENTS.md. Either put the clips under `fakes/vision/`, which Person 1 owns, or record the new folder and its owner in the ownership table with all four agreeing.
+  - *Git.* `.gitignore` ignores `*.mp4`, `*.avi` and `*.mov` everywhere except `fakes/vision/`, so clips in a new root folder will not be committed unless that changes. Each committed clip must stay under 20 seconds and 10 MB (AGENTS.md rule 10).
+  - *Names.* If the file name is used as the object's spoken name, decide the format now (for example `heinz_ketchup.mp4` spoken as "Heinz ketchup") so whoever reads it does not guess.
+  - Points 3 to 6 below still apply.
+- **To settle before building** (these are Person 2's agent's notes, not team decisions):
+  1. *Where the recording lives.* AGENTS.md rule 10 caps committed video at 20 seconds and 10 MB, and `.gitignore` only lets video through under `fakes/vision/`. A recording a few minutes long has to stay out of git and be copied to the demo laptop by hand, unless all four agree to change the rule.
+  2. *What "programmed in" means for the object set.* Either the recording runs through the real pipeline and the list is only used to check names, or demo mode uses fixed names for those objects and skips Grok so the demo does not depend on the network. Decide which.
+  3. *How the switch reaches the app.* The page can only talk to `dashboard/`, and modules may only talk over the bus. No message in `SPEC.md` section 5 carries a mode change, so this needs either a new message (all four agree) or the switch handled in `app/` in a way the team accepts. Switching at run time also means stopping the camera and starting playback without restarting the process, which `vision/` does not support today.
+  4. *Folders touched.* The switch is in `dashboard/` (Person 4). Playback and the mode change are in `app/`, `vision/` and `fakes/vision/` (Person 1). Fixed names, if chosen, touch `namer/` or `fakes/namer/` (Person 3).
+  5. *Hazard and storage in demo mode.* Decide whether tier B Grok checks run on the recording, and whether demo touches are written to Tiger Data (they would mix with real history unless the session is marked).
+  6. *Page wording.* Show clearly on the page which mode is on, so a recording is never presented as live.
+- The existing `python -m app --fake vision` is scripted synthetic frames, not a recording, and is chosen at start-up, not from the page. Demo mode is a separate thing.
+
+**Teammates need to know:**
+- Everyone: pull, and read the rewritten "Needs attention" list. It has an item for each person.
+- Persons 1 and 2: when you record, use the Logitech camera on the glasses at 1280 x 720, set each object down for 1 to 2 seconds before touching it, and keep the list of objects in the order they appear.
+- Nobody should start building demo mode until points 1 to 3 above are decided.
 
 ### 2026-11-14, Person 2 working in Person 3's `namer/`, Claude Code: brand names only when readable
 **Changed:**
@@ -706,4 +1076,52 @@ Fill this in as you go. It becomes the SpaceXSI section of the Devpost write-up.
 |---|---|
 | Cursor | Scene database, touch state machine, and name crops. Touch and naming were written at the same time, then wired into `SceneDatabase`. |
 | Grok Bot | Person 3: `.p3/grokbot.sh` runs Cursor's agent CLI headless with `grok-4.7-high-fast`, read-only, on the Person 3 diff, and saves a contract check, a risk note and a DEVLOG draft. Its 2026-11-13 23:13 run caught the private message-class risk that led to the shared `contracts/`. Reports from 23:13 and 00:26 are in `scratch/grokbot/`, which is local and git-ignored. |
-| Other | Claude Code reviewed Cursor's scene module and fixed the held-merge and release-on-removal bugs. |
+| Claude Code | Person 3: built `namer/`, `storage/` and their fakes, the live Grok and Tiger Data checks, and the shared-class tests. Person 4: audio manager and dashboard. Person 2: reviewed Cursor's scene module and fixed the held-merge and release-on-removal bugs, then added the dashboard camera feed and Objects panel, the YOLO small swap, the speech fix and the narrower Grok prompts. Also reviewed PR #9 and kept these docs current. |
+| Other | Person 1's first `app/`, `vision/` and `hazard/` entry lists ChatGPT GPT-6. To be confirmed by Person 1. |
+
+### 2026-11-14, audio environment setup, Codex
+**Changed:** Created an isolated, git-ignored Python 3.11 audio environment at `scratch/audio311` using the already-installed Python 3.11. Installed the existing pinned `audio/requirements.txt` plus pytest and numpy for audio tests. No runtime source or dependency pins changed. Laptop system sound output is the current test target; user dropped Google Home Mini.
+
+**Tested:** `scratch/audio311/bin/python -m pytest tests/test_audio.py tests/test_audio_pyttsx3.py tests/test_speak_test.py -q`: 25 passed. Ran `scratch/audio311/bin/python -m audio` on real system output: touch, late name, retouch, spoken answer, hazard beeps/phrase and post-alarm touch. Hazard phrase logged 614 ms after event. First phrase took 2138 ms during cold speech startup; subsequent phrases logged 0 ms queue latency. Audible confirmation remains with the user. Full non-audio suite not run in this audio-only environment.
+
+**Teammates need to know:** Python 3.14 failed to build pygame 2.6.1; Python 3.11 installs its prebuilt wheel successfully. Repeat the audio demo with `scratch/audio311/bin/python -m audio` from the repository root. The existing `.venv` is unchanged by this session.
+
+### 2026-11-14, live camera/audio launch, Codex
+**Changed:** Extended local ignored `scratch/audio311` environment with existing app/vision/dashboard/storage dependencies, downloaded the existing vision code's YOLO11s and MediaPipe hand assets to ignored `vision/models/`, and requested macOS camera access on the main thread. No source, contracts or thresholds changed.
+
+**Tested:** Started real `scratch/audio311/bin/python -m app`. All seven modules registered; real camera FrameResult messages reached scene and the dashboard started on port 8000. Initial background-thread camera permission attempt failed; explicit main-thread AVFoundation request returned granted and restart captured frames. ByteTrack installed its `lap` dependency during initial warmup. No GROK_API_KEY is configured, so brand naming and Grok hazard checks are unavailable; ordinary class labels remain usable. User still needs to perform a real touch and confirm speech. Live process left running for that interaction.
+
+### 2026-11-14, Person 4 (dashboard voice input), Codex
+**Changed:** User confirmed Person 4 ownership and requested both history and camera questions. Added a browser microphone button with one-utterance recognition, editable transcript, explicit Ask submission, permission/network/unsupported-browser feedback, and typed fallback. Browser speech service disclosure appears beside the control. Added `/api/question`: existing `LastSeenQuery` routes history requests to storage; existing `SpeakRequest` speaks scene summaries and touch answers. Current `SceneSnapshot` objects support “What do you see?” and “What am I touching?” without another vision model call. Dashboard shows storage/dashboard spoken answers. No shared contracts, thresholds, dependencies, or other owners' runtime modules changed.
+
+**Tested:** Full Python 3.11 suite: 188 passed, 1 skipped (live DB), one existing FastAPI/httpx deprecation warning. Ruff clean on dashboard and changed tests. New tests cover current/stale scene summaries, one speech publication, history routing and displayed storage answers, absent database, invalid input, and standalone dashboard behavior. Real running app POST `/api/question` with “What do you see?” returned “I can detect tv.” Browser UI verification could not complete: no connected browser tab, native Chrome selection timed out. Live microphone transcription remains to be confirmed by the user; browser API presence alone does not guarantee the recognition service works. JavaScript CLI syntax check unavailable because node is not on PATH.
+
+**Teammates need to know:** App restarted on port 8000 for testing. Open dashboard in a browser supporting SpeechRecognition (Chrome/Safari), click Start microphone, speak, review transcript, press Ask. Browser recognition may send audio to its speech service and require internet. This supports bounded object/touch questions, not arbitrary image reasoning; open-ended camera QA still needs agreed vision request/answer contracts and owner integration. History depends on TIGER_DATABASE_URL; the route explains when it is absent. Recognition is off after each utterance so spoken answers do not automatically feed back as questions.
+
+### 2026-11-14, Person 4 (automatic spoken questions), Codex
+**Changed:** Per user correction, final recognized speech submits immediately through `/api/question`; no transcript review or Ask click is needed for voice. Typed Ask remains available. Interim results are ignored and in-flight submission is guarded. Added “What is this item?”, “What's this?” and related aliases to the current touched/held-object answer path; other visible objects are excluded. Listening still starts with the microphone button and ends after one utterance.
+
+**Tested:** Full suite: 189 passed, 1 skipped, existing FastAPI/httpx warning. Ruff clean. Node REPL parsed the complete dashboard script and executed the voice handlers with mock recognition/HTTP: final speech submitted exactly once without user confirmation, interim speech did not submit. Regression test verifies this-item aliases speak the touched item rather than a neighbouring idle object. Restarted live app for user audio testing.
+
+### 2026-11-14, Person 4 (remove question panel), Codex
+**Changed:** Removed the question form, input field, Ask button, instructional panel and review flow at the user's request. Moved the sole Start/Stop microphone toggle and compact status to the header. Added a ten-item Voice input transcript list styled alongside Objects, plus the latest answer. Recognition attempts startup automatically, processes final transcripts immediately, and restarts between utterances. Permission/service failures stop retrying with concise status; stop/page exit cancels restart timers. Browser speech-service disclosure is retained on the microphone tooltip.
+
+**Tested:** Full suite: 189 passed, 1 skipped, existing FastAPI/httpx warning. Node VM checks parsed the full page script and exercised automatic startup, direct submission, transcript rendering, playback pause, listening restart, manual stop and denied-permission feedback. Verified old question-panel/form strings are absent. Live browser mic flow remains user-verified; HTML is read on each request so refreshing the running dashboard loads the change.
+
+**Limit:** The existing bus has no audio-completion event. Listening resumes after a conservative text-length playback window (2 s plus 0.5 s per word), which reduces answer feedback but does not guarantee echo suppression. True speech-completion synchronization and touch/alarm playback suppression require an agreed cross-module activity contract. Browser policies may still require a click or mic permission approval before automatic recognition works.
+
+### 2026-11-14, Person 4 (live microphone browser diagnosis), Codex
+**Found:** Inspected the user's actual in-app browser dashboard: network speech-service error immediately disabled recognition. Opened the same localhost page in connected Google Chrome: recognition reached Listening, produced a real transcript and automatic answer, then returned to Listening. This verifies real browser transcription and restart rather than mocked API behavior. No microphone permission/settings change was needed. Did not record the user's transcript in this log.
+
+**Changed:** Network-recognition error now explains that this browser's speech service may be unavailable and directs users to open localhost:8000 in Google Chrome, with connection advice for Chrome itself. Kept the working Chrome dashboard tab open. No source change can enable an unavailable embedded-browser speech service.
+
+**Tested:** 14 dashboard/question tests passed; live Chrome speech and automatic question routing observed. Existing recognition still captures surrounding conversation while enabled; use Stop microphone to disable it.
+
+### 2026-11-14, Person 4 (explicit microphone and question-only speech), Codex
+**Changed:** User explicitly requested microphone off on load and object speech only when asked, overriding the earlier touch-announcement behavior for this session. Removed automatic recognition startup. Start enables listening across normal browser session endings; Stop cancels restarts. Transient network errors retry three times with visible status before an explained failure, while permission/device errors remain explicit. Default AudioManager ignores TouchEvent and NameResult for speech; requested SpeakRequest answers and HazardEvent alarms still play. Legacy touch-announcement behavior remains available only via explicit constructor opt-in for regression tests. Fake audio uses the same question-only default. Updated standalone demo documentation.
+
+**Tested:** Full suite: 190 passed, 1 skipped; existing FastAPI/httpx warning. New audio regression drives touch, late name, release and retouch followed by a requested answer and hazard, confirming only answer and hazard speech. Real and fake registration tests check requested answers. Node VM checks confirm no startup recognition, manual start, restart after normal end, transient network retry and Stop canceling timers. Ruff clean. Live app restarted; real microphone/voice interaction still requires user verification in Chrome.
+
+**Teammates need to know:** This is an explicit user-directed runtime behavior change from SPEC 4.5/4.8; shared spec/contracts/config remain unchanged. Keep storage touch logging and scene tracking as-is, since only unsolicited speech was disabled. Browser recognition may still fail if its service is unavailable; the actual error remains visible.
+
+**Restart follow-up:** Restart exposed an existing dashboard port probe rejecting TCP TIME_WAIT sockets despite no listener on port 8000. Probe now uses SO_REUSEADDR to match Uvicorn; existing busy-port and start/stop tests still pass (9 dashboard tests). Restarted again with dashboard serving successfully.

@@ -2,10 +2,11 @@
 
 Used by `python -m app --fake audio`. It subscribes to the same messages as
 audio/ (HazardEvent, TouchEvent, NameResult, SpeakRequest) and prints what would
-be heard, with timing, so teammates can check touch-to-speech and alarm order on
-a machine with no speaker, pyttsx3 or pygame. Like audio/, it
-publishes only SpeechStatus and ModuleStatus telemetry, always with
-mode "fake" so the dashboard never shows printed speech as real playback.
+be heard, with timing, so teammates can check requested answers and alarm order on
+a machine with no speaker, pyttsx3 or pygame. Touches stay silent, as in audio/
+(question-only speech). Like audio/, it publishes only SpeechStatus and
+ModuleStatus telemetry, always with mode "fake" so the dashboard never shows
+printed speech as real playback.
 """
 
 from __future__ import annotations

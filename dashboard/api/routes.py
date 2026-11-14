@@ -20,10 +20,13 @@ from dashboard.api.schemas import (
     LastSeenRequest,
     LastSeenStatus,
     ModeRequest,
+    QuestionRequest,
+    QuestionStatus,
 )
 from dashboard.services.container import DashboardServices
 from dashboard.services.detector_mode import ModeRejected
 from dashboard.services.last_seen import QueryRejected
+from dashboard.services.questions import QuestionRejected
 from dashboard.video import BOUNDARY, OverlayOptions, mjpeg_stream
 
 LOGGER = logging.getLogger("dashboard")
@@ -104,6 +107,40 @@ def build_router(services: DashboardServices) -> APIRouter:
         if record is None:
             return _error(404, "That search is unknown or has expired. Search again.")
         return LastSeenStatus(**{k: record[k] for k in LastSeenStatus.model_fields})
+
+    @router.post(
+        "/api/question",
+        response_model=QuestionStatus,
+        responses={
+            202: {"model": QuestionStatus, "description": "History lookup started"},
+            422: {"model": ErrorBody},
+            503: {"model": ErrorBody},
+        },
+    )
+    async def post_question(body: QuestionRequest) -> Any:
+        """Answer a typed or recognized question; 202 while a history lookup is pending."""
+        try:
+            record = services.questions.ask(body.text)
+        except QuestionRejected as exc:
+            return _error(exc.status_code, exc.message)
+        reply = QuestionStatus(**{k: record[k] for k in QuestionStatus.model_fields})
+        return JSONResponse(
+            reply.model_dump(), status_code=202 if record["status"] == "looking_up" else 200
+        )
+
+    @router.get(
+        "/api/question/{question_id}",
+        response_model=QuestionStatus,
+        responses={404: {"model": ErrorBody}},
+    )
+    async def get_question(
+        question_id: Annotated[str, PathParam(min_length=1, max_length=64)],
+    ) -> Any:
+        """Return one question's record; poll it while status is looking_up."""
+        record = services.questions.get(question_id)
+        if record is None:
+            return _error(404, "That question is unknown or has expired. Ask again.")
+        return QuestionStatus(**{k: record[k] for k in QuestionStatus.model_fields})
 
     @router.post(
         "/api/mode",

@@ -31,6 +31,7 @@ from dashboard.services.container import DashboardServices
 from dashboard.services.detector_mode import DetectorModeService
 from dashboard.services.heartbeat import Heartbeat
 from dashboard.services.last_seen import LastSeenService
+from dashboard.services.questions import QuestionService
 from dashboard.state import DashboardState
 from dashboard.thumbnails import ThumbnailCache
 from dashboard.video import VideoFeed
@@ -60,6 +61,7 @@ class Dashboard:
         last_seen: LastSeenService | None = None,
         thumbnails: ThumbnailCache | None = None,
         detector_mode: DetectorModeService | None = None,
+        questions: QuestionService | None = None,
     ) -> None:
         """Hold the services; call serve() to start the web page."""
         self.state = state
@@ -71,6 +73,8 @@ class Dashboard:
         self.state.thumbnails = self.thumbnails
         self.state.last_seen = self.last_seen
         self.state.detector_mode = self.detector_mode
+        self.questions = questions if questions is not None else _questions(None, self.state, self.last_seen)
+        self.state.questions = self.questions
         self.heartbeat = Heartbeat(self.tick)
         self._server: Any = None
         self._thread: threading.Thread | None = None
@@ -79,7 +83,8 @@ class Dashboard:
     def services(self) -> DashboardServices:
         """The services the routes call into."""
         return DashboardServices(
-            self.state, self.video, self.last_seen, self.thumbnails, self.detector_mode
+            self.state, self.video, self.last_seen, self.thumbnails, self.detector_mode,
+            self.questions,
         )
 
     def tick(self) -> None:
@@ -146,10 +151,13 @@ def register(
     The subscriptions are listed in bus_adapter.connect. Last-touch searches are
     published on this bus for storage/ to answer.
     """
+    state = state or DashboardState()
+    last_seen = LastSeenService(bus.publish)
     dashboard = Dashboard(
-        state or DashboardState(),
-        last_seen=LastSeenService(bus.publish),
+        state,
+        last_seen=last_seen,
         detector_mode=DetectorModeService(bus.publish),
+        questions=_questions(bus.publish, state, last_seen),
     )
     bus_adapter.connect(bus, dashboard.services)
     if serve:
@@ -164,6 +172,7 @@ def create_app(
     last_seen: LastSeenService | None = None,
     thumbnails: ThumbnailCache | None = None,
     detector_mode: DetectorModeService | None = None,
+    questions: QuestionService | None = None,
 ) -> FastAPI:
     """Build the dashboard web app (new empty services for anything not given)."""
     state = state if state is not None else DashboardState()
@@ -171,8 +180,25 @@ def create_app(
     last_seen = _first(last_seen, state.last_seen, lambda: LastSeenService(None))
     detector_mode = _first(detector_mode, state.detector_mode, lambda: DetectorModeService(None))
     state.thumbnails, state.last_seen, state.detector_mode = thumbnails, last_seen, detector_mode
+    questions = _first(questions, state.questions, lambda: _questions(None, state, last_seen))
+    state.questions = questions
     video = video if video is not None else VideoFeed()
-    return _build_app(DashboardServices(state, video, last_seen, thumbnails, detector_mode))
+    return _build_app(
+        DashboardServices(state, video, last_seen, thumbnails, detector_mode, questions)
+    )
+
+
+def _questions(
+    publish: Any, state: DashboardState, last_seen: LastSeenService
+) -> QuestionService:
+    """Build the question service over the read model; publish None means no engine."""
+    return QuestionService(
+        publish,
+        last_seen,
+        objects=lambda: state.snapshot()["objects"],
+        scene_age=state.health.scene_age,
+        history_running=lambda: last_seen.available and not state.health.not_started("storage"),
+    )
 
 
 def _first(given: Any, attached: Any, make: Any) -> Any:
@@ -191,6 +217,7 @@ def _build_app(services: DashboardServices) -> FastAPI:
     services.state.add_listener(hub.push)
     services.last_seen.add_listener(hub.push)
     services.detector_mode.add_listener(hub.push)
+    services.questions.add_listener(hub.push)
     app.include_router(build_router(services))
     app.include_router(build_realtime_router(hub))
     if STATIC_DIR.is_dir():

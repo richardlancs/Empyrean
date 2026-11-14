@@ -151,8 +151,8 @@ def _register(name: str, fake: bool, bus: Bus) -> Any:
     register = getattr(module, "register", None)
     if callable(register):
         if fake and _accepts_start(register):
-            # Scripted publishers wait until every consumer has subscribed;
-            # start() is called by start() below, like _FakeScenePlayback.
+            # Scripted publishers (fake hazard, fake vision) wait until every
+            # consumer has subscribed; start() below starts them.
             return _Deferred(register(bus, start=False))
         return register(bus)
     if name == "scene":
@@ -190,6 +190,14 @@ def start(
     bus = Bus()
     instances: list[Any] = []
     lifecycle: list[ModuleStatus] = []
+    # The crop recorder subscribes before any module, so no NameRequest is missed.
+    if record_crops is not None:
+        from fakes.namer.crop_recorder import register as register_recorder
+
+        record_crops.mkdir(parents=True, exist_ok=True)
+        session = Path(tempfile.mkdtemp(prefix="session-", dir=record_crops))
+        instances.append(register_recorder(bus, out_dir=session))
+        log.info("Recording naming crops to %s", session)
     # Vision is last, so subscribers are ready before the first camera frame.
     for name in MODULES:
         mode = "fake" if name in fakes else "real"
@@ -209,14 +217,6 @@ def start(
             lifecycle.append(_lifecycle(name, "starting", mode, detail))
         else:
             lifecycle.append(_lifecycle(name, "offline", mode, "Not available"))
-    if record_crops is not None:
-        # From main (vision/DEMO.md rehearsal): save naming crops for later review.
-        from fakes.namer.crop_recorder import register as register_recorder
-
-        record_crops.mkdir(parents=True, exist_ok=True)
-        session = Path(tempfile.mkdtemp(prefix="session-", dir=record_crops))
-        instances.append(register_recorder(bus, out_dir=session))
-        log.info("Recording naming crops to %s", session)
     # Lifecycle facts for the dashboard. A module's own later status wins over these.
     for message in lifecycle:
         if message.module != "dashboard":

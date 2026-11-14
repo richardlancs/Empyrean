@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from dashboard.services.detector_mode import DetectorModeService
 from dashboard.services.last_seen import LastSeenService
+from dashboard.services.questions import QuestionService
 from dashboard.state import DashboardState
 from dashboard.thumbnails import ThumbnailCache
 from dashboard.video import VideoFeed
@@ -20,3 +21,4 @@ class DashboardServices:
     last_seen: LastSeenService
     thumbnails: ThumbnailCache
     detector_mode: DetectorModeService
+    questions: QuestionService

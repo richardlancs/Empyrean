@@ -85,6 +85,7 @@ class DashboardState:
         self.thumbnails: Any = None
         self.last_seen: Any = None
         self.detector_mode: Any = None  # DetectorModeService; None means no switching
+        self.questions: Any = None  # QuestionService; None means no question panel
 
     def add_listener(self, listener: Callable[[], None]) -> None:
         """Call listener (from the updating thread) after every change."""
@@ -310,6 +311,7 @@ class DashboardState:
             "last_touch": last_touch,
             "speech": speech,
             "detector": self.detector_mode.view() if self.detector_mode is not None else None,
+            "questions": self.questions.view() if self.questions is not None else None,
             "diagnostics": self.health.diagnostics(),
             "capabilities": {
                 # Searching needs a bus and a storage module running in this launch.
@@ -324,6 +326,7 @@ class DashboardState:
                 "overlays": True,
                 "speech_status": speech_reported,
                 "mode_switch": bool(self.detector_mode is not None and self.detector_mode.available),
+                "questions": bool(self.questions is not None and self.questions.available),
             },
         }
 

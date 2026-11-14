@@ -100,7 +100,10 @@ def test_snapshot_keeps_original_fields_and_adds_the_agreed_ones() -> None:
     camera = snap["diagnostics"]["camera"]
     assert camera["last_frame_ts"] is None and camera["fps"] is None
     assert camera["width"] is None and camera["height"] is None
-    assert set(snap["capabilities"]) == {"last_seen", "thumbnails", "overlays", "speech_status", "mode_switch"}
+    assert set(snap["capabilities"]) == {
+        "last_seen", "thumbnails", "overlays", "speech_status", "mode_switch", "questions"
+    }
+    assert snap["questions"] is None and snap["capabilities"]["questions"] is False
     # Nothing was instrumented, so nothing claims to be healthy.
     assert all(e["status"] != "active" for e in snap["diagnostics"].values())
     assert snap["capabilities"]["speech_status"] is False

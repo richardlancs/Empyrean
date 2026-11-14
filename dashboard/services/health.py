@@ -132,6 +132,19 @@ class HealthMonitor:
 
     # Read side.
 
+    def scene_age(self) -> float | None:
+        """Seconds since the newest scene, by arrival and by capture time; None if none yet.
+
+        The larger of the two is returned, so a snapshot that arrived just now
+        but describes an old frame still counts as old.
+        """
+        now = self._clock()
+        with self._lock:
+            received_at, scene_ts = self._scene_received_at, self._scene_ts
+        if received_at is None or scene_ts is None:
+            return None
+        return max(now - received_at, now - scene_ts, 0.0)
+
     def not_started(self, module: str) -> bool:
         """True when app/ said this module folder is not running in this launch."""
         with self._lock:

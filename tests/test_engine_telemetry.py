@@ -16,6 +16,7 @@ from contracts import (
     LastSeenQuery,
     LastSeenResult,
     ModuleStatus,
+    NameResult,
     SpeakRequest,
     SpeechStatus,
     TouchEvent,
@@ -98,7 +99,7 @@ def published() -> list[Any]:
 def test_touch_speech_reports_queued_speaking_completed(published: list[Any]) -> None:
     """One phrase: queued, speaking, completed, all with the same id and mode real."""
     speaker = GatedSpeaker()
-    manager = AudioManager(lambda: speaker, Alarm(), publish=published.append)
+    manager = AudioManager(lambda: speaker, Alarm(), publish=published.append, announce_touches=True)
     try:
         manager.on_touch(_touch())
         assert wait_for(lambda: "speaking" in _statuses(published))
@@ -119,7 +120,7 @@ def test_hazard_interrupts_speech_and_still_plays_first(published: list[Any]) ->
     """The alarm plays at once; the speaking phrase ends interrupted; the hazard phrase follows."""
     speaker = GatedSpeaker()
     alarm = Alarm()
-    manager = AudioManager(lambda: speaker, alarm, publish=published.append)
+    manager = AudioManager(lambda: speaker, alarm, publish=published.append, announce_touches=True)
     try:
         manager.on_touch(_touch())
         assert wait_for(lambda: "speaking" in _statuses(published))
@@ -144,7 +145,7 @@ def test_hazard_interrupts_speech_and_still_plays_first(published: list[Any]) ->
 def test_waiting_phrase_replaced_or_cut_by_hazard_reports_interrupted(published: list[Any]) -> None:
     """A phrase that never played is reported interrupted, never completed."""
     speaker = GatedSpeaker()
-    manager = AudioManager(lambda: speaker, Alarm(), publish=published.append)
+    manager = AudioManager(lambda: speaker, Alarm(), publish=published.append, announce_touches=True)
     try:
         manager.on_touch(_touch(1))
         assert wait_for(lambda: "speaking" in _statuses(published))
@@ -167,7 +168,7 @@ def test_log_only_speech_is_failed_not_completed(published: list[Any]) -> None:
     def no_tts() -> Any:
         raise RuntimeError("no voice")
 
-    manager = AudioManager(no_tts, Alarm(), publish=published.append)
+    manager = AudioManager(no_tts, Alarm(), publish=published.append, announce_touches=True)
     try:
         manager.on_touch(_touch())
         assert wait_for(lambda: "failed" in _statuses(published))
@@ -182,7 +183,7 @@ def test_log_only_speech_is_failed_not_completed(published: list[Any]) -> None:
 
 def test_engine_error_reports_failed_and_degraded(published: list[Any]) -> None:
     """A speech engine that raises gives a failed phrase and a degraded audio module."""
-    manager = AudioManager(BrokenSpeaker, Alarm(), publish=published.append)
+    manager = AudioManager(BrokenSpeaker, Alarm(), publish=published.append, announce_touches=True)
     try:
         manager.on_touch(_touch())
         assert wait_for(lambda: "failed" in _statuses(published))
@@ -210,7 +211,8 @@ def test_fake_audio_is_labelled_fake_never_real(capsys: pytest.CaptureFixture[st
     bus = Bus()
     manager = fake_register(bus)
     try:
-        manager.on_touch(_touch(name="Heinz"))
+        manager.on_touch(_touch(name="Heinz"))  # question-only: a touch is silent
+        manager.on_speak(SpeakRequest(time.time(), "You are touching Heinz.", "normal", "dashboard"))
         assert wait_for(lambda: "completed" in _statuses(bus.published))
     finally:
         manager.stop()
@@ -222,7 +224,7 @@ def test_old_audio_constructor_publishes_nothing() -> None:
     """AudioManager(speaker_factory, alarm) without publish behaves exactly as before."""
     speaker = GatedSpeaker()
     speaker.gate.set()
-    manager = AudioManager(lambda: speaker, Alarm())
+    manager = AudioManager(lambda: speaker, Alarm(), announce_touches=True)
     try:
         manager.on_touch(_touch())
         assert wait_for(lambda: speaker.started == ["Heinz ketchup"])
@@ -347,3 +349,43 @@ def test_fake_store_correlates_results() -> None:
     results = _results(published)
     assert results["q1"].status == "found" and results["q1"].neighbours == ["laptop"]
     assert results["q2"].status == "not_found"
+
+
+def test_default_is_question_only_and_still_reports_answers(published: list[Any]) -> None:
+    """By default a touch is silent, while a requested answer gets full telemetry.
+
+    main made object speech question-only (announce_touches=False); the
+    telemetry from the dashboard redesign must keep working for answers.
+    """
+    speaker = GatedSpeaker()
+    speaker.gate.set()
+    manager = AudioManager(lambda: speaker, Alarm(), publish=published.append)
+    try:
+        manager.on_touch(_touch())
+        manager.on_name(NameResult(time.time(), 1, "Heinz ketchup", True))
+        manager.on_speak(SpeakRequest(time.time(), "You are touching Heinz ketchup.", "normal", "dashboard"))
+        assert wait_for(lambda: "completed" in _statuses(published))
+    finally:
+        manager.stop()
+    speech = [m for m in published if isinstance(m, SpeechStatus)]
+    assert speaker.started == ["You are touching Heinz ketchup."]
+    assert {m.kind for m in speech} == {"answer"}
+    assert {m.source for m in speech} == {"dashboard"}
+
+
+def test_announce_touches_and_hazard_priority_together(published: list[Any]) -> None:
+    """Legacy touch speech plus telemetry: a hazard still cuts the touch phrase off."""
+    speaker = GatedSpeaker()
+    alarm = Alarm()
+    manager = AudioManager(lambda: speaker, alarm, publish=published.append, announce_touches=True)
+    try:
+        manager.on_touch(_touch())
+        assert wait_for(lambda: speaker.started == ["Heinz ketchup"])
+        manager.on_hazard(HazardEvent(time.time(), "vehicle", "yolo", 0.9))
+        speaker.gate.set()
+        assert wait_for(lambda: "Stop. Vehicle." in speaker.started)
+    finally:
+        manager.stop()
+    touch = [m for m in published if isinstance(m, SpeechStatus) and m.kind == "touch"]
+    assert touch[-1].status == "interrupted"
+    assert alarm.plays >= 1

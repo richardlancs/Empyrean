@@ -39,6 +39,37 @@ class LastSeenStatus(BaseModel):
     submitted_at: float
 
 
+class QuestionRequest(BaseModel):
+    """POST /api/question body (main's shape): {"text": "What am I touching?"}."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=500)
+
+
+class QuestionStatus(BaseModel):
+    """One question's record: POST /api/question reply and GET /api/question/{id}.
+
+    status: answered, looking_up (a history lookup is waiting for storage) or
+    unavailable (no current camera view, or history could not be reached; never
+    a "not found"). speech_requested only means a SpeakRequest was published.
+    """
+
+    question_id: str
+    text: str
+    intent: Literal["scene", "touch", "history", "help"]
+    target: str | None
+    status: Literal["answered", "looking_up", "unavailable"]
+    answer: str | None
+    answered_by: Literal["dashboard", "storage"] | None
+    speech_requested: bool
+    history_status: Literal["found", "not_found", "unavailable"] | None
+    history_request_id: str | None
+    detail: str
+    asked_at: float
+    answered_at: float | None
+
+
 class ErrorBody(BaseModel):
     """Every error reply: one plain sentence the page can show."""
 

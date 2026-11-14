@@ -119,7 +119,7 @@ def manager(
     speaker: RecordingSpeaker, alarm: RecordingAlarm, clock: Clock
 ) -> Iterator[AudioManager]:
     """An audio manager wired to the recording stand-ins."""
-    mgr = AudioManager(lambda: speaker, alarm, clock=clock)
+    mgr = AudioManager(lambda: speaker, alarm, clock=clock, announce_touches=True)
     yield mgr
     speaker.gate.set()
     mgr.stop()
@@ -374,7 +374,11 @@ def test_register_subscribes_hazard_first(
         types = [t for t, _ in bus.subscriptions]
         assert types == [HazardEvent, TouchEvent, NameResult, SpeakRequest]
         bus.publish(touch(1, "bottle", "Heinz ketchup"))
-        assert settle(speaker, 1) == ["Heinz ketchup"]
+        bus.publish(named(1, "New ketchup name"))
+        bus.publish(
+            SpeakRequest(time.time(), "Requested ketchup answer", "normal", "dashboard")
+        )
+        assert settle(speaker, 1) == ["Requested ketchup answer"]
     finally:
         mgr.stop()
 
@@ -393,6 +397,8 @@ def test_fake_audio_register_prints(capsys: pytest.CaptureFixture[str]) -> None:
             SpeakRequest,
         ]
         bus.publish(touch(1, "bottle", "Heinz"))
+        bus.publish(named(1, "Heinz ketchup"))
+        bus.publish(SpeakRequest(time.time(), "Heinz", "normal", "dashboard"))
         printed: list[str] = []
         assert wait_for(
             lambda: (
@@ -400,5 +406,30 @@ def test_fake_audio_register_prints(capsys: pytest.CaptureFixture[str]) -> None:
                 or "say: Heinz" in "".join(printed)
             )
         )
+    finally:
+        mgr.stop()
+
+
+def test_default_audio_only_speaks_requested_answers(speaker: RecordingSpeaker) -> None:
+    """Touches, retouches and late names stay silent; requests and alarms work."""
+    alarm = RecordingAlarm()
+    mgr = AudioManager(lambda: speaker, alarm)
+    try:
+        mgr.on_touch(touch(1, "bottle"))
+        mgr.on_name(named(1, "Heinz ketchup"))
+        mgr.on_touch(touch(1, "bottle", kind="release"))
+        mgr.on_touch(touch(1, "bottle", "Heinz ketchup"))
+        mgr.on_speak(
+            SpeakRequest(
+                time.time(), "You are touching Heinz ketchup.", "normal", "dashboard"
+            )
+        )
+        assert settle(speaker, 1) == ["You are touching Heinz ketchup."]
+        mgr.on_hazard(HazardEvent(time.time(), "vehicle", "yolo", 0.9))
+        assert settle(speaker, 2) == [
+            "You are touching Heinz ketchup.",
+            "Stop. Vehicle.",
+        ]
+        assert len(alarm.played_at) == 1
     finally:
         mgr.stop()

@@ -64,3 +64,27 @@ def test_fake_scene_uses_current_timestamps() -> None:
     assert all(m.ts >= snapshots[0].ts for _t, m in messages)
     fixed = scripted_messages(start_ts=1000.0)
     assert next(m for _t, m in fixed if isinstance(m, SceneSnapshot)).ts == 1000.0
+
+
+def test_crop_recorder_subscribes_first_and_saves_crops(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--record-crops (from main): the recorder is registered before any module and saves crops."""
+    from contracts import NameRequest
+    from fakes.namer.crop_recorder import CropRecorder
+
+    monkeypatch.setattr(app_main, "MODULES", ("hazard",))
+    running = app_main.start(fakes=("hazard",), record_crops=tmp_path)
+    try:
+        assert isinstance(running.instances[0], CropRecorder)
+        assert NameRequest in running.bus._subscribers
+        running.bus.publish(NameRequest(time.time(), 7, "bottle", b"\xff\xd8fake-jpeg"))
+        recorder = running.instances[0]
+        deadline = time.monotonic() + 3
+        while recorder.saved < 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
+    finally:
+        running.stop()
+    sessions = [p for p in tmp_path.iterdir() if p.name.startswith("session-")]
+    assert len(sessions) == 1
+    assert (sessions[0] / "7-1.jpg").read_bytes() == b"\xff\xd8fake-jpeg"

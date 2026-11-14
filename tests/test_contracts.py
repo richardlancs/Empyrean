@@ -106,6 +106,8 @@ def _all_messages() -> list[object]:
             label="keys",
             neighbours=["cup"],
         ),
+        LastSeenQuery(ts=TS, text="keys"),
+        ModeChange(ts=TS, mode="demo"),
         SpeakRequest(ts=TS, text="Heinz ketchup", priority="normal", source="audio"),
         SpeechStatus(
             ts=TS,
@@ -176,6 +178,7 @@ def test_fixed_values_match_spec() -> None:
         (HazardEvent, "type"): {"stairs_down", "drop_off", "vehicle", "obstacle"},
         (HazardEvent, "source"): {"yolo", "grok"},
         (SpeakRequest, "priority"): {"normal"},
+        (ModeChange, "mode"): {"actual", "demo"},
     }
     for (cls, field_name), values in expected.items():
         hint = typing.get_type_hints(cls)[field_name]

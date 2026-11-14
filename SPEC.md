@@ -116,7 +116,7 @@ Shared folders:
 
 ### 4.2 Object tracking
 
-- Use the YOLO small model (`yolo11s.pt`) with COCO weights and its built-in ByteTrack tracker so each object keeps the same `object_id` across frames.
+- Use the YOLO small model (`yolo11s.pt`) with COCO weights and its built-in ByteTrack tracker so each object keeps the same `object_id` across frames. The nano model missed held objects on the real camera (a backpack at any confidence); small costs about 49 ms per frame on the laptop CPU against 24 ms.
 - Drop detections with confidence below 0.3 (0.25 for the demo-trained detector).
 - Drop the `person` class. The wearer's own arm must never be an object.
 - Drop boxes smaller than 0.2% of the frame area.
@@ -149,11 +149,11 @@ Rules:
 ### 4.5 Naming
 
 - When an object first becomes `idle`, the scene database sends one `NameRequest` with a JPEG crop of the object, padded by 10% on each side.
-- The namer asks Grok, in plain words: identify the product in this image; reply with the brand and product type in at most 5 words; if no brand is readable, reply with the plain object name; no sentences.
+- The namer asks Grok, in plain words: name the object in this image; include a brand or model only if it can actually be read printed on the object, and never guess one from shape, colour or style; if a brand is readable, reply with the brand and product type ("Diet Coke can"); otherwise reply with only the plain object name ("laptop"); at most 5 words; no sentences.
 - The reply is trimmed, cut to 40 characters, and published as a `NameResult`.
 - Names are cached by `object_id`. An object is named once.
 - At most 2 requests in flight at a time and at most 1 new request per second. Extra requests wait, largest object first.
-- A request times out after 4 seconds. On timeout or error the object keeps `name` empty and may be retried once.
+- A request times out after 4 seconds. On timeout or error the object keeps `name` empty and may be retried once. The scene database sends that one retry; the namer makes exactly one Grok call per request.
 - If an object is touched before its name arrives, the system speaks the plain class label ("bottle"). If the name arrives within 1.5 seconds and the object is still being touched, the system then speaks the name once.
 
 ### 4.6 Touch detection
@@ -182,13 +182,15 @@ Two tiers run at the same time.
 
 **Tier A, local and fast.** Uses boxes already in `FrameResult`. If an object of class `car`, `bus`, `truck`, `motorcycle` or `bicycle` covers at least 10% of the frame and its area has grown by at least 30% in the last second, publish a `HazardEvent` of type `vehicle` with source `yolo`.
 
-**Tier B, Grok.** Every 1.5 seconds, send the current frame scaled to 512 pixels wide to Grok and ask, in plain words: this is the forward view of a blind pedestrian; is there an immediate hazard in the walking path within about 3 metres; reply with only a JSON object with fields `hazard` (true or false), `type` (one of `stairs_down`, `drop_off`, `vehicle`, `obstacle`, `none`) and `confidence` (0 to 1). If `hazard` is true and `confidence` is 0.6 or higher, publish a `HazardEvent` with source `grok`. A request times out after 3 seconds. Never have more than one tier B request in flight.
+**Tier B, Grok.** Every 1.5 seconds, send the current frame scaled to 512 pixels wide to Grok and ask, in plain words: this is the forward view from a camera worn at eye level by a blind pedestrian, tilted about 20 degrees down so hands and tabletop are in view; is there an immediate hazard the wearer would hit or fall from within their next two steps; count only a downward step, stair edge or drop directly ahead, an approaching vehicle, or a solid object in the walking path within about 1 metre; do not count objects on a table, objects in or near the hands, furniture or walls beside the path, or a table edge seen from above; if unsure, answer hazard false; reply with only a JSON object with fields `hazard` (true or false), `type` (one of `stairs_down`, `drop_off`, `vehicle`, `obstacle`, `none`) and `confidence` (0 to 1). If `hazard` is true and `confidence` is 0.6 or higher, publish a `HazardEvent` with source `grok`. A request times out after 3 seconds. Never have more than one tier B request in flight.
 
 Rules:
 
 - After any `HazardEvent`, publish no further `HazardEvent` for 3 seconds.
 - Hazard detection never pauses for touch, naming, or dashboard activity.
 - A false alarm is acceptable. A missed hazard is the failure to avoid, so a single positive is enough to alarm.
+
+The tier B prompt was narrowed after the first wording raised 22 indoor alarms in about 2 minutes on tabletop scenes. The single-positive rule above still applies to whatever Grok reports.
 
 Known limit: one webcam cannot measure distance. Tier B lags by 1 to 3 seconds and will miss some hazards. Never describe this feature as a safety device.
 
@@ -434,7 +436,7 @@ Settings come from a `.env` file that is never committed:
 | Variable | Meaning |
 |---|---|
 | `GROK_API_KEY` | Key for the Grok API |
-| `GROK_MODEL` | Name of a Grok model that accepts images. Confirm the current name at the SpaceXSI workshop |
+| `GROK_MODEL` | Name of a Grok model that accepts images. Use `grok-4.20-0309-non-reasoning`; the reasoning models were too slow for the 3 s and 4 s timeouts |
 | `TIGER_DATABASE_URL` | Connection string for the Tiger Data service |
 | `CAMERA_INDEX` | Which camera OpenCV opens. Default 0 |
 
@@ -532,7 +534,7 @@ Only after the Sat 8 pm checkpoint is met.
 | Question | Who resolves it | By when |
 |---|---|---|
 | Exact rules of the SpaceXSI prize | Person 3, at the Saturday 11:45 am workshop | Sat noon |
-| Current name of a Grok model that accepts images | Person 3 | Fri midnight |
+| Current name of a Grok model that accepts images | Resolved: `grok-4.20-0309-non-reasoning` (Person 3, 2026-11-13) | Done |
 | How many HackUMass categories one project may enter | Person 4, from the Devpost page | Sat noon |
 | Exact submission deadline | Person 4 | Fri midnight |
 | Which laptop runs the demo, and its operating system | All | Fri midnight |

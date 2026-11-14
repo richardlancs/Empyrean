@@ -266,3 +266,32 @@ def test_scene_snapshot_fills_object_list_touched_first() -> None:
         ("cup", "lost", False),
     ]
     assert objects[2]["last_seen_ts"] == NOW - 1
+
+
+def test_mode_request_uses_mains_body_and_waits_for_vision() -> None:
+    """Main's {"mode": ...} body still works, via the one detector switch.
+
+    The merge keeps a single switch path: /api/mode publishes one ModeChange and
+    the page shows Demo only after vision's DetectorStatus confirms it. Main's
+    old echo (vision publishing ModeChange back) is replaced by DetectorStatus.
+    """
+    bus = TestBus()
+    dashboard = register(bus, DashboardState(clock=lambda: NOW), serve=False)
+    client = TestClient(create_app(dashboard.state))
+    assert 'id="mode"' not in client.get("/").text  # main's inline button is gone
+    bus.publish(
+        DetectorStatus(ts=NOW, state="active", active_mode="actual", detector="COCO")
+    )
+    reply = client.post("/api/mode", json={"mode": "demo"})
+    assert reply.status_code == 202
+    sent = [m for m in bus.published if not isinstance(m, DetectorStatus)]
+    assert len(sent) == 1 and sent[0].mode == "demo" and sent[0].request_id
+    assert client.get("/api/state").json()["detector"]["active_mode"] == "actual"
+    bus.publish(
+        DetectorStatus(
+            ts=NOW, state="active", active_mode="demo", detector="trained",
+            request_id=sent[0].request_id,
+        )
+    )
+    assert client.get("/api/state").json()["detector"]["active_mode"] == "demo"
+    assert client.post("/api/mode", json={"mode": "replay"}).status_code == 422

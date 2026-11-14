@@ -20,7 +20,7 @@ Use exactly this. The full table with the folder each item belongs to is in `SPE
 |---|---|
 | Language | Python 3.11 |
 | Camera capture and drawing | OpenCV (`opencv-python`) |
-| Object detection and tracking | Ultralytics YOLO nano, COCO weights, ByteTrack |
+| Object detection and tracking | Ultralytics YOLO small (`yolo11s.pt`), COCO weights, ByteTrack |
 | Hand tracking | MediaPipe Hands |
 | Brand naming and hazard check | Grok vision model over the Grok API, called with `httpx` |
 | Database | Tiger Data (Postgres with time-series hypertables), `psycopg` 3 |

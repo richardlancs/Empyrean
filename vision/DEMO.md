@@ -109,6 +109,9 @@ Run `python -m app --record-crops`, open localhost:8000 and choose **Demo** besi
 the camera heading. Wait for the Demo-trained model badge before testing.
 Keep each item fully in the frame and check its box before touching it. Check
 touch, a five-second hold, release and retouch. Also check two adjacent items.
+Object names are spoken only in answer to a question: use the dashboard's
+question panel ("What am I touching?") rather than expecting automatic touch speech.
+See `demotraining.md` for the current per-item status; no item set is demo-ready yet.
 The current candidate improves several tabletop detections but still misses
 some small, partial or changed-pose views, especially headphones and keys.
 Training completion does not mean the demo is ready.
