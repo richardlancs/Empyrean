@@ -9,6 +9,7 @@ import logging
 import queue
 import threading
 import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -39,13 +40,66 @@ def _default_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=config.NAME_TIMEOUT_SECONDS)
 
 
+# Start-of-frame markers that carry the image size. C4 (DHT), C8 (JPG) and
+# CC (DAC) share the range but are not frame headers.
+_SOF_MARKERS = frozenset(range(0xC0, 0xD0)) - {0xC4, 0xC8, 0xCC}
+# Markers with no length field.
+_STANDALONE = frozenset({0x01, *range(0xD0, 0xD9)})
+
+
+def jpeg_area(data: bytes) -> int:
+    """Pixel area (width x height) read from a JPEG's frame header, 0 if unreadable.
+
+    Reads only the header bytes and decodes nothing, so it is cheap. A JPEG's
+    byte count says little about its area: a flat crop compresses far smaller
+    than a busy one of the same size.
+    """
+    if len(data) < 4 or data[0] != 0xFF or data[1] != 0xD8:
+        return 0
+    i = 2
+    n = len(data)
+    while i + 1 < n:
+        if data[i] != 0xFF:
+            return 0  # lost sync with the marker stream
+        marker = data[i + 1]
+        if marker == 0xFF:  # fill byte before a marker
+            i += 1
+            continue
+        if marker in _STANDALONE:
+            i += 2
+            continue
+        if marker in (0xD9, 0xDA) or i + 4 > n:  # end of image, or scan data starts
+            return 0
+        length = (data[i + 2] << 8) | data[i + 3]
+        if length < 2:
+            return 0
+        if marker in _SOF_MARKERS:
+            if i + 9 > n:
+                return 0
+            height = (data[i + 5] << 8) | data[i + 6]
+            width = (data[i + 7] << 8) | data[i + 8]
+            return width * height
+        i += 2 + length
+    return 0
+
+
+@dataclass(frozen=True)
+class NameTiming:
+    """How long one Grok call waited in the namer's queue, and how long the call took."""
+
+    object_id: int
+    queued_s: float  # request received to Grok call started
+    api_s: float  # Grok call started to answer or failure
+    ok: bool
+
+
 @dataclass(order=True)
 class _Job:
-    """One queued Grok call; sorts largest crop first, then oldest first."""
+    """One queued Grok call; sorts largest crop area first, then oldest first."""
 
     sort_key: tuple[int, int]
     request: NameRequest = field(compare=False)
-    attempt: int = field(default=0, compare=False)
+    received: float = field(compare=False)  # time.monotonic() when the request arrived
 
 
 class Namer:
@@ -60,7 +114,9 @@ class Namer:
         """Create the namer; starts its worker thread unless autostart is False."""
         self._publish = publish
         self._client_factory = client_factory
-        self._inbox: queue.SimpleQueue[NameRequest] = queue.SimpleQueue()
+        self._inbox: queue.SimpleQueue[tuple[NameRequest, float]] = queue.SimpleQueue()
+        # The last 200 Grok calls, appended on the worker thread. Read with list().
+        self.timings: deque[NameTiming] = deque(maxlen=200)
         self._stopping = threading.Event()
         self._thread = threading.Thread(
             target=self._thread_main, name="namer", daemon=True
@@ -91,7 +147,7 @@ class Namer:
         if self._stopping.is_set():
             log.debug("namer stopped; dropping request for object %s", msg.object_id)
             return
-        self._inbox.put(msg)
+        self._inbox.put((msg, time.monotonic()))
         self._poke()
 
     def stop(self, timeout: float | None = None) -> None:
@@ -169,12 +225,12 @@ class Namer:
         """Move everything from the thread-safe inbox into the priority queue."""
         while True:
             try:
-                msg = self._inbox.get_nowait()
+                msg, received = self._inbox.get_nowait()
             except queue.Empty:
                 return
-            self._admit(msg)
+            self._admit(msg, received)
 
-    def _admit(self, msg: NameRequest) -> None:
+    def _admit(self, msg: NameRequest, received: float) -> None:
         """Answer from cache, join a pending request, or queue a new Grok call."""
         cached = self._cache.get(msg.object_id)
         if cached is not None:
@@ -183,20 +239,30 @@ class Namer:
             self._waiting[msg.object_id] += 1
         else:
             self._waiting[msg.object_id] = 1
-            self._push(msg, 0)
+            self._push(msg, received)
 
-    def _push(self, request: NameRequest, attempt: int) -> None:
-        """Queue one Grok call, keyed by crop size so the largest goes first."""
-        key = (-len(request.crop_jpeg), next(self._seq))
-        heapq.heappush(self._heap, _Job(key, request, attempt))
+    def _push(self, request: NameRequest, received: float) -> None:
+        """Queue one Grok call, keyed by crop pixel area so the largest goes first.
+
+        Runs on the worker thread, never in the bus handler, so reading the JPEG
+        header stays off the frame path.
+        """
+        key = (-jpeg_area(request.crop_jpeg), next(self._seq))
+        heapq.heappush(self._heap, _Job(key, request, received))
         if self._wake is not None:
             self._wake.set()
 
     async def _run_job(
         self, client: httpx.AsyncClient, job: _Job, slots: asyncio.Semaphore
     ) -> None:
-        """Make one Grok call; cache and publish on success, retry once on failure."""
+        """Make exactly one Grok call; cache on success, publish the outcome either way.
+
+        No retry here. Scene owns the one retry SPEC.md 4.5 allows: it sends a
+        second NameRequest after a failed NameResult. Failures are not cached, so
+        that second request gets its own single call.
+        """
         req = job.request
+        started = time.monotonic()
         try:
             raw = await asyncio.wait_for(
                 name_crop(client, req.crop_jpeg, req.class_label),
@@ -205,13 +271,12 @@ class Namer:
             name = clean_name(raw)
             if not name:
                 raise ValueError("Grok returned an empty name")
-        except Exception as exc:  # noqa: BLE001 - any failure means retry once, then ok=False
-            self._log_failure(req.object_id, job.attempt, exc)
-            if job.attempt == 0:
-                self._push(req, 1)
-            else:
-                self._finish(req.object_id, "", False)
+        except Exception as exc:  # noqa: BLE001 - any failure publishes ok=False
+            self._record(job, started, False)
+            self._log_failure(req.object_id, exc)
+            self._finish(req.object_id, "", False)
         else:
+            self._record(job, started, True)
             if self._failing:
                 log.info("Grok naming recovered")
                 self._failing = False
@@ -220,15 +285,31 @@ class Namer:
         finally:
             slots.release()
 
-    def _log_failure(self, object_id: int, attempt: int, exc: Exception) -> None:
+    def _record(self, job: _Job, started: float, ok: bool) -> None:
+        """Keep and log the queue wait and the Grok call time for one job."""
+        timing = NameTiming(
+            object_id=job.request.object_id,
+            queued_s=started - job.received,
+            api_s=time.monotonic() - started,
+            ok=ok,
+        )
+        self.timings.append(timing)
+        log.info(
+            "Grok call for object %s %s in %.2f s after %.2f s queued",
+            timing.object_id,
+            "answered" if ok else "failed",
+            timing.api_s,
+            timing.queued_s,
+        )
+
+    def _log_failure(self, object_id: int, exc: Exception) -> None:
         """Log the first failure loudly and repeats quietly until a call succeeds."""
         level = logging.DEBUG if self._failing else logging.WARNING
         self._failing = True
         log.log(
             level,
-            "Grok naming failed for object %s (attempt %d): %s: %s",
+            "Grok naming failed for object %s: %s: %s",
             object_id,
-            attempt + 1,
             type(exc).__name__,
             exc,
         )
