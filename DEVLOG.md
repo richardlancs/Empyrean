@@ -84,6 +84,23 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 4 (candidate-v1 training and evaluation), Claude Code
+**Changed:** Trained Person 4's first eight-class candidate, following `demotraining.md`, on a fresh macOS Python 3.11 `.venv` (Apple M5, MPS). Dataset `scratch/p4-dataset-v1` from `vision.extend_demo_dataset`: frozen bootstrap plus `training_data/person4/train` → 153 train images (71 + 82), and bootstrap val plus `training_data/person4/eval` → 32 val images (10 + 22). Run: `python -m vision.train_demo_detector --data scratch/p4-dataset-v1/data.yaml --weights vision/models/yolo11s.pt --project scratch/p4-runs --name candidate-v1 --epochs 45 --device mps` (script defaults otherwise: imgsz 416, batch 4, freeze 10, lr 0.001, mosaic 0.5, patience 12). All 45 epochs ran; best epoch 38. **Elapsed: 216 s wall-clock** (3 min 36 s, `/usr/bin/time`). Added `training_data/person4/results/candidate-v1.json`. Weights are not committed: `best.pt` SHA-256 `76cc6a98f28d63860855699928c1d30be7b9abe064dc8b8b98c6e0ff174863a7`, stays in `scratch/p4-runs/candidate-v1/weights/`; ask Person 4 for the file.
+
+**Tested:** `python -m vision.evaluate_demo_detector --weights scratch/p4-runs/candidate-v1/weights/best.pt --refs training_data/person4/eval --output training_data/person4/results/candidate-v1.json --device mps` (confidence 0.25, IoU ≥ 0.5, agnostic NMS):
+- **headphones 12/12.** Confidence 0.53 to 0.82, IoU ≥ 0.53. One extra box: `headphones_12.jpg` got a second, overlapping headphones box (0.31). This is the only false-positive box.
+- **toothbrush 9/10.** Miss: `toothbrush_7.jpg`, the electric toothbrush held horizontally with the head pointing left, pale blue on a white table. No box at all, not a wrong class. Weakest hit: `toothbrush_2` at 0.31. `toothbrush_5` passed at IoU 0.52, on one of the eval boxes already noted as loose because it includes the hand.
+- No wrong-class detections on any of the 22 eval photos.
+- Median inference 6.4 ms per image on MPS, at the 416 internal size. This is model time only, not camera-loop latency.
+
+Ultralytics validation of `best.pt` on all 32 val images: mAP50 0.885, mAP50-95 0.492. Per class (mAP50): headphones 0.859 over 14 instances, toothbrush 0.752 over 11 (recall 0.545, the weakest of my two classes), water bottle, toothpaste, phone, keys and watch 0.995 each, charger 0.495. The other six classes have only 1 or 2 bootstrap val instances each, so those figures say only that the head kept all eight classes. They are not evidence of accuracy. Charger stays weak, as in the team note.
+
+`pytest -q` in the same venv: 207 passed, 1 skipped (existing httpx warning).
+
+**Caveats:** Following the guide's commands, `person4/eval` is also the validation split that picked `best.pt` (epoch 38). So the 21/22 is optimistic and not a fully independent holdout. No live-app sign-off yet: the stable box, name, touch/hold/release/retouch and spoken-answer checks are still to do. Not tested on the glasses camera. MPS training printed non-deterministic-op warnings, so a rerun may differ slightly.
+
+**Teammates need to know:** On the python.org macOS build, `scripts/setup_models.py` fails to fetch `hand_landmarker.task` with `CERTIFICATE_VERIFY_FAILED`. Rerun it once with `SSL_CERT_FILE` pointed at certifi's bundle, or run that Python's `Install Certificates.command`. No source, config, contract or dependency changes. Person 1: the toothbrush needs more horizontal, held, low-contrast views before the final merge.
+
 ### 2026-11-14, Person 4 (headphones and toothbrush captures), Claude Code
 **Changed:** Captured Person 4's training and evaluation data with `vision.capture_demo_refs` on the user's own laptop webcam (index 0, 1280 x 720, Windows). `training_data/person4/train/`: 46 headphones (34 held, 12 on a table) and 36 toothbrush (24 held, 12 on a table, 6 of those standing upright). `training_data/person4/eval/`: 12 headphones and 10 toothbrush, taken at a different table and background from training. One item per photo throughout. The toothbrush is an electric toothbrush; note it if the demo uses a manual one. Three sets were rejected and moved to the git-ignored `scratch/` instead: the first training session (a second headset worn around the neck, unboxed, in all 55 photos), 7 toothbrush photos with the headphones unboxed in the background, and a first eval attempt where 10 toothbrush photos were saved under the headphones label. The remaining toothbrush training files were renumbered 1 to 36 so the capture tool cannot overwrite them; `refs.json` matches the files on disk.
 

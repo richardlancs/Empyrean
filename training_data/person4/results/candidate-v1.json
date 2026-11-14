@@ -1,0 +1,414 @@
+{
+  "weights": "scratch/p4-runs/candidate-v1/weights/best.pt",
+  "confidence": 0.25,
+  "iou_required": 0.5,
+  "per_class": {
+    "headphones": {
+      "correct": 12,
+      "total": 12
+    },
+    "toothbrush": {
+      "correct": 9,
+      "total": 10
+    }
+  },
+  "false_positive_boxes": 1,
+  "median_inference_ms": 6.448229542002082,
+  "images": [
+    {
+      "file": "headphones_1.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.6344486794506938,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.7469133734703064,
+          "box": [
+            194.10255432128906,
+            181.94143676757812,
+            397.462646484375,
+            327.81988525390625
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_2.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.8604990443759993,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.7579953074455261,
+          "box": [
+            171.7012481689453,
+            173.51600646972656,
+            394.0050354003906,
+            335.1351013183594
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_3.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.877272224323947,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.7618770599365234,
+          "box": [
+            170.53134155273438,
+            192.7901611328125,
+            397.850830078125,
+            324.1148681640625
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_4.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.5285640727767202,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.8228690028190613,
+          "box": [
+            217.30093383789062,
+            207.23342895507812,
+            399.11236572265625,
+            329.5717468261719
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_5.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.7330892415423276,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.817909300327301,
+          "box": [
+            172.9292755126953,
+            203.8399658203125,
+            379.9683837890625,
+            332.5074768066406
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_6.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.7278683032978044,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.7792559266090393,
+          "box": [
+            153.50579833984375,
+            215.94598388671875,
+            370.18121337890625,
+            342.4366149902344
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_7.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.7303503180061073,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.6781948208808899,
+          "box": [
+            174.1650848388672,
+            172.79383850097656,
+            380.27508544921875,
+            330.3345642089844
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_8.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.7974549307472085,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.7691919803619385,
+          "box": [
+            192.6415557861328,
+            183.09642028808594,
+            409.004638671875,
+            348.9743347167969
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_9.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.7691753060564558,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.7889125347137451,
+          "box": [
+            180.39321899414062,
+            203.25010681152344,
+            424.91009521484375,
+            341.9737243652344
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_10.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.6767915482496522,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.7806437015533447,
+          "box": [
+            189.02415466308594,
+            104.59153747558594,
+            412.4851379394531,
+            312.0260009765625
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_11.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.6651644927264323,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.8237907290458679,
+          "box": [
+            260.560791015625,
+            83.2569580078125,
+            468.9728088378906,
+            244.10595703125
+          ]
+        }
+      ]
+    },
+    {
+      "file": "headphones_12.jpg",
+      "expected": "headphones",
+      "correct": true,
+      "best_iou": 0.6880675173227062,
+      "detections": [
+        {
+          "label": "headphones",
+          "confidence": 0.5328859090805054,
+          "box": [
+            113.8193130493164,
+            55.07807922363281,
+            412.95355224609375,
+            273.6329040527344
+          ]
+        },
+        {
+          "label": "headphones",
+          "confidence": 0.30560100078582764,
+          "box": [
+            166.73373413085938,
+            156.95938110351562,
+            403.8689880371094,
+            270.53314208984375
+          ]
+        }
+      ]
+    },
+    {
+      "file": "toothbrush_1.jpg",
+      "expected": "toothbrush",
+      "correct": true,
+      "best_iou": 0.7575478818576356,
+      "detections": [
+        {
+          "label": "toothbrush",
+          "confidence": 0.7602185606956482,
+          "box": [
+            213.00523376464844,
+            20.33551788330078,
+            356.9889221191406,
+            352.53118896484375
+          ]
+        }
+      ]
+    },
+    {
+      "file": "toothbrush_2.jpg",
+      "expected": "toothbrush",
+      "correct": true,
+      "best_iou": 0.8152677984510837,
+      "detections": [
+        {
+          "label": "toothbrush",
+          "confidence": 0.7998844385147095,
+          "box": [
+            102.57817840576172,
+            62.7158088684082,
+            338.1352844238281,
+            360.0
+          ]
+        }
+      ]
+    },
+    {
+      "file": "toothbrush_3.jpg",
+      "expected": "toothbrush",
+      "correct": true,
+      "best_iou": 0.7290088865733031,
+      "detections": [
+        {
+          "label": "toothbrush",
+          "confidence": 0.7303953766822815,
+          "box": [
+            188.85626220703125,
+            71.27159881591797,
+            446.5459289550781,
+            360.0
+          ]
+        }
+      ]
+    },
+    {
+      "file": "toothbrush_4.jpg",
+      "expected": "toothbrush",
+      "correct": true,
+      "best_iou": 0.8436352840139499,
+      "detections": [
+        {
+          "label": "toothbrush",
+          "confidence": 0.7546597123146057,
+          "box": [
+            185.20523071289062,
+            100.20233154296875,
+            490.5802307128906,
+            360.0
+          ]
+        }
+      ]
+    },
+    {
+      "file": "toothbrush_5.jpg",
+      "expected": "toothbrush",
+      "correct": true,
+      "best_iou": 0.5218384764912689,
+      "detections": [
+        {
+          "label": "toothbrush",
+          "confidence": 0.6297380924224854,
+          "box": [
+            213.41741943359375,
+            183.3898468017578,
+            526.91357421875,
+            301.9493408203125
+          ]
+        }
+      ]
+    },
+    {
+      "file": "toothbrush_6.jpg",
+      "expected": "toothbrush",
+      "correct": true,
+      "best_iou": 0.6261694183482583,
+      "detections": [
+        {
+          "label": "toothbrush",
+          "confidence": 0.5384310483932495,
+          "box": [
+            101.1138916015625,
+            105.45126342773438,
+            473.8953857421875,
+            260.2291564941406
+          ]
+        }
+      ]
+    },
+    {
+      "file": "toothbrush_7.jpg",
+      "expected": "toothbrush",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "toothbrush_8.jpg",
+      "expected": "toothbrush",
+      "correct": true,
+      "best_iou": 0.7050409970885664,
+      "detections": [
+        {
+          "label": "toothbrush",
+          "confidence": 0.30730846524238586,
+          "box": [
+            245.0740509033203,
+            69.85455322265625,
+            346.7662353515625,
+            318.9594421386719
+          ]
+        }
+      ]
+    },
+    {
+      "file": "toothbrush_9.jpg",
+      "expected": "toothbrush",
+      "correct": true,
+      "best_iou": 0.6333109295803208,
+      "detections": [
+        {
+          "label": "toothbrush",
+          "confidence": 0.7502639293670654,
+          "box": [
+            98.61164093017578,
+            66.23809814453125,
+            351.3902587890625,
+            318.8357238769531
+          ]
+        }
+      ]
+    },
+    {
+      "file": "toothbrush_10.jpg",
+      "expected": "toothbrush",
+      "correct": true,
+      "best_iou": 0.7436486115784021,
+      "detections": [
+        {
+          "label": "toothbrush",
+          "confidence": 0.7721452713012695,
+          "box": [
+            209.49209594726562,
+            73.5601577758789,
+            492.99261474609375,
+            350.34808349609375
+          ]
+        }
+      ]
+    }
+  ]
+}
