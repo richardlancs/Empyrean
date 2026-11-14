@@ -68,13 +68,30 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 4 (audio), Claude Code
+**Changed:**
+
+- Rebased `voice-dashboard` onto `origin/main`. The only conflict was this file; both the Person 4 entries and the team's entries are kept.
+- `audio/speak_test.py` now uses `pyttsx3` (the approved speech engine) instead of Piper. It runs on any OS, needs no voice download, and takes `main(argv)` so tests can drive it. `audio/requirements.txt` pins `pyttsx3==2.99`; Piper is removed. Added `audio/__init__.py`.
+- `audio/.gitignore` no longer ignores every `*.wav`, so the prerecorded alarm WAV can be committed. Generated audio goes in `audio/generated/`, which is ignored. `voices/` stays ignored for the leftover local Piper files.
+- New `fakes/audio/`: `FakeAudio` and `register(bus)` subscribe to `HazardEvent`, `TouchEvent`, `NameResult` and `SpeakRequest`, record what would be played (SPEC.md 4.8 phrases, 4.5 late-name rule), and publish nothing. `python -m fakes.audio` prints a scripted run. It does not model timing, the one-item queue or the alarm cut-off.
+- New `tests/test_audio.py` (11 tests). pyttsx3 is replaced with a stub module, so no speaker and no pyttsx3 install are needed.
+
+**Tested:** In a Python 3.11.9 venv without pyttsx3: `pytest tests/test_audio.py` gave 11 passed. Full `pytest` from the repo root, run four times with `TIGER_DATABASE_URL` and `GROK_API_KEY` unset: two runs gave 94 passed, 1 skipped; two runs gave 93 passed, 1 skipped, 1 failed, the failure being `test_storage.py::test_unreachable_db_never_blocks_and_warns_once` (already listed under "Needs attention"). Before these changes the baseline was 82 passed, 1 skipped, the same 1 failed. `ruff check` and `ruff format --check` are clean on `audio/`, `fakes/audio/` and `tests/test_audio.py`. `python -m fakes.audio` printed the expected five lines. `git add --dry-run` accepted `audio/alarm.wav` and skipped `audio/generated/speech.wav`. After installing `pyttsx3==2.99`, `pyttsx3.init()` started on Windows and listed 2 voices. Nothing was spoken aloud; audible playback on the laptop and the JBL is not yet confirmed.
+
+**Decisions:** SPEC.md names no path for the alarm WAV, so no path was chosen. Any WAV under `audio/` outside `generated/` can be committed. The `python -m app --fake audio` wiring is Person 1's; `fakes.audio.fake_audio.register(bus)` uses the same `bus.subscribe(MessageType, handler)` shape as Person 3's fakes.
+
+**Teammates need to know:** Reinstall with `py -3.11 -m pip install -r audio/requirements.txt`. Person 1: `fakes.audio.fake_audio.register(bus)` is ready for `--fake audio`; it returns an object with a no-op `stop()`.
+
 ### 2026-11-14, Person 4 (audio), Codex
+**Update (later, Claude Code):** After the rebase onto `main`, `contracts/messages.py` (with `HazardEvent`), `config/thresholds.py` and `samples/hazardeventsample.py` are present, so the blocker below no longer applies.
 **Changed:** No audio code changes: requested shared HazardEvent integration cannot be implemented against this checkout because no shared event implementation or contracts folder exists here.
 **Tested:** Confirmed branch voice-dashboard, inspected audio/speak_test.py and repository files. Script contains text playback only, no made-up alarm. Verified Piper 1.3.0 downloader supports --download-dir and creates the voice directory. Python launcher remains unavailable in the agent terminal; no playback or pytest run possible here.
 **Decisions:** Do not invent a replacement HazardEvent or edit shared contracts. User reports Piper 1.3.0 installed under Python 3.11 in their terminal.
 **Teammates need to know:** Need location or branch containing the team's actual HazardEvent definition before adding the requested stairs hazard example. Existing manual sentence test can run after voice download.
 
 ### 2026-11-14, Person 4 (audio), Codex
+**Update (later, Claude Code):** Piper was replaced with `pyttsx3` and the blanket `*.wav` rule removed; see the entry above.
 **Changed:** Added standalone `audio/speak_test.py` for supplied text, pinned Piper in `audio/requirements.txt`, and ignored local environments, voices and generated WAV files under audio.
 **Tested:** Confirmed branch `voice-dashboard` and initially clean working tree. Inspected entire repository: planning documents only, no existing audio, Python setup, Piper or voice models. Reviewed Piper's documented Python API. `git diff --check` passed. Attempted `python -m pytest`; Python is unavailable in this terminal, so tests and audible playback remain unverified.
 **Decisions:** User explicitly requested Piper for this isolated test despite the spec listing pyttsx3. No shared spec, alert format or dashboard changes. Use Windows standard-library playback with the selected system output; voice files are not committed.
