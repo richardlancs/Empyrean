@@ -1,89 +1,62 @@
-"""Person 3 modules use the exact shared classes from contracts/, not look-alikes.
+"""Person 3 code uses the shared contracts/ and config/ definitions, not local copies.
 
-A copied dataclass with the same name and fields is a different class. On a bus
-that routes by message type, a copy silently misses its subscribers. These
-checks compare class identity (`is`), and route through a bus that delivers by
-exact type, so a look-alike fails here instead of in the demo.
+A copied dataclass with the same name and fields is a different class, so on a
+bus that routes by message type it silently misses its subscribers. A copied
+threshold silently stops following config/. These checks look at class identity
+and at the source of every Person 3 module, so neither copy can come back.
+
+Bus wiring (register(bus) subscribing and publishing the contracts classes) is
+tested in tests/test_register.py. The real Namer's published class is checked in
+tests/test_namer.py.
 """
 
 from __future__ import annotations
 
+import ast
 import importlib
 import importlib.util
-import threading
-import time
-from collections import defaultdict
-from collections.abc import Callable
-from typing import Any
+from pathlib import Path
 
-import httpx
 import pytest
 
 import config
 import contracts
-import namer
-from fakes.namer.fake_namer import FakeNamer
-from fakes.storage.fake_store import FakeStore
-from namer.namer import Namer
-from storage.writer import Store
+
+ROOT = Path(__file__).resolve().parents[1]
+P3_DIRS = ("namer", "storage", "fakes/namer", "fakes/storage")
+P3_FILES = sorted(p for d in P3_DIRS for p in (ROOT / d).glob("*.py"))
+MESSAGE_NAMES = set(contracts.__all__)
+THRESHOLD_NAMES = {name for name in vars(config) if name.isupper()}
 
 
-class TypeBus:
-    """Test bus: delivers a message only to handlers subscribed with its exact class."""
-
-    def __init__(self) -> None:
-        self.handlers: dict[type, list[Callable[[Any], None]]] = defaultdict(list)
-        self.undelivered: list[Any] = []
-        self._lock = threading.Lock()
-
-    def subscribe(self, message_type: type, handler: Callable[[Any], None]) -> None:
-        """Register handler for exactly this class (no subclass or name matching)."""
-        self.handlers[message_type].append(handler)
-
-    def publish(self, msg: Any) -> None:
-        """Deliver msg to the handlers of type(msg); record it if nobody listens."""
-        handlers = self.handlers.get(type(msg), [])
-        if not handlers:
-            with self._lock:
-                self.undelivered.append(msg)
-        for handler in handlers:
-            handler(msg)
+def _module_level_definitions(path: Path) -> tuple[set[str], set[str]]:
+    """Return the class names and assigned names defined at the top level of path."""
+    classes: set[str] = set()
+    assigned: set[str] = set()
+    for node in ast.parse(path.read_text(), filename=str(path)).body:
+        if isinstance(node, ast.ClassDef):
+            classes.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                assigned.update(
+                    n.id for n in ast.walk(target) if isinstance(n, ast.Name)
+                )
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)) and isinstance(
+            node.target, ast.Name
+        ):
+            assigned.add(node.target.id)
+    return classes, assigned
 
 
-class Inbox:
-    """Thread-safe collector with a polling wait."""
-
-    def __init__(self) -> None:
-        self.items: list[Any] = []
-        self._lock = threading.Lock()
-
-    def __call__(self, msg: Any) -> None:
-        with self._lock:
-            self.items.append(msg)
-
-    def wait_for(self, count: int, timeout: float = 3.0) -> list[Any]:
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            with self._lock:
-                if len(self.items) >= count:
-                    return list(self.items)
-            time.sleep(0.01)
-        raise AssertionError(f"expected {count} messages, got {len(self.items)}")
-
-
-def _touch(name: str = "Heinz ketchup") -> contracts.TouchEvent:
-    return contracts.TouchEvent(
-        ts=time.time(),
-        object_id=7,
-        class_label="bottle",
-        name=name,
-        kind="touch",
-        box=(100.0, 80.0, 220.0, 300.0),
-        neighbours=["blue mug"],
-    )
-
-
-# 1. the shims are gone ---------------------------------------------------
+def test_p3_files_found() -> None:
+    """The source scan below actually sees the Person 3 modules."""
+    names = {p.relative_to(ROOT).as_posix() for p in P3_FILES}
+    assert {
+        "namer/namer.py",
+        "storage/_deps.py",
+        "fakes/namer/fake_namer.py",
+        "fakes/storage/fake_store.py",
+    } <= names
 
 
 @pytest.mark.parametrize(
@@ -96,10 +69,21 @@ def _touch(name: str = "Heinz ketchup") -> contracts.TouchEvent:
     ],
 )
 def test_pending_shims_are_gone(module: str) -> None:
+    """None of the four temporary _pending shims can be imported."""
     assert importlib.util.find_spec(module) is None
 
 
-# 2. every message name a Person 3 module uses is the contracts class ------
+@pytest.mark.parametrize("path", P3_FILES, ids=lambda p: p.relative_to(ROOT).as_posix())
+def test_no_local_copy_of_a_message_or_threshold(path: Path) -> None:
+    """No Person 3 module defines its own message class, Box/Point, or config threshold."""
+    classes, assigned = _module_level_definitions(path)
+    assert not classes & MESSAGE_NAMES, (
+        f"message class redefined: {sorted(classes & MESSAGE_NAMES)}"
+    )
+    copied = assigned & (MESSAGE_NAMES | THRESHOLD_NAMES)
+    assert not copied, (
+        f"shared name assigned locally instead of imported: {sorted(copied)}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -125,132 +109,7 @@ def test_pending_shims_are_gone(module: str) -> None:
 def test_module_message_names_are_the_shared_classes(
     module: str, names: list[str]
 ) -> None:
+    """Each message name a Person 3 module uses is the contracts class itself."""
     mod = importlib.import_module(module)
     for name in names:
         assert getattr(mod, name) is getattr(contracts, name), f"{module}.{name}"
-
-
-def test_storage_deps_thresholds_come_from_config() -> None:
-    deps = importlib.import_module("storage._deps")
-    assert (deps.PROCESS_WIDTH, deps.PROCESS_HEIGHT) == (
-        config.PROCESS_WIDTH,
-        config.PROCESS_HEIGHT,
-    )
-
-
-# 3. real modules: subscribe and publish with the shared classes -----------
-
-
-def test_namer_register_subscribes_to_contracts_name_request(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("GROK_API_KEY", "test-key")
-    monkeypatch.setenv("GROK_MODEL", "test-model")
-    bus = TypeBus()
-    real = namer.register(bus)
-    try:
-        assert list(bus.handlers) == [contracts.NameRequest]
-    finally:
-        real.stop()
-
-
-def test_real_namer_publishes_contracts_name_result(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(config, "NAME_MIN_INTERVAL_SECONDS", 0.05)
-    monkeypatch.setenv("GROK_API_KEY", "test-key")
-    monkeypatch.setenv("GROK_MODEL", "test-model")
-
-    async def grok(_req: httpx.Request) -> httpx.Response:
-        body = {
-            "output": [
-                {
-                    "type": "message",
-                    "content": [{"type": "output_text", "text": "Heinz ketchup"}],
-                }
-            ]
-        }
-        return httpx.Response(200, json=body)
-
-    bus, inbox = TypeBus(), Inbox()
-    bus.subscribe(contracts.NameResult, inbox)
-    real = Namer(
-        bus.publish,
-        client_factory=lambda: httpx.AsyncClient(transport=httpx.MockTransport(grok)),
-    )
-    bus.subscribe(contracts.NameRequest, real.on_name_request)
-    try:
-        bus.publish(
-            contracts.NameRequest(
-                ts=time.time(), object_id=1, class_label="bottle", crop_jpeg=b"x"
-            )
-        )
-        (result,) = inbox.wait_for(1)
-    finally:
-        real.stop()
-    assert type(result) is contracts.NameResult
-    assert (result.object_id, result.name, result.ok) == (1, "Heinz ketchup", True)
-    assert bus.undelivered == []
-
-
-def test_real_store_answers_with_contracts_speak_request() -> None:
-    bus, inbox = TypeBus(), Inbox()
-    bus.subscribe(contracts.SpeakRequest, inbox)
-    store = Store(bus.publish, None)  # no database: answers with the fallback sentence
-    bus.subscribe(contracts.LastSeenQuery, store.on_last_seen_query)
-    try:
-        bus.publish(contracts.LastSeenQuery(ts=time.time(), text="ketchup"))
-        (answer,) = inbox.wait_for(1)
-    finally:
-        store.stop()
-    assert type(answer) is contracts.SpeakRequest
-    assert (answer.text, answer.priority, answer.source) == (
-        "I have not seen that.",
-        "normal",
-        "storage",
-    )
-
-
-# 4. fakes: same classes as the real modules --------------------------------
-
-
-def test_fake_namer_publishes_contracts_name_result() -> None:
-    bus, inbox = TypeBus(), Inbox()
-    bus.subscribe(contracts.NameResult, inbox)
-    fake = FakeNamer(bus.publish, seed=1, delay_range=(0.01, 0.02))
-    bus.subscribe(contracts.NameRequest, fake.on_name_request)
-    try:
-        bus.publish(
-            contracts.NameRequest(
-                ts=time.time(), object_id=0, class_label="bottle", crop_jpeg=b"x"
-            )
-        )
-        (result,) = inbox.wait_for(1)
-    finally:
-        fake.stop()
-    assert type(result) is contracts.NameResult
-    assert result.object_id == 0
-    assert bus.undelivered == []
-
-
-def test_fake_store_routes_touch_and_answers_with_contracts_speak_request() -> None:
-    bus, inbox = TypeBus(), Inbox()
-    bus.subscribe(contracts.SpeakRequest, inbox)
-    fake = FakeStore(bus.publish)
-    bus.subscribe(contracts.TouchEvent, fake.on_touch_event)
-    bus.subscribe(contracts.HazardEvent, fake.on_hazard_event)
-    bus.subscribe(contracts.LastSeenQuery, fake.on_last_seen_query)
-
-    bus.publish(_touch())
-    bus.publish(
-        contracts.HazardEvent(
-            ts=time.time(), type="vehicle", source="yolo", confidence=0.9
-        )
-    )
-    bus.publish(contracts.LastSeenQuery(ts=time.time(), text="ketchup"))
-    (answer,) = inbox.wait_for(1)
-
-    assert type(answer) is contracts.SpeakRequest
-    assert answer.text.startswith("Heinz ketchup, ")
-    assert "blue mug" in answer.text
-    assert bus.undelivered == []

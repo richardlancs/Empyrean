@@ -67,29 +67,27 @@ The approved stack, repeated here so every log reader has it. Changes go through
 ## Entries
 
 ### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code: shared-class checks
-**Changed:** Added `tests/test_p3_shared_classes.py`, 16 checks that Person 3 code uses the exact `contracts` classes, compared with `is`, not just classes with matching names and fields. No production code changed in this step. The shim migration itself is the entry below.
+**Changed:** These are tests only; no production code changed. They guard the shim migration, which is described in the Person 3 entry titled "(namer, storage, fakes), Claude Code" further down, the one that deletes the four `_pending.py` shims. Revised after Person 2's review of PR #6.
 
-- All four `_pending` modules are gone (`find_spec` returns `None`).
-- `namer`, `namer.namer`, `storage._deps`, `storage.writer`, `fakes.namer.fake_namer` and `fakes.storage.fake_store` all bind each message name to the `contracts` class.
-- These run on a test bus that delivers only by exact class, like type-based routing:
-  - `namer.register` subscribes with `contracts.NameRequest`.
-  - The real `Namer`, with Grok mocked, publishes a `contracts.NameResult`.
-  - The real `Store`, with no database, answers a `LastSeenQuery` with a `contracts.SpeakRequest`.
-  - `FakeNamer` and `FakeStore` do the same and leave nothing undelivered.
+- `tests/test_p3_shared_classes.py` has 28 checks:
+  - None of the four `_pending` modules can be imported.
+  - No Person 3 module (`namer/`, `storage/`, `fakes/namer/`, `fakes/storage/`) defines its own message class, `Box` or `Point`, or assigns a `config` threshold name at the top level. This scans the source, so a local `PROCESS_WIDTH = 640` fails even when the value matches `config`.
+  - The message names in `namer`, `namer.namer`, `storage._deps`, `storage.writer` and both fakes are the `contracts` classes themselves, compared with `is`.
+- `tests/test_namer.py`: new `test_publishes_the_contracts_name_result_class`. The real `Namer`, with Grok mocked, publishes `contracts.NameResult` itself.
+- The routed bus tests were removed from this file. `tests/test_register.py` (PR #5) already checks them through `register(bus)`, with exact-type subscriptions and `contracts` classes on the publish side. That avoids keeping a second test bus.
 
 **Tested:**
 
-- New file: 16 passed.
-- The same file run against `main` at `d78eb09`, which still has the shims: 15 failed, 1 passed. The routed checks time out because the messages never reach a subscriber. That is the bug these checks exist to catch. The one pass is the threshold value check; the values were always equal.
-- Full `pytest`: 91 passed, 1 skipped. With `.env` loaded: 92 passed, including the live Tiger Data round trip.
+- `tests/test_p3_shared_classes.py`: 28 passed.
+- Against `main` at `d78eb09`, which still has the shims: 15 failed. The failures are the shim-import checks and one source check per `_pending.py` copy.
+- With a local `PROCESS_WIDTH = 640` added to `storage/_deps.py` in a scratch worktree, the `storage/_deps.py` source check fails.
+- Full `pytest`: 112 passed, 1 skipped (the live DB test). With `.env` loaded: 113 passed.
 - `ruff check .` is clean.
-- `fakes.namer.fake_namer`, `fakes.storage.fake_store` and `fakes.scene` run.
-- `test_unreachable_db_never_blocks_and_warns_once` passed 5 of 5 on macOS. It was not checked on Windows.
-- `python -m app --fake vision` fails with "No module named app", because `app/` does not exist yet.
+- `python -m app --fake vision` is not run, because `app/` does not exist yet.
 
-**Decisions:** The checks use their own exact-type test bus instead of waiting for Person 1's bus, so they work now. They would also catch a bus that matched messages by class name.
+**Decisions:** Class identity and source checks live here, and bus wiring lives in `tests/test_register.py`, so each behaviour is tested once.
 
-**Teammates need to know:** `storage.register(bus)` now subscribes `TouchEvent`, `HazardEvent` and `LastSeenQuery` (PR #5, entry below), and `tests/test_register.py` covers that wiring. After merging `main` into this branch, full `pytest` gave 99 passed and 1 skipped. Person 1: both checks assume the bus API `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, which is still unconfirmed.
+**Teammates need to know:** Person 1: `tests/test_register.py` assumes the bus API `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, which is still unconfirmed.
 
 ### 2026-11-14, Person 3 Richard Lan (storage, fakes), Claude Code
 **Changed:**
