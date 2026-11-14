@@ -23,6 +23,7 @@ Copy this template. Keep it short. Never include keys or connection strings.
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
+- **Person 1 (`vision/`, setup):** on a fresh Python 3.11, the first `detector.track()` call made Ultralytics run `pip install lap` itself, from inside the running app, because ByteTrack needs `lap` and nothing pins it. That is a network call on the frame path (AGENTS.md rule 4) and would stall or fail on a laptop with no internet. Pin `lap` (0.5.14 worked) with the vision requirements, and consider setting Ultralytics' `YOLO_AUTOINSTALL=False` so it never installs at run time. Found by Person 4, 2026-11-14.
 - **Person 1 (`app/` start order):** with `--fake hazard`, the fake hazard starts publishing as soon as it is registered, before audio and dashboard have subscribed, so its first `HazardEvent` (vehicle, yolo) reaches nobody. Start the fake's thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
 - **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` fails on Person 4's Windows laptop, on a clean copy of `main` as well. Run directly, `python -m app --fake vision` starts fine, but audio startup (pyttsx3 and pygame) takes longer than the test's 1.4 s wait before vision publishes its first frame. Wait for the expected output line instead of a fixed sleep. Found by Person 4, 2026-11-14.
 - **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
@@ -72,6 +73,15 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 4 (setup and real-camera check), Claude Code
+**Changed:** No code. On the Windows laptop, installed the vision stack into Python 3.11 (`opencv-contrib-python==4.11.0.86`, `ultralytics==8.4.212`, `torch==2.15.0+cpu`, `mediapipe==1.2.3`, `httpx==0.28.1`, `psycopg[binary]==3.3.9`). Removed the `opencv-python` that Ultralytics pulls in, as Person 2's note asks. Downloaded `vision/models/yolo11s.pt` (19.3 MB, Ultralytics GitHub releases v8.3.0) and `vision/models/hand_landmarker.task` (7.8 MB, MediaPipe storage); both are git-ignored.
+
+**Tested:** On `main` at `a5ea3af` (includes PRs #11–#15). `python -m app --fake vision audio`: the page loaded, the feed showed the fake frames with bottle and cup boxes, the Objects panel listed both, and Simulate alert added one entry. Full `pytest`: 181 passed, 1 skipped, 1 failed (`test_cli_fake_vision_starts`, the known timing failure). `python -m app` on the real webcam with no `.env`: every module started, the dashboard was Live with a 640 x 360 feed, and Grok hazard checks were disabled as expected. Vision logged capture-to-publish latency of 156–248 ms, over the 150 ms target, with `yolo11s` on CPU. No objects were listed during the run; the scene in view was not set up for the investigation yet.
+
+**Decisions:** The `lap` auto-install is logged for Person 1 under "Needs attention" rather than fixed here, because `vision/` is theirs.
+
+**Teammates need to know:** Person 1: the latency numbers above are from `yolo11s` on this laptop's CPU, worth weighing against the accuracy gain from PR #13. Person 4 starts the tabletop investigation next.
 
 ### 2026-11-14, coordination (Person 4 assignment), Codex
 **Changed:** Recorded the user's assignment of the missed tabletop-object investigation to Person 4, working on it now. Documentation only; no runtime code, thresholds, contracts, or folder ownership changed.
