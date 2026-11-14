@@ -21,7 +21,6 @@ Copy this template. Keep it short. Never include keys or connection strings.
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
-- **Person 1 (`vision/`, branch `p1-vision`):** `vision/vision.py` uses Grounding DINO through `torch` and `transformers`, not YOLO nano with ByteTrack. The stack table does not include those, and AGENTS.md rule 8 needs all four to agree. It also reads the camera and draws on its own, and does not publish `FrameResult` on a bus, so scene, namer and storage cannot run behind it yet. Found by Person 3, 2026-11-14.
 - **Person 4 (`dashboard/`):** audio is now on the agreed stack (`pyttsx3`, `pygame`) on branch `p4-output` and replaces the Piper test in PR #4. No dashboard code exists yet. Updated by Person 4, 2026-11-14.
 - **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
 - **Person 1 (`app/` bus):** Person 3's modules are ready to be registered. Requests for `app/`:
@@ -90,7 +89,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 - Full `pytest` on Python 3.14 (system Python): 147 passed, 1 skipped.
 - Full `pytest` on the 3.11 venv: storage tests cannot load, because Windows Application Control blocks `psycopg-binary`'s DLL inside the venv ("An Application Control policy has blocked this file"). Everything else passed. Not an audio problem; see below.
 - `python -m audio` on the laptop speakers: every phrase in order, the release silent, the late name spoken once. First phrase started 234 ms after its event (engine start-up), later ones 0 ms. "Stop. Stairs." started 625 ms after the hazard, so the 4 s answer was cut off within the 0.61 s beep. JBL not connected.
-- On a scratch merge of `main` and PR #9's `p1-vision`: `python -m app --fake vision namer storage` speaks "Heinz ketchup" on each scripted touch. With `--fake ... hazard audio`, the beeps cut off speech and the right phrase follows about 0.6 s later.
+- After merging `main` with PR #9 in: `ruff check .` clean; full `pytest` on Python 3.14: 160 passed, 1 skipped. `python -m app --fake vision` starts and audio says "bottle" on each scripted touch (no `.env` here, so no Grok names; storage cannot import, as above). `--fake vision namer storage` speaks "Heinz ketchup". With `--fake ... hazard audio`, the beeps cut off speech and the right phrase follows about 0.6 s later.
 
 **Decisions:**
 
@@ -99,9 +98,35 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 **Teammates need to know:**
 
-- **Person 1:** `audio/` and `fakes/audio/` follow `app/`'s `register(bus)` shape and need no change in `app/`.
+- **Person 1:** `audio/` and `fakes/audio/` use `app/`'s `register(bus)` shape. `app/` needed no change.
 - **Everyone on Windows:** if `psycopg` fails with "Application Control policy has blocked this file" in a new venv, that is Windows blocking the DLL, not a code bug. The system Python install loaded it fine.
 - **Person 4 next:** dashboard. Close PR #4 once this branch merges.
+
+### 2026-11-14, PR #9 review fixes on `p1-vision` (app, vision, hazard), Claude Code
+Made by the PR #9 reviewer's agent on Person 1's branch, at that reviewer's explicit request. Person 1, please check it.
+
+**Changed:**
+
+- Merged `origin/main` into `p1-vision`. The only conflict was this file, and both sets of entries are kept. Person 1's commit was not rebased or rewritten.
+- `hazard/hazard.py`: `parse_hazard_response` strips one surrounding Markdown code fence (```` ```json ````) before `json.loads`, so a fenced Grok reply no longer turns tier B off for the whole run. The worker's two `except` branches are now one `except Exception` with a `noqa: BLE001` reason, and `_reply_text` raises `TypeError` for a non-dict reply (ruff `TRY004`).
+- `vision/vision.py`: `LatestCamera` no longer stops for good on the first failed `read()`. It retries every 0.05 s, and after 20 failures in a row it releases and reopens the device, waiting 1 s between reopen attempts. It logs once per outage and once on recovery. These timings are module constants, not `SPEC.md` section 9 thresholds.
+- `app/__main__.py`: the main thread waits with `while not stop.wait(0.5)` instead of an untimed `Event().wait()`, so Ctrl+C reaches it on Windows and `Store.stop()` runs.
+- `ruff check --fix` sorted the imports in `app/__main__.py`, `vision/vision.py` and `tests/test_hazard_p1.py`, and fixed `PLR1730` in `fakes/vision/fake_vision.py`.
+- New tests: fenced and bare JSON parse the same way, the camera survives a few failed reads, and it reopens after repeated failures.
+- Removed the Person 1 `vision/` line under "Needs attention", and the sentence calling the storage timing test flaky, since #8 made it deterministic.
+
+**Tested (Windows 11, Python 3.11.18 venv):**
+
+- `ruff check .`: clean.
+- `pytest --ignore=tests/test_register.py --ignore=tests/test_storage.py`: 113 passed, 2 failed. The failures are the two `storage` cases in `test_p3_shared_classes.py`. They, and the two ignored files, fail at import because Windows Application Control blocks psycopg's `pq` DLL on this laptop. They fail the same way with these changes stashed.
+- `python -m app --fake vision`: starts, and scene receives frames. Storage cannot import here for the same psycopg reason, and the app carries on. No `.env` on this machine, so Grok was off.
+- Ctrl+C check: a script that calls `_thread.interrupt_main()` after 2 s. With the fix, `main` returned 0 after 2.5 s and logged "Shutting down". Without it, the process hung until it was killed.
+- Not tested: a real Logitech camera unplug and replug, or a live Grok reply in a code fence.
+
+**Teammates need to know:**
+
+- Person 1: Person 1's entry below lists the tool as "ChatGPT GPT-6", which is not one of the coding agents in the stack table. If that is correct, it should be explained in the SpaceXSI write-up. If not, please correct it.
+- Anyone on this laptop: psycopg's binary is blocked by an Application Control policy, so storage cannot run here until that is allowed or another laptop is used.
 
 ### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code: demo validation
 **Changed:**
@@ -238,6 +263,26 @@ The approved stack, repeated here so every log reader has it. Changes go through
 **Decisions:** Class identity and source checks live here, and bus wiring lives in `tests/test_register.py`, so each behaviour is tested once.
 
 **Teammates need to know:** Person 1: `tests/test_register.py` assumes the bus API `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, which is still unconfirmed.
+
+### 2026-11-14 02:10, Person 1 (app, vision, hazard, fakes), ChatGPT GPT-6
+**Changed:**
+- Added app Bus (independent per-handler workers, latest-only FrameResult delivery), CLI entry point with --fake and --only selection, .env loading before registration, orderly shutdown, and an app-only adapter for the current scene interface.
+- Added scripted 640x360 BGR fake vision with persistent object IDs and touch/release dwell, and scripted hazard events for the five tier/type combinations.
+- Replaced the Grounding DINO prototype with unmirrored OpenCV capture, latest-frame overwrite, YOLO nano/ByteTrack processing, MediaPipe hands, and FrameResult publication; no direct torch, transformers, or PIL imports.
+- Added local vehicle growth detection, asynchronous xAI Responses API hazard checks, shared cooldown, error-once logging, and smoke tests under tests/test_*_p1.py.
+
+**Tested:**
+- Ten Person 1 smoke tests passed using synthetic models and mocked Grok response in a Python 3.13 sandbox; compileall passed.
+- Full repository pytest, ruff check, Python 3.11 environment, Logitech Windows camera, real model inference, and end-to-end scene integration have NOT been verified in this environment. Merge gate remains open.
+
+**Decisions:**
+- All thresholds and messages import from config/ and contracts/ unchanged. Model assets are expected at vision/models/ and are not committed.
+- No packages added or pinned; root requirements file does not yet exist, and changes to that root location are outside Person 1's authorized paths. Keep stack dependencies pinned by team agreement.
+
+**Teammates need to know:**
+- Person 2: scene/ currently has no register(bus); app provides a compatibility adapter until it does. Run python -m app --fake vision and verify Scene received FrameResult logs.
+- On the Windows demo laptop, install the approved stack in Python 3.11, provision vision/models/yolo11n.pt and hand_landmarker.task, select CAMERA_INDEX in .env, and run full pytest and ruff check before merge.
+
 
 ### 2026-11-14, Person 3 Richard Lan (storage, fakes), Claude Code
 **Changed:**
