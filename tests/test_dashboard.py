@@ -59,13 +59,36 @@ def client_and_state() -> tuple[TestClient, DashboardState]:
 def test_page_has_button_and_both_areas(
     client_and_state: tuple[TestClient, DashboardState],
 ) -> None:
-    """The single page has the Simulate alert button, Latest warning and Recent events."""
+    """The served page loads modules that render Simulate alert, warnings and recent events.
+
+    The page used to be one HTML file with these labels inline. The redesign
+    renders them from JavaScript modules, so this follows the same requirement
+    through the files the server actually serves for the page. The old labels
+    "Latest warning" and "Recent events" are now "Warnings" and "Recent activity".
+    """
     client, _ = client_and_state
     page = client.get("/")
     assert page.status_code == 200
-    for text in ("Simulate alert", "Latest warning", "Recent events", "Simulated"):
-        assert text in page.text
-    assert "safety" not in page.text.lower()
+    assert '<div id="app">' in page.text and "/static/app.js" in page.text
+    served = {"/": page.text}
+    for path in (
+        "/static/app.js",
+        "/static/features/operations/index.js",
+        "/static/features/operations/demo-tools.js",
+        "/static/features/operations/warning-panel.js",
+        "/static/features/operations/event-history.js",
+        "/static/features/experience/index.js",
+    ):
+        reply = client.get(path)
+        assert reply.status_code == 200, path
+        assert reply.headers["content-type"].startswith("text/javascript"), path
+        served[path] = reply.text
+    text = "\n".join(served.values())
+    for label in ("Simulate alert", "Warnings", "Recent activity", "Simulated"):
+        assert label in text, label
+    for feature in ("experience", "operations"):
+        assert f"/static/features/{feature}/index.js" in served["/static/app.js"], feature
+    assert "safety" not in text.lower()
 
 
 def test_one_click_sets_latest_warning_and_adds_exactly_one_event(
