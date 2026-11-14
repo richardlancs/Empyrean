@@ -56,6 +56,15 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14 00:10, Person 3 Richard Lan (storage), Claude Code
+**Changed:** Connected to the live Tiger Data service (`db-51800`, trial). No code changes.
+
+**Tested:** `python -m storage --selftest` created both tables and printed "Selftest ketchup ..., 4 minutes ago, next to mug and cereal box." `timescaledb_information.hypertables` lists `hazard_events` and `touch_events`. With `.env` loaded, `pytest tests/test_storage.py` gave 17 passed, including the live round trip.
+
+**Decisions:** none.
+
+**Teammates need to know:** The Tiger Data log and last-seen query are working against the real database. Each run of the selftest leaves one `selftest-*` session row in `touch_events`. Get the connection string from Person 3; it is never committed.
+
 ### 2026-11-13 23:50, Person 3 Richard Lan (namer), Claude Code
 **Changed:** First live Grok calls. The namer now sends no `reasoning` field, and `GROK_MODEL` is set to `grok-4.20-0309-non-reasoning`.
 
