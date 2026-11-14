@@ -117,9 +117,9 @@ Shared folders:
 ### 4.2 Object tracking
 
 - Use the YOLO nano model with COCO weights and its built-in ByteTrack tracker so each object keeps the same `object_id` across frames.
-- Drop detections with confidence below 0.5.
+- Drop detections with confidence below 0.3.
 - Drop the `person` class. The wearer's own arm must never be an object.
-- Drop boxes smaller than 2% of the frame area.
+- Drop boxes smaller than 0.2% of the frame area.
 
 ### 4.3 Hand tracking
 
@@ -404,8 +404,8 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 |---|---|---|
 | `PROCESS_FPS` | 5 | vision |
 | `PROCESS_WIDTH`, `PROCESS_HEIGHT` | 640, 360 | vision |
-| `DET_MIN_CONFIDENCE` | 0.5 | vision |
-| `DET_MIN_AREA_FRACTION` | 0.02 | vision |
+| `DET_MIN_CONFIDENCE` | 0.3 | vision |
+| `DET_MIN_AREA_FRACTION` | 0.002 | vision |
 | `STABLE_FRAMES` | 5 | scene |
 | `LOST_KEEP_SECONDS` | 2.0 | scene |
 | `BOX_SHRINK_FRACTION` | 0.10 | scene |
