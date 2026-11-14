@@ -20,7 +20,9 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
-- **Person 3 (`storage/`), when switching to `contracts/`:** `contracts.Box` is a frozen dataclass with fields `x1, y1, x2, y2`, not a tuple. `storage/db.py` `box_centre_fraction` unpacks `x1, y1, x2, y2 = box`, which raises `TypeError` on a `Box`. Use `box.x1` and so on. The `_pending.py` shims also use plain tuples for `Box` and points. Found by Person 2 while merging main, 2026-11-14.
+- **Person 3 (`storage/`, `namer/`):** `Box` is now a tuple (PR #2), so `x1, y1, x2, y2 = box` in `storage/db.py` is correct again. What is left: delete the four `_pending.py` shims and import from `contracts/` and `config/`, as `contracts/README.md` says.
+- **Person 3 (`tests/test_storage.py`):** `test_unreachable_db_never_blocks_and_warns_once` is flaky on Windows. It failed 2 of 3 runs on Person 2's laptop. `_wait_for` gives up after 3 s, and `CONNECT_TIMEOUT_SECONDS` is also 3 s. On Windows, a refused connection to `127.0.0.1:1` can take about that long, so `dropped` reaches 100 just after the wait ends. Give the wait a longer timeout than the connect timeout. Found by Person 2, 2026-11-14.
+- **Repo root:** `hazardeventsample.py` is not inside any module folder, and `ruff check .` fails on it (F821, `HazardEvent` undefined). Move it under `fakes/hazard/` or add `from contracts import HazardEvent`.
 - **Person 1 (`app/` bus):** Person 3's `register(bus)` expects `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`. `SceneDatabase` takes `publish(topic_name, msg)`, where the topic is the class name. Wire scene with `SceneDatabase(lambda _topic, msg: bus.publish(msg))`, or tell Person 2 which shape the bus uses.
 
 ## Contract changes
@@ -32,6 +34,7 @@ Any change to `contracts/`, `config/`, `SPEC.md` or `AGENTS.md`. Needs all four 
 | 2026-11-13 21:10 | First version of all four files | pending team review |
 | 2026-11-13 22:05 | Stack table added to `SPEC.md` section 2.1, `AGENTS.md` and `CLAUDE.md` | pending team review |
 | 2026-11-13 23:40 | Initial `contracts/messages.py` and `config/thresholds.py`, copied from SPEC.md sections 5 and 9. No value changed | pending team review |
+| 2026-11-14 01:03 | PR #2 merged to `main`: `Box` and `Point` are tuples, the fixed value sets are `Literal`, list fields default to empty, the dataclasses are no longer frozen, and `tests/test_contracts.py` checks them against SPEC.md. No threshold changed | Person 3 (author), Person 2 (adopted in `scene/`). Persons 1 and 4 still to confirm |
 
 ## Stack
 
@@ -57,6 +60,15 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 2 (scene), Claude Code
+**Changed:** Moved `scene/`, `fakes/scene/` and the scene tests to the tuple `Box` from PR #2. After that merge, `main` failed `pytest` at collection time, because `Box(1, 2, 3, 4)` raises `TypeError` when `Box` is a tuple alias. `scene/touch.py` and `scene/naming.py` now unpack `x1, y1, x2, y2 = box`. The fake and the tests build boxes as plain tuples. No behaviour changed.
+
+**Tested:** `python -m pytest`: 74 passed, 1 skipped, 1 failed. The failure is the flaky storage timing test described under "Needs attention". It is not affected by this change. `python -m ruff check scene fakes tests contracts config`: clean. `python -m fakes.scene`: same script as before, with tuple boxes. `python -m app --fake vision` does not run yet, because `app/` does not exist.
+
+**Decisions:** Reviewed the merged contract against SPEC.md section 5. Every field, type and fixed value matches. Scene still stores `state` and `kind` as `str`. The values it uses are exactly the `Literal` sets.
+
+**Teammates need to know:** Anyone who builds boxes must use tuples like `(x1, y1, x2, y2)` now, not `Box(...)`. `contracts.Box` is only a type hint. Person 4: `TouchEvent.box` and `SceneObject.box` arrive as tuples.
 
 ### 2026-11-14, Person 2 (scene), Claude Code
 **Changed:** Two fixes in `scene/`, after a review of Cursor's work.

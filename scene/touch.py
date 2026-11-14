@@ -106,17 +106,19 @@ def release_on_removal(
 
 def _center(box: Box) -> tuple[float, float]:
     """Return the box centre in pixels."""
-    return ((box.x1 + box.x2) / 2.0, (box.y1 + box.y2) / 2.0)
+    x1, y1, x2, y2 = box
+    return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
 
 def _contains_shrunk(box: Box, x: float, y: float) -> bool:
     """Return whether the point lies inside the box after it is shrunk."""
-    width = box.x2 - box.x1
-    height = box.y2 - box.y1
-    x1 = box.x1 + BOX_SHRINK_FRACTION * width
-    x2 = box.x2 - BOX_SHRINK_FRACTION * width
-    y1 = box.y1 + BOX_SHRINK_FRACTION * height
-    y2 = box.y2 - BOX_SHRINK_FRACTION * height
+    bx1, by1, bx2, by2 = box
+    width = bx2 - bx1
+    height = by2 - by1
+    x1 = bx1 + BOX_SHRINK_FRACTION * width
+    x2 = bx2 - BOX_SHRINK_FRACTION * width
+    y1 = by1 + BOX_SHRINK_FRACTION * height
+    y2 = by2 - BOX_SHRINK_FRACTION * height
     if x1 > x2 or y1 > y2:
         return False
     return x1 <= x <= x2 and y1 <= y <= y2
@@ -124,13 +126,15 @@ def _contains_shrunk(box: Box, x: float, y: float) -> bool:
 
 def _iou(a: Box, b: Box) -> float:
     """Return intersection over union. No overlap or a zero union is 0."""
-    inter_w = min(a.x2, b.x2) - max(a.x1, b.x1)
-    inter_h = min(a.y2, b.y2) - max(a.y1, b.y1)
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    inter_w = min(ax2, bx2) - max(ax1, bx1)
+    inter_h = min(ay2, by2) - max(ay1, by1)
     if inter_w <= 0.0 or inter_h <= 0.0:
         return 0.0
     inter = inter_w * inter_h
-    area_a = max(0.0, a.x2 - a.x1) * max(0.0, a.y2 - a.y1)
-    area_b = max(0.0, b.x2 - b.x1) * max(0.0, b.y2 - b.y1)
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
     union = area_a + area_b - inter
     if union <= 0.0:
         return 0.0
@@ -165,8 +169,9 @@ def _assign_fingertip(
     for track in candidates:
         if not _contains_shrunk(track.box, px, py):
             continue
-        width = track.box.x2 - track.box.x1
-        height = track.box.y2 - track.box.y1
+        x1, y1, x2, y2 = track.box
+        width = x2 - x1
+        height = y2 - y1
         diagonal = math.hypot(width, height)
         if diagonal == 0.0:
             continue

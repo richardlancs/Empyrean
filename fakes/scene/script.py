@@ -3,7 +3,6 @@
 from collections.abc import Callable
 
 from contracts.messages import (
-    Box,
     NameRequest,
     SceneObject,
     SceneSnapshot,
@@ -23,8 +22,8 @@ def scripted_messages() -> list[tuple[str, object]]:
     bottle is touched and then lost while the hand covers it.
     """
     ts = 1763000000.0
-    bottle_box = Box(100, 80, 220, 300)
-    cup_box = Box(260, 140, 360, 280)
+    bottle_box = (100, 80, 220, 300)
+    cup_box = (260, 140, 360, 280)
     messages: list[object] = [
         SceneSnapshot(
             ts,

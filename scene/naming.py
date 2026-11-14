@@ -113,12 +113,13 @@ def _crop_bounds(
     of the box height on the top and bottom. Clamp to the frame, then take
     floor of x1 and y1 and ceil of x2 and y2.
     """
-    pad_x = (box.x2 - box.x1) * NAME_CROP_PADDING
-    pad_y = (box.y2 - box.y1) * NAME_CROP_PADDING
-    left = min(max(box.x1 - pad_x, 0.0), float(frame_width))
-    top = min(max(box.y1 - pad_y, 0.0), float(frame_height))
-    right = min(max(box.x2 + pad_x, 0.0), float(frame_width))
-    bottom = min(max(box.y2 + pad_y, 0.0), float(frame_height))
+    bx1, by1, bx2, by2 = box
+    pad_x = (bx2 - bx1) * NAME_CROP_PADDING
+    pad_y = (by2 - by1) * NAME_CROP_PADDING
+    left = min(max(bx1 - pad_x, 0.0), float(frame_width))
+    top = min(max(by1 - pad_y, 0.0), float(frame_height))
+    right = min(max(bx2 + pad_x, 0.0), float(frame_width))
+    bottom = min(max(by2 + pad_y, 0.0), float(frame_height))
     x1 = math.floor(left)
     y1 = math.floor(top)
     x2 = math.ceil(right)

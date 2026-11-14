@@ -31,7 +31,7 @@ def _detection(
         object_id=object_id,
         class_label=class_label,
         confidence=0.91,
-        box=box if box is not None else Box(100, 80, 220, 300),
+        box=box if box is not None else (100, 80, 220, 300),
     )
 
 
@@ -58,8 +58,8 @@ def _image() -> object:
 
 
 def _hand_on(box: Box) -> Hand:
-    center_x = (box.x1 + box.x2) / 2.0
-    center_y = (box.y1 + box.y2) / 2.0
+    center_x = (box[0] + box[2]) / 2.0
+    center_y = (box[1] + box[3]) / 2.0
     return Hand(
         side="right",
         thumb_tip=(center_x, center_y),
@@ -110,7 +110,7 @@ def test_object_becomes_idle_after_stable_frames() -> None:
 
 def test_missing_object_becomes_lost_and_keeps_its_box() -> None:
     database, _published = _database()
-    box = Box(40, 50, 140, 200)
+    box = (40, 50, 140, 200)
     det = _detection(box=box)
     for index in range(STABLE_FRAMES):
         database.handle_frame(_frame(index, 50.0 + index, [det]))
@@ -135,8 +135,8 @@ def test_lost_object_is_removed_after_keep_seconds() -> None:
 
 def test_stable_object_returns_to_idle_when_seen_again() -> None:
     database, _published = _database()
-    first = Box(10, 10, 80, 80)
-    moved = Box(20, 15, 90, 90)
+    first = (10, 10, 80, 80)
+    moved = (20, 15, 90, 90)
     for index in range(STABLE_FRAMES):
         database.handle_frame(_frame(index, float(index), [_detection(box=first)]))
     database.handle_frame(_frame(STABLE_FRAMES, float(STABLE_FRAMES), []))
@@ -165,8 +165,8 @@ def test_gap_before_stable_resets_the_streak() -> None:
 
 def test_objects_reach_idle_independently() -> None:
     database, _published = _database()
-    bottle = _detection(1, "bottle", Box(100, 80, 220, 300))
-    cup = _detection(2, "cup", Box(260, 140, 360, 280))
+    bottle = _detection(1, "bottle", (100, 80, 220, 300))
+    cup = _detection(2, "cup", (260, 140, 360, 280))
     snapshot = None
     for index in range(STABLE_FRAMES - 1):
         snapshot = database.handle_frame(_frame(index, float(index), [bottle]))
@@ -306,7 +306,7 @@ def test_name_result_is_stored_and_a_failure_retries_once() -> None:
 
 def test_touched_object_removed_while_covered_publishes_release() -> None:
     database, published = _database()
-    box = Box(100, 80, 220, 300)
+    box = (100, 80, 220, 300)
     det = _detection(box=box)
     _settle(database, det)
     hand = _hand_on(box)
@@ -336,21 +336,21 @@ def test_untouched_object_removed_publishes_no_touch_event() -> None:
 
 def test_holding_one_object_does_not_rename_its_neighbour() -> None:
     database, _published = _database()
-    ketchup_box = Box(100, 100, 200, 300)
-    mug_box = Box(190, 120, 300, 300)
+    ketchup_box = (100, 100, 200, 300)
+    mug_box = (190, 120, 300, 300)
     ketchup = _detection(1, "bottle", ketchup_box)
     mug = _detection(2, "cup", mug_box)
     for index in range(STABLE_FRAMES):
         database.handle_frame(_frame(index, index * 0.2, [ketchup, mug]))
     database.handle_name(NameResult(1.0, 1, "Heinz ketchup", True))
     database.handle_name(NameResult(1.0, 2, "blue mug", True))
-    grip = Hand("right", (150, 200), (150, 180), Box(120, 120, 260, 300))
+    grip = Hand("right", (150, 200), (150, 180), (120, 120, 260, 300))
     ts = 1.2
     for index in range(TOUCH_ENTER_FRAMES):
         database.handle_frame(_frame(10 + index, ts, [ketchup, mug], hands=[grip]))
         ts += 0.2
-    moved = _detection(1, "bottle", Box(220, 100, 320, 300))
-    carry = Hand("right", (270, 200), (270, 180), Box(200, 110, 330, 300))
+    moved = _detection(1, "bottle", (220, 100, 320, 300))
+    carry = Hand("right", (270, 200), (270, 180), (200, 110, 330, 300))
     snapshot = database.handle_frame(_frame(20, ts, [moved, mug], hands=[carry]))
     by_id = {item.object_id: item for item in snapshot.objects}
     assert by_id[1].name == "Heinz ketchup"
