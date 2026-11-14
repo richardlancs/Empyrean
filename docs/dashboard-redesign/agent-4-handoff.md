@@ -23,5 +23,12 @@ The implemented API is in [api.md](api.md). Read it instead of the brief where t
   `text/javascript` for `.js`; `/` serves `dashboard/index.html`. Error bodies are
   `{"detail": "..."}`; please give `ctx.request` errors a numeric `.status` and
   the `detail` as the message.
-- **Agent 3**: use `latest_real_warning` / `latest_simulated_warning` and their
-  `active` flag; `diagnostics.*` have `status`, `detail`, `last_update_ts`, `mode`.
+- **Agent 3**: requests 1–5 are done: `latest_real_warning` and
+  `latest_simulated_warning` (each with `active`), `source` and `confidence` as
+  fields on every hazard entry, `event_log_size`, `diagnostics` with
+  `camera.stale_after_seconds`, and simulate still returns the full snapshot and
+  publishes nothing. One difference: idle naming is `starting` for the first
+  10 s and then `unknown` ("Idle: no naming requests yet"), not `active`, because
+  the namer reports no health of its own; it is never `failed` while idle.
+  Request 5 for Agent 1 (static "Simulate alert" text): I will update
+  `tests/test_dashboard.py` to check the served page plus its modules instead.

@@ -177,7 +177,13 @@ class HealthMonitor:
                     entry = _entry("offline", "No camera frames received", None, mode)
                 else:
                     entry = _entry("unknown", "No camera frames received yet", None, mode)
-            entry.update(last_frame_ts=None, fps=None, width=None, height=None)
+            entry.update(
+                stale_after_seconds=CAMERA_STALE_SECONDS,
+                last_frame_ts=None,
+                fps=None,
+                width=None,
+                height=None,
+            )
             return entry
         received_at, last_ts, _ = frames[-1]
         age = now - received_at
@@ -198,6 +204,7 @@ class HealthMonitor:
         else:
             entry = _entry("offline", f"Camera feed stopped {_seconds(age)} ago", received_at, mode)
         entry.update(
+            stale_after_seconds=CAMERA_STALE_SECONDS,
             last_frame_ts=last_ts,
             fps=fps,
             width=size[0] if size else None,
@@ -262,10 +269,12 @@ class HealthMonitor:
         if result_ok is None:
             if waiting:
                 return _entry("active", "Waiting for the first name", last, mode)
-            if reported is not None:
-                status = "starting" if reported.status == "starting" else reported.status
-                return _entry(status, "No naming requests yet", reported.ts, mode)
-            return _entry("unknown", "No naming requests yet", None, mode)
+            if reported is not None and reported.status != "starting":
+                return _entry(reported.status, reported.detail, reported.ts, mode)
+            if reported is not None and now - reported.received_at <= STARTUP_GRACE_SECONDS:
+                return _entry("starting", "Started; no naming requests yet", reported.ts, mode)
+            # Quiet is normal: nothing to name. With no evidence either way, say so.
+            return _entry("unknown", "Idle: no naming requests yet", None, mode)
         if result_ok:
             return _entry("active", "Last naming request answered", last, mode)
         return _entry(

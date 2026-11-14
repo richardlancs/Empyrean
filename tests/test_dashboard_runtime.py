@@ -309,3 +309,30 @@ def test_register_routes_every_message_to_the_read_model() -> None:
     assert snap["capabilities"]["last_seen"] is True
     assert bus.published[-1].module == "storage"  # the dashboard itself published nothing
     assert len(bus.published) == 5
+
+
+def test_hazard_entries_carry_source_and_confidence_and_log_size() -> None:
+    """Agent 3's request: source and confidence as fields, plus the server log size."""
+    state = DashboardState(clock=Clock())
+    state.on_hazard(HazardEvent(NOW, "drop_off", "grok", 0.82))
+    state.simulate_hazard()
+    snap = state.snapshot()
+    real, simulated = snap["latest_real_warning"], snap["latest_simulated_warning"]
+    assert (real["source"], real["confidence"], real["detail"]) == ("grok", 0.82, "grok, 82%")
+    assert (simulated["source"], simulated["confidence"]) == ("simulation", None)
+    assert snap["event_log_size"] == 10
+    assert snap["diagnostics"]["camera"]["stale_after_seconds"] == CAMERA_STALE_SECONDS
+
+
+def test_idle_naming_is_not_failed_and_not_forever_starting() -> None:
+    """A started namer with nothing to name: starting at first, then unknown (idle), never failed."""
+    clock = Clock()
+    state = DashboardState(clock=clock)
+    state.on_module_status(ModuleStatus(NOW, "namer", "starting", "fake", "Started with a fake"))
+    assert state.snapshot()["diagnostics"]["naming"]["status"] == "starting"
+    clock.now += 60
+    naming = state.snapshot()["diagnostics"]["naming"]
+    assert naming["status"] == "unknown" and "Idle" in naming["detail"]
+    state.on_name_request(NameRequest(clock.now, 1, "bottle", b"\xff\xd8\xff\xd9"))
+    state.on_name_result(NameResult(clock.now, 1, "Heinz ketchup", True))
+    assert state.snapshot()["diagnostics"]["naming"]["status"] == "active"

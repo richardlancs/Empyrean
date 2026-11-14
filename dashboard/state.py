@@ -95,7 +95,14 @@ class DashboardState:
     def on_hazard(self, msg: HazardEvent) -> None:
         """Show a real HazardEvent as the latest real warning and log it."""
         detail = f"{msg.source}, {round(msg.confidence * 100)}%"
-        self._add_warning(msg.ts, msg.type, simulated=False, detail=detail, source=msg.source)
+        self._add_warning(
+            msg.ts,
+            msg.type,
+            simulated=False,
+            detail=detail,
+            source=msg.source,
+            confidence=float(msg.confidence),
+        )
 
     def on_touch(self, msg: TouchEvent) -> None:
         """Track the current touch, and log touches. Releases are not logged."""
@@ -292,6 +299,7 @@ class DashboardState:
         return {
             "now": now,
             "hazard_active_seconds": HAZARD_COOLDOWN_SECONDS,
+            "event_log_size": EVENT_LOG_SIZE,
             "latest_warning": latest,
             "latest_real_warning": real,
             "latest_simulated_warning": simulated,
@@ -371,6 +379,7 @@ class DashboardState:
         simulated: bool,
         detail: str,
         source: str | None = None,
+        confidence: float | None = None,
     ) -> None:
         """Record one hazard as the latest warning and as a log entry."""
         entry = {
@@ -382,6 +391,7 @@ class DashboardState:
             "detail": detail,
             "simulated": simulated,
             "source": "simulation" if simulated else source,
+            "confidence": None if simulated else confidence,
         }
         with self._lock:
             self._latest_warning = entry

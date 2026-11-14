@@ -92,7 +92,10 @@ recorded next to it at that moment.
 ## 4. Page state (`/api/state` and `/ws`)
 
 Existing fields are unchanged: `now`, `hazard_active_seconds`, `latest_warning`,
-`events`, `objects`. Additions:
+`events`, `objects`. Hazard entries (in `events` and every warning field) now
+also carry `source` (`yolo`, `grok` or `simulation`) and `confidence` (0 to 1,
+`null` for simulations); `detail` ("grok, 82%") is kept. Touch entries carry
+`object_id`. `event_log_size` is the server's log length (10). Additions:
 
 ```jsonc
 {
@@ -114,7 +117,8 @@ Existing fields are unchanged: `now`, `hazard_active_seconds`, `latest_warning`,
   // null until audio reports anything. ts is when this status began.
 
   "diagnostics": {
-    "camera":  {status, detail, last_update_ts, mode, last_frame_ts, fps, width, height},
+    "camera":  {status, detail, last_update_ts, mode, stale_after_seconds,
+                last_frame_ts, fps, width, height},
     "scene":   {status, detail, last_update_ts, mode},
     "naming":  {...}, "storage": {...}, "audio": {...},
     "hazard":  {...}   // always "unknown" unless not started: hazard checks report no health
@@ -143,8 +147,10 @@ Diagnostics rules:
   timestamps and frame ids over about 3 s; `last_frame_ts` is the capture time
   of the newest frame received. Nulls when nothing has arrived.
 - Scene: judged against the camera. No frames → `unknown` ("Idle"), not failed.
-- Naming: from NameRequest/NameResult. No requests yet keeps the lifecycle
-  status; a failed last answer is `degraded`; no answer for 8 s is `degraded`.
+- Naming: from NameRequest/NameResult. Just started with no requests →
+  `starting`; idle after the 10 s startup grace → `unknown` ("Idle: no naming
+  requests yet"; quiet is normal, never `failed`); a successful answer →
+  `active`; a failed last answer or no answer for 8 s → `degraded`.
 - Storage and audio: only what they report. Nothing reported → `unknown`.
 - A connected `/ws` proves only the page connection. Speech `completed` means the
   engine returned; it does not prove anyone heard it.
