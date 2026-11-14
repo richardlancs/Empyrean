@@ -66,6 +66,27 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14 02:10, Person 1 (app, vision, hazard, fakes), ChatGPT GPT-6
+**Changed:**
+- Added app Bus (independent per-handler workers, latest-only FrameResult delivery), CLI entry point with --fake and --only selection, .env loading before registration, orderly shutdown, and an app-only adapter for the current scene interface.
+- Added scripted 640x360 BGR fake vision with persistent object IDs and touch/release dwell, and scripted hazard events for the five tier/type combinations.
+- Replaced the Grounding DINO prototype with unmirrored OpenCV capture, latest-frame overwrite, YOLO nano/ByteTrack processing, MediaPipe hands, and FrameResult publication; no direct torch, transformers, or PIL imports.
+- Added local vehicle growth detection, asynchronous xAI Responses API hazard checks, shared cooldown, error-once logging, and smoke tests under tests/test_*_p1.py.
+
+**Tested:**
+- Ten Person 1 smoke tests passed using synthetic models and mocked Grok response in a Python 3.13 sandbox; compileall passed.
+- Full repository pytest, ruff check, Python 3.11 environment, Logitech Windows camera, real model inference, and end-to-end scene integration have NOT been verified in this environment. Merge gate remains open.
+
+**Decisions:**
+- All thresholds and messages import from config/ and contracts/ unchanged. Model assets are expected at vision/models/ and are not committed.
+- No packages added or pinned; root requirements file does not yet exist, and changes to that root location are outside Person 1's authorized paths. Keep stack dependencies pinned by team agreement.
+
+**Teammates need to know:**
+- Person 2: scene/ currently has no register(bus); app provides a compatibility adapter until it does. Run python -m app --fake vision and verify Scene received FrameResult logs.
+- On the Windows demo laptop, install the approved stack in Python 3.11, provision vision/models/yolo11n.pt and hand_landmarker.task, select CAMERA_INDEX in .env, and run full pytest and ruff check before merge.
+- Person 3's pre-existing flaky tests/test_storage.py::test_unreachable_db_never_blocks_and_warns_once remains outside Person 1 scope.
+
+
 ### 2026-11-14, Person 3 Richard Lan (storage, fakes), Claude Code
 **Changed:**
 
