@@ -1,0 +1,100 @@
+{
+  "weights": "scratch/baseline/demo-yolo11s.pt",
+  "confidence": 0.25,
+  "iou_required": 0.5,
+  "per_class": {
+    "keys": {
+      "correct": 0,
+      "total": 5
+    },
+    "phone": {
+      "correct": 0,
+      "total": 5
+    }
+  },
+  "false_positive_boxes": 1,
+  "median_inference_ms": 35.80741654150188,
+  "images": [
+    {
+      "file": "keys_5.jpg",
+      "expected": "keys",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "keys_10.jpg",
+      "expected": "keys",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "phone_5.jpg",
+      "expected": "phone",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "phone_10.jpg",
+      "expected": "phone",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "phone_15.jpg",
+      "expected": "phone",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.3240326941013336,
+          "box": [
+            333.9783630371094,
+            213.72866821289062,
+            493.964111328125,
+            336.0576477050781
+          ]
+        }
+      ]
+    },
+    {
+      "file": "keys_20.jpg",
+      "expected": "keys",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "keys_25.jpg",
+      "expected": "keys",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "keys_30.jpg",
+      "expected": "keys",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "phone_25.jpg",
+      "expected": "phone",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "phone_30.jpg",
+      "expected": "phone",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    }
+  ]
+}

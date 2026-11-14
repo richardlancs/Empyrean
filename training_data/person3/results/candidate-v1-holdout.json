@@ -1,0 +1,188 @@
+{
+  "weights": "scratch/p3-runs/candidate-v1/weights/best.pt",
+  "confidence": 0.25,
+  "iou_required": 0.5,
+  "per_class": {
+    "keys": {
+      "correct": 4,
+      "total": 5
+    },
+    "phone": {
+      "correct": 5,
+      "total": 5
+    }
+  },
+  "false_positive_boxes": 0,
+  "median_inference_ms": 42.63781197369099,
+  "images": [
+    {
+      "file": "keys_5.jpg",
+      "expected": "keys",
+      "correct": false,
+      "best_iou": 0.0,
+      "detections": []
+    },
+    {
+      "file": "keys_10.jpg",
+      "expected": "keys",
+      "correct": true,
+      "best_iou": 0.6447104698037263,
+      "detections": [
+        {
+          "label": "keys",
+          "confidence": 0.6814521551132202,
+          "box": [
+            347.5458679199219,
+            234.9242706298828,
+            420.0447692871094,
+            327.64532470703125
+          ]
+        }
+      ]
+    },
+    {
+      "file": "phone_5.jpg",
+      "expected": "phone",
+      "correct": true,
+      "best_iou": 0.5539409855247206,
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.7116885781288147,
+          "box": [
+            277.087890625,
+            177.1925048828125,
+            400.29974365234375,
+            351.7383728027344
+          ]
+        }
+      ]
+    },
+    {
+      "file": "phone_10.jpg",
+      "expected": "phone",
+      "correct": true,
+      "best_iou": 0.6964356125561829,
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.6258617639541626,
+          "box": [
+            70.67094421386719,
+            26.276058197021484,
+            228.35243225097656,
+            301.94244384765625
+          ]
+        }
+      ]
+    },
+    {
+      "file": "phone_15.jpg",
+      "expected": "phone",
+      "correct": true,
+      "best_iou": 0.56719703559982,
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.6896631121635437,
+          "box": [
+            253.09481811523438,
+            123.57379913330078,
+            400.88848876953125,
+            326.55181884765625
+          ]
+        }
+      ]
+    },
+    {
+      "file": "keys_20.jpg",
+      "expected": "keys",
+      "correct": true,
+      "best_iou": 0.5524148829503917,
+      "detections": [
+        {
+          "label": "keys",
+          "confidence": 0.765170156955719,
+          "box": [
+            246.24249267578125,
+            203.4368438720703,
+            432.31494140625,
+            360.0
+          ]
+        }
+      ]
+    },
+    {
+      "file": "keys_25.jpg",
+      "expected": "keys",
+      "correct": true,
+      "best_iou": 0.6217558228203005,
+      "detections": [
+        {
+          "label": "keys",
+          "confidence": 0.733968198299408,
+          "box": [
+            273.8758850097656,
+            146.37893676757812,
+            383.853271484375,
+            338.8243713378906
+          ]
+        }
+      ]
+    },
+    {
+      "file": "keys_30.jpg",
+      "expected": "keys",
+      "correct": true,
+      "best_iou": 0.6141392983167403,
+      "detections": [
+        {
+          "label": "keys",
+          "confidence": 0.7509707808494568,
+          "box": [
+            89.92636108398438,
+            92.16952514648438,
+            166.0250701904297,
+            233.8069610595703
+          ]
+        }
+      ]
+    },
+    {
+      "file": "phone_25.jpg",
+      "expected": "phone",
+      "correct": true,
+      "best_iou": 0.7811286292916151,
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.6090582609176636,
+          "box": [
+            144.8251953125,
+            158.60934448242188,
+            377.5756530761719,
+            360.0
+          ]
+        }
+      ]
+    },
+    {
+      "file": "phone_30.jpg",
+      "expected": "phone",
+      "correct": true,
+      "best_iou": 0.7433736212943517,
+      "detections": [
+        {
+          "label": "phone",
+          "confidence": 0.48695108294487,
+          "box": [
+            117.76057434082031,
+            19.567121505737305,
+            300.0357971191406,
+            321.4042053222656
+          ]
+        }
+      ]
+    }
+  ]
+}
