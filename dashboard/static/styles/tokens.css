@@ -1,0 +1,142 @@
+/*
+ * Empyrean design tokens. The only place colours, spacing, type and radii are defined.
+ * Feature styles (experience.css, operations.css) use these custom properties and never
+ * declare their own palette. Contrast for every text/background pair is checked by
+ * tests/ui/agent1/test_agent1_foundation.py. See docs/dashboard-redesign/design-system.md.
+ */
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces and text */
+  --color-page: #F5F7FA;
+  --color-surface: #FFFFFF;
+  --color-surface-sunken: #EEF2F6;
+  --color-text: #172B4D;
+  --color-text-secondary: #526176;
+  --color-border: #D8E1EB;            /* decorative: card edges, dividers */
+  --color-border-control: #68788D;    /* meaningful: inputs, outlined buttons */
+  --border-width: 1px;
+  --border-width-control: 1px;
+
+  /* Touch / primary action */
+  --color-accent: #0F766E;
+  --color-accent-hover: #0B5F58;
+  --color-on-accent: #FFFFFF;
+  --color-accent-soft: #E6F4F1;
+  --color-accent-text: #0F766E;       /* accent used as text on surface or soft */
+
+  /* Caution / held */
+  --color-caution: #92400E;
+  --color-caution-soft: #FFF4D6;
+
+  /* Hazard / error: reserved for urgent warnings and failures */
+  --color-danger: #B42318;
+  --color-danger-hover: #912018;
+  --color-on-danger: #FFFFFF;
+  --color-danger-soft: #FEF3F2;
+
+  /* Simulation / demo-only */
+  --color-sim: #6D28D9;
+  --color-sim-soft: #F3EEFF;
+
+  /* Neutral information chips */
+  --color-neutral: #526176;
+  --color-neutral-soft: #EEF2F6;
+
+  /* Keyboard focus */
+  --color-focus: #1D4ED8;
+  --focus-width: 3px;
+  --focus-offset: 2px;
+
+  /* Elevation: kept faint; borders carry the structure */
+  --shadow-raised: 0 1px 2px rgb(23 43 77 / 0.06), 0 2px 8px rgb(23 43 77 / 0.05);
+  --shadow-sticky: 0 4px 16px rgb(23 43 77 / 0.12);
+
+  /* Spacing: 8px scale, with one half step for tight inline gaps */
+  --space-half: 4px;
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+  --space-8: 64px;
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-pill: 999px;
+
+  /* Type. rem-based so the browser's text size setting and zoom are respected. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-badge: 0.8125rem;   /* 13px: smallest text allowed anywhere */
+  --text-small: 0.9375rem;   /* 15px: metadata, hints */
+  --text-body: 1.0625rem;    /* 17px: body text */
+  --text-large: 1.25rem;     /* 20px: section titles */
+  --text-xl: 1.5rem;         /* 24px: emphasised values, warning text */
+  --text-display: clamp(2rem, 1.5rem + 2vw, 2.75rem); /* the touched object's name */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --leading-tight: 1.2;
+  --leading-body: 1.5;
+
+  /* Sizing */
+  --target-min: 44px;        /* minimum hit target for controls */
+  --content-max: 1440px;
+  --info-column: clamp(360px, 30vw, 420px);
+  --gutter: clamp(16px, 3vw, 32px);
+
+  /* Motion. Reduced-motion users get none (base.css). */
+  --duration-fast: 120ms;
+  --duration: 200ms;
+  --easing: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/*
+ * Higher-contrast light. Same hues, darker values: every text pair reaches 7:1 and
+ * decorative borders become visible boundaries. Not a dark mode.
+ */
+:root[data-theme="high-contrast"] {
+  color-scheme: light;
+
+  --color-page: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-sunken: #F1F4F8;
+  --color-text: #0B1A33;
+  --color-text-secondary: #2E3B50;
+  --color-border: #68788D;
+  --color-border-control: #172B4D;
+  --border-width: 1px;
+  --border-width-control: 2px;
+
+  --color-accent: #0B5D56;
+  --color-accent-hover: #084A44;
+  --color-on-accent: #FFFFFF;
+  --color-accent-soft: #EEF8F6;
+  --color-accent-text: #0B5D56;
+
+  --color-caution: #7A3306;
+  --color-caution-soft: #FFF4D6;
+
+  --color-danger: #9A1B12;
+  --color-danger-hover: #7A140D;
+  --color-on-danger: #FFFFFF;
+  --color-danger-soft: #FEF3F2;
+
+  --color-sim: #5B21B6;
+  --color-sim-soft: #F3EEFF;
+
+  --color-neutral: #2E3B50;
+  --color-neutral-soft: #F1F4F8;
+
+  --color-focus: #1D4ED8;
+  --focus-width: 4px;
+
+  --shadow-raised: none;
+  --shadow-sticky: 0 0 0 2px #0B1A33;
+}
