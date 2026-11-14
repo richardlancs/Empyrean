@@ -96,6 +96,11 @@ The approved stack, repeated here so every log reader has it. Changes go through
 - **What:** one switch on the dashboard page at `http://localhost:8000` flips the running app between *actual mode* (live camera, as now) and *demo mode*.
 - **Demo mode:** the app plays a recording a few minutes long of someone holding and touching a fixed set of objects, instead of the live camera. The set of objects is decided in advance and given to Claude Code to program in.
 - **Who:** Persons 1 and 2 choose the objects and make the recording.
+- **Update (later, same day):** Person 1 is building it. Instead of one long recording, he is making a folder in the repo root holding short videos, one per object, each file named after the object it shows. Points to check against that (Person 2's agent's notes):
+  - *Folder ownership.* A new root folder is not in anyone's lane in AGENTS.md. Either put the clips under `fakes/vision/`, which Person 1 owns, or record the new folder and its owner in the ownership table with all four agreeing.
+  - *Git.* `.gitignore` ignores `*.mp4`, `*.avi` and `*.mov` everywhere except `fakes/vision/`, so clips in a new root folder will not be committed unless that changes. Each committed clip must stay under 20 seconds and 10 MB (AGENTS.md rule 10).
+  - *Names.* If the file name is used as the object's spoken name, decide the format now (for example `heinz_ketchup.mp4` spoken as "Heinz ketchup") so whoever reads it does not guess.
+  - Points 3 to 6 below still apply.
 - **To settle before building** (these are Person 2's agent's notes, not team decisions):
   1. *Where the recording lives.* AGENTS.md rule 10 caps committed video at 20 seconds and 10 MB, and `.gitignore` only lets video through under `fakes/vision/`. A recording a few minutes long has to stay out of git and be copied to the demo laptop by hand, unless all four agree to change the rule.
   2. *What "programmed in" means for the object set.* Either the recording runs through the real pipeline and the list is only used to check names, or demo mode uses fixed names for those objects and skips Grok so the demo does not depend on the network. Decide which.
