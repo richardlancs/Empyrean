@@ -10,13 +10,15 @@ import threading
 import time
 from collections.abc import Awaitable, Callable
 
+import cv2
 import httpx
+import numpy as np
 import pytest
 
 import config
 from contracts import NameRequest, NameResult
 from namer.grok_client import INSTRUCTION
-from namer.namer import Namer, clean_name
+from namer.namer import Namer, clean_name, jpeg_area
 
 Handler = Callable[[httpx.Request], Awaitable[httpx.Response]]
 
@@ -43,10 +45,35 @@ def reply(text: str) -> httpx.Response:
     return httpx.Response(200, json=body)
 
 
-def crop_size(request: httpx.Request) -> int:
+def sent_jpeg(request: httpx.Request) -> bytes:
     body = json.loads(request.content)
     url = body["input"][0]["content"][0]["image_url"]
-    return len(base64.b64decode(url.split(",", 1)[1]))
+    return base64.b64decode(url.split(",", 1)[1])
+
+
+def crop_area(request: httpx.Request) -> int:
+    return jpeg_area(sent_jpeg(request))
+
+
+def jpeg(width: int, height: int, noisy: bool = False, **params: int) -> bytes:
+    """A valid JPEG. Flat images compress tiny; noisy ones compress large."""
+    if noisy:
+        rng = np.random.default_rng(width * 7919 + height)
+        img = rng.integers(0, 256, (height, width, 3), dtype=np.uint8)
+    else:
+        img = np.full((height, width, 3), 128, dtype=np.uint8)
+    flags: list[int] = []
+    for key, value in params.items():
+        flags += [getattr(cv2, key), value]
+    ok, buf = cv2.imencode(".jpg", img, flags)
+    assert ok
+    return buf.tobytes()
+
+
+def jpeg_request(object_id: int, data: bytes) -> NameRequest:
+    return NameRequest(
+        ts=time.time(), object_id=object_id, class_label="bottle", crop_jpeg=data
+    )
 
 
 class Collector:
@@ -126,7 +153,7 @@ def test_concurrency_interval_and_largest_first() -> None:
         with lock:
             in_flight += 1
             max_in_flight = max(max_in_flight, in_flight)
-            starts.append((time.monotonic(), crop_size(req)))
+            starts.append((time.monotonic(), crop_area(req)))
         await asyncio.sleep(0.45)  # longer than INTERVAL so calls overlap
         with lock:
             in_flight -= 1
@@ -134,9 +161,9 @@ def test_concurrency_interval_and_largest_first() -> None:
 
     out = Collector()
     namer = make_namer(handler, out, autostart=False)
-    sizes = [10, 50, 20, 40, 30]
-    for i, size in enumerate(sizes):
-        namer.on_name_request(request(i, size))
+    sides = [10, 50, 20, 40, 30]
+    for i, side in enumerate(sides):
+        namer.on_name_request(jpeg_request(i, jpeg(side * 4, side * 2)))
     namer.start()
     results = out.wait_for(5)
     namer.stop(timeout=5)
@@ -144,7 +171,8 @@ def test_concurrency_interval_and_largest_first() -> None:
     assert all(r.ok for r in results)
     assert max_in_flight <= config.NAME_MAX_IN_FLIGHT
     assert max_in_flight == 2
-    assert [size for _, size in starts] == sorted(sizes, reverse=True)
+    expected = sorted((s * 4 * s * 2 for s in sides), reverse=True)
+    assert [area for _, area in starts] == expected
     gaps = [b - a for (a, _), (b, _) in itertools.pairwise(starts)]
     assert min(gaps) >= INTERVAL - 0.01
 
@@ -278,3 +306,77 @@ def test_on_name_request_returns_fast() -> None:
 
     assert max(durations) < 0.005
     assert len(out.results) == 5
+
+
+def test_jpeg_area_reads_the_frame_header() -> None:
+    assert jpeg_area(jpeg(64, 48)) == 64 * 48
+    assert jpeg_area(jpeg(640, 360, noisy=True)) == 640 * 360
+    progressive = jpeg(120, 30, IMWRITE_JPEG_PROGRESSIVE=1)  # SOF2, not SOF0
+    assert jpeg_area(progressive) == 120 * 30
+    assert jpeg_area(b"") == 0
+    assert jpeg_area(b"x" * 100) == 0  # not a JPEG
+    assert jpeg_area(jpeg(64, 48)[:20]) == 0  # cut before the frame header
+
+
+def test_priority_follows_pixel_area_not_jpeg_bytes() -> None:
+    big_flat = jpeg(400, 300)  # large area, compresses to few bytes
+    small_busy = jpeg(120, 90, noisy=True)  # small area, many bytes
+    medium_busy = jpeg(200, 150, noisy=True)
+    broken = b"\xff\xd8not a real jpeg" * 50  # unreadable header: goes last
+    # The byte order really is the opposite of the area order.
+    assert len(big_flat) < len(small_busy) < len(medium_busy)
+    assert jpeg_area(big_flat) > jpeg_area(medium_busy) > jpeg_area(small_busy)
+
+    order: list[bytes] = []
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        order.append(sent_jpeg(req))
+        return reply("thing")
+
+    out = Collector()
+    namer = make_namer(handler, out, autostart=False)
+    for i, data in enumerate([broken, small_busy, medium_busy, big_flat]):
+        namer.on_name_request(jpeg_request(i, data))
+    namer.start()
+    out.wait_for(4)
+    namer.stop(timeout=5)
+
+    assert order == [big_flat, medium_busy, small_busy, broken]
+
+
+def test_timings_separate_queue_wait_from_api_time() -> None:
+    api_seconds = 0.3
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(api_seconds)
+        return reply("thing")
+
+    out = Collector()
+    namer = make_namer(handler, out, autostart=False)
+    for i in range(3):  # two slots, so the third must wait for one to free up
+        namer.on_name_request(request(200 + i))
+    namer.start()
+    out.wait_for(3)
+    namer.stop(timeout=5)
+
+    timings = sorted(namer.timings, key=lambda t: t.queued_s)
+    assert [t.ok for t in timings] == [True] * 3
+    assert all(api_seconds - 0.02 <= t.api_s < api_seconds + 0.2 for t in timings)
+    assert timings[0].queued_s < 0.1
+    assert INTERVAL - 0.02 <= timings[1].queued_s < api_seconds  # start spacing
+    assert timings[2].queued_s >= api_seconds - 0.02  # waited for a free slot
+
+
+def test_failed_call_is_timed_too() -> None:
+    async def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"error": "boom"})
+
+    out = Collector()
+    namer = make_namer(handler, out)
+    namer.on_name_request(request(300))
+    out.wait_for(1)
+    namer.stop(timeout=5)
+
+    [timing] = list(namer.timings)
+    assert (timing.object_id, timing.ok) == (300, False)
+    assert timing.api_s >= 0 and timing.queued_s >= 0
