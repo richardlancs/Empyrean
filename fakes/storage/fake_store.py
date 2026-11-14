@@ -14,7 +14,12 @@ import threading
 import time
 from collections.abc import Callable
 
-from fakes.storage._pending import HazardEvent, LastSeenQuery, SpeakRequest, TouchEvent
+from contracts import (
+    HazardEvent,
+    LastSeenQuery,
+    SpeakRequest,
+    TouchEvent,
+)
 
 NOT_SEEN = "I have not seen that."
 MAX_NEIGHBOURS = 3

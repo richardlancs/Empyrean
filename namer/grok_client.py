@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 
-from namer import _pending as c
+import config
 
 log = logging.getLogger("namer")
 
@@ -93,7 +93,7 @@ async def name_crop(client: httpx.AsyncClient, jpeg: bytes, class_label: str) ->
         GROK_RESPONSES_URL,
         json=build_payload(model, jpeg, class_label),
         headers={"Authorization": f"Bearer {api_key}"},
-        timeout=c.NAME_TIMEOUT_SECONDS,
+        timeout=config.NAME_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
     return parse_reply(response.json())

@@ -13,9 +13,10 @@ from collections.abc import Awaitable, Callable
 import httpx
 import pytest
 
-from namer import _pending as c
+import config
+from contracts import NameRequest, NameResult
 from namer.grok_client import INSTRUCTION
-from namer.namer import Namer, NameRequest, NameResult, clean_name
+from namer.namer import Namer, clean_name
 
 Handler = Callable[[httpx.Request], Awaitable[httpx.Response]]
 
@@ -25,8 +26,8 @@ TIMEOUT = 0.5
 
 @pytest.fixture(autouse=True)
 def _fast_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(c, "NAME_MIN_INTERVAL_SECONDS", INTERVAL)
-    monkeypatch.setattr(c, "NAME_TIMEOUT_SECONDS", TIMEOUT)
+    monkeypatch.setattr(config, "NAME_MIN_INTERVAL_SECONDS", INTERVAL)
+    monkeypatch.setattr(config, "NAME_TIMEOUT_SECONDS", TIMEOUT)
     monkeypatch.setenv("GROK_API_KEY", "test-key")
     monkeypatch.setenv("GROK_MODEL", "test-model")
 
@@ -100,7 +101,7 @@ def test_reply_is_trimmed_and_cut() -> None:
 
     assert result.ok is True and result.object_id == 1
     assert result.name == "Heinz Tomato Ketchup squeeze bottle, ext"
-    assert len(result.name) == c.NAME_MAX_CHARS
+    assert len(result.name) == config.NAME_MAX_CHARS
     assert clean_name(" 'Coca-Cola can.' ") == "Coca-Cola can"
 
     body = json.loads(seen[0].content)
@@ -141,7 +142,7 @@ def test_concurrency_interval_and_largest_first() -> None:
     namer.stop(timeout=5)
 
     assert all(r.ok for r in results)
-    assert max_in_flight <= c.NAME_MAX_IN_FLIGHT
+    assert max_in_flight <= config.NAME_MAX_IN_FLIGHT
     assert max_in_flight == 2
     assert [size for _, size in starts] == sorted(sizes, reverse=True)
     gaps = [b - a for (a, _), (b, _) in itertools.pairwise(starts)]

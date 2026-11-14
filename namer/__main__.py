@@ -10,16 +10,16 @@ from pathlib import Path
 
 import httpx
 
-from namer import _pending as c
+import config
 from namer.grok_client import name_crop
 from namer.namer import clean_name
 
 
 async def _name_file(jpeg: bytes, label: str) -> str:
     """Make one Grok call for a JPEG and return the raw reply."""
-    async with httpx.AsyncClient(timeout=c.NAME_TIMEOUT_SECONDS) as client:
+    async with httpx.AsyncClient(timeout=config.NAME_TIMEOUT_SECONDS) as client:
         return await asyncio.wait_for(
-            name_crop(client, jpeg, label), c.NAME_TIMEOUT_SECONDS
+            name_crop(client, jpeg, label), config.NAME_TIMEOUT_SECONDS
         )
 
 

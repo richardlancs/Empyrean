@@ -20,7 +20,6 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
-- **Person 3 (`storage/`, `namer/`, their fakes and `tests/test_namer.py`), blocks the demo:** these still import message classes from the four `_pending.py` shims, not from `contracts/`. On the bus, `namer` subscribes to `namer._pending.NameRequest`, while scene publishes `contracts.NameRequest`. They are different classes, so the namer never receives a request, and every touch would speak the COCO class. Same problem for storage with `TouchEvent`, `HazardEvent` and `LastSeenQuery`. Fix: point `namer/namer.py`, `storage/_deps.py`, `fakes/namer/fake_namer.py`, `fakes/storage/fake_store.py` and `tests/test_namer.py` at `contracts` and `config`, then delete the shims. `Box` is a tuple now, so `storage/db.py` box unpacking is already correct.
 - **Person 3 (`tests/test_storage.py`):** `test_unreachable_db_never_blocks_and_warns_once` is flaky on Windows. It failed 2 of 3 runs on Person 2's laptop. `_wait_for` gives up after 3 s, and `CONNECT_TIMEOUT_SECONDS` is also 3 s. On Windows, a refused connection to `127.0.0.1:1` can take about that long, so `dropped` reaches 100 just after the wait ends. Give the wait a longer timeout than the connect timeout. Found by Person 2, 2026-11-14.
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11.
 - **Person 1 (`app/` bus):** Person 3's `register(bus)` expects `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`. `SceneDatabase` takes `publish(topic_name, msg)`, where the topic is the class name. Wire scene with `SceneDatabase(lambda _topic, msg: bus.publish(msg))`, or tell Person 2 which shape the bus uses.
@@ -60,6 +59,32 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code
+**Changed:**
+
+- Deleted the four `_pending.py` shims. Every Person 3 file now imports messages from `contracts/` and thresholds from `config/`.
+- `namer/` reads its thresholds as `config.NAME_...` at call time, so tests can still monkeypatch them.
+- Merged the root `.gitignore` with the one Person 2 put on `main`, keeping all of its rules. It adds `.env.*` (except `.env.example`), more weight formats (`*.pth`, `*.task` and others), `scratch/`, and OS and editor files. Main's `*.mp4`, `*.avi` and `*.mov` ignores stay, with an exception for `fakes/vision/`, because the vision fake plays a short recorded clip (AGENTS.md rules 3 and 10). `*.wav` is not ignored, so the alarm sound can be committed.
+
+**Tested:**
+
+- `pytest tests/test_namer.py tests/test_storage.py tests/test_contracts.py`: 28 passed, 1 skipped (the live DB test).
+- With `.env` loaded, `tests/test_storage.py` gave 17 passed, including the live Tiger Data round trip.
+- `python -m fakes.namer.fake_namer` and `python -m fakes.storage.fake_store` both run and publish as before.
+- `ruff check` is clean on all Person 3 paths.
+- `git check-ignore` confirms `.env`, the venv, weights, `scratch/` and root-level video are ignored, while `.env.example`, `.wav` files and video under `fakes/vision/` are not.
+- After merging `main` into this branch, full `pytest` gave 75 passed and 1 skipped, and 76 passed with `.env` loaded. `ruff check .` is clean for the whole repo, and `python -m fakes.scene` runs.
+
+**Decisions:**
+
+- Storage still unpacks `Box` as a tuple, which matches `contracts/` on `main` now. If the team switches `Box` back to a dataclass, `storage/db.py` `box_centre_fraction` needs `box.x1` and so on.
+- `.gitignore` is a shared root file. The merge removes none of Person 2's rules, except that a short clip in `fakes/vision/` is now allowed.
+
+**Teammates need to know:**
+
+- The shim item under "Needs attention" is fixed: namer and storage now subscribe to the `contracts` classes that scene publishes.
+- Still open for Person 3: the flaky Windows storage timing test.
 
 ### 2026-11-14, Person 2 (repo housekeeping), Claude Code
 **Changed:** Moved `hazardeventsample.py` from the repo root to a new `samples/` folder. It now imports `HazardEvent` from `contracts` and binds the example to `SAMPLE`, so `ruff check .` passes. Added a root `.gitignore` (`.env`, caches, model weights, video files) and `.env.example` with the four variables from SPEC.md section 6, both required by AGENTS.md rules 7, 9 and 10. Merged `p2-touch` into `main`, so `main` has the tuple `Box` fix for scene.
