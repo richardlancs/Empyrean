@@ -23,6 +23,7 @@ Problems in someone else's folder go here. The owner removes the line once fixed
 - **Repo root:** there is still no root requirements file (AGENTS.md rule 8). Pins are split across `audio/requirements.txt` (`pyttsx3==2.99`, `pygame==2.6.1`) and `dashboard/requirements.txt` (`fastapi==0.162.7`, `uvicorn[standard]==0.54.0`, `opencv-contrib-python==4.11.0.86`). `ultralytics`, `mediapipe`, `httpx`, `psycopg`, `python-dotenv`, `numpy`, `pytest` and `ruff` are pinned nowhere. Earlier tested versions for some: `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. Whoever sets up the demo laptop should write one root file from that machine's working environment. Install `opencv-contrib-python` only, never alongside `opencv-python`.
 - **Person 1 (`fakes/hazard/fake_hazard.py`, start order):** still open. `FakeHazard` starts its thread in its constructor and `hazard` is first in `app`'s `MODULES`, so with `--fake hazard` the first `HazardEvent` (vehicle, yolo) is published before audio and dashboard subscribe. Start the thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
 - **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` still uses a fixed `time.sleep(1.4)`. It passes on Person 2's laptop (2026-11-14) but failed on Person 4's, where audio startup is slower. Wait for the expected output line instead.
+- **Demo mode proposal (Persons 1, 3 and 4, and all four for `contracts/`):** read the "demo button and recordings proposal" entry. It needs a yes or no on a `ModeChange` message, a demo toggle in `dashboard/` (Person 4), a demo object list in the Grok prompt in `namer/` (Person 3), and an optional start-up video source in `vision/` (Person 1). No model training.
 - **Person 1 (voice questions):** read the "voice questions plan for Person 1" entry before building. Confirm first that a Google Home can pass questions to our process at all.
 - **Person 1 (`hazard/`):** the narrowed tier B prompt has only been tested on scenes with no hazard (0 of 10 flagged). Test it on real stairs, a doorway and a wall before the demo. If it misses them, loosen the "do not count" list.
 - **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed and the Objects panel to your folder (`dashboard/video.py`, `server.py`, `state.py`, `__init__.py`, `index.html`, `requirements.txt`, and the dashboard tests). Keep, change or revert, then remove this line.
@@ -71,6 +72,28 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 2 (docs only), Claude Code: demo button and recordings proposal
+**Changed:** No code. Person 2 is responsible for the demo and asked how to build a demo button and whether to train the model on recorded clips. This is the agent's proposal for the team to accept or change. Nothing below is built or agreed yet.
+
+**Proposal:**
+- **No model training.** YOLO only finds boxes; the specific name comes from Grok reading the crop. Fine-tuning is against AGENTS.md rule 7, needs hundreds of hand-labelled frames, and would not improve the spoken names.
+- **Demo mode = live camera plus a known object list.** The camera, scene, audio and hazard paths stay exactly as they are. The only difference is that the namer is told the demo objects.
+  1. *Object list.* One file listing the demo objects by spoken name ("Heinz ketchup", "Diet Coke can"). Persons 1 and 2 choose the objects. Where the file lives needs agreeing (`config/` is shared; `namer/` is Person 3's).
+  2. *Namer (`namer/`, Person 3).* In demo mode the Grok instruction adds: this is most likely one of the listed objects; if none match, give the plain name as now.
+  3. *Button (`dashboard/`, Person 4).* A toggle beside Simulate alert, a `POST /api/mode` endpoint that publishes the mode change, and a visible "Demo mode" label so the page never hides which mode is on.
+  4. *New message (`contracts/`, all four).* Nothing in `SPEC.md` section 5 carries a mode change. Suggested shape: `ModeChange` with `mode: Literal["actual", "demo"]` and `ts`. Dashboard publishes it, namer subscribes.
+- **Recordings are for testing and backup, not training.**
+  - *Accuracy:* record each demo object on the Logitech camera, save crops with `fakes.namer.crop_recorder`, score with `eval_batch --manifest`. This closes the open "naming on real crops" item.
+  - *Backup:* if a clip should stand in for the camera, choose it at start-up (for example an env var holding the video path that `vision/` passes to `cv2.VideoCapture`), not from the page. `vision/` cannot swap sources while running.
+  - Committed clips go under `fakes/vision/`, each under 20 seconds and 10 MB (AGENTS.md rule 10). Longer ones are copied to the demo laptop by hand.
+- **Differs from the earlier plan** (entry below): that one had the button switch the app to playing a recording. This one keeps the live camera and moves clip playback to a start-up option, which avoids run-time source switching in `vision/`. Person 1, who started on per-object clips, should say whether that fits what he has built.
+
+**To decide, all four:** (1) accept or change the proposal, (2) the `ModeChange` message, (3) where the object list lives, (4) whether demo-mode touches are written to Tiger Data.
+
+**Tested:** Docs only; nothing to run.
+
+**Teammates need to know:** see the new "Demo mode proposal" line in "Needs attention". `scene/` needs no change for any of this.
 
 ### 2026-11-14, Person 2 (docs only), Claude Code: voice questions plan for Person 1
 **Changed:** No code. Records a feature Person 1 is starting, so his agent has the context.
