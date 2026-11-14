@@ -1,133 +1,125 @@
 """Message shapes from SPEC.md section 5.
 
-Field names, types, and units are fixed. Do not add a required field
-without all four teammates agreeing.
+Field names, types and units are fixed by the spec. Coordinates are pixels in
+the 640 x 360 processed frame, origin top-left. Every ts is float seconds since
+the Unix epoch, UTC. Do not redefine these locally.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any, Literal
+
+Box = tuple[float, float, float, float]  # x1, y1, x2, y2 in 640 x 360 pixels
+Point = tuple[float, float]  # x, y in 640 x 360 pixels
 
 
-@dataclass(frozen=True)
-class Box:
-    """Pixel box in the 640 x 360 processed frame. Origin is top-left."""
-
-    x1: float
-    y1: float
-    x2: float
-    y2: float
-
-
-@dataclass(frozen=True)
+@dataclass
 class TrackedObject:
-    """One tracked object inside a FrameResult."""
+    """One entry of FrameResult.objects, from vision to everyone."""
 
     object_id: int
     class_label: str
-    confidence: float
+    confidence: float  # 0 to 1
     box: Box
 
 
-@dataclass(frozen=True)
+@dataclass
 class Hand:
-    """One hand. Tips are (x, y) pixels. side is left, right, or unknown."""
+    """One entry of FrameResult.hands, from vision to everyone."""
 
-    side: str
-    thumb_tip: tuple[float, float]
-    index_tip: tuple[float, float]
+    side: Literal["left", "right", "unknown"]
+    thumb_tip: Point
+    index_tip: Point
     box: Box
 
 
-@dataclass(frozen=True)
+@dataclass
 class FrameResult:
-    """vision to everyone, once per processed frame.
+    """Vision to everyone, once per processed frame."""
 
-    image is the 640 x 360 BGR frame. Tests that never crop may pass None.
-    """
-
-    ts: float
-    frame_id: int
-    image: object | None
-    objects: list[TrackedObject]
-    hands: list[Hand]
+    ts: float  # capture time
+    frame_id: int  # counts up from 0
+    image: Any  # 640 x 360 BGR image
+    objects: list[TrackedObject] = field(default_factory=list)
+    hands: list[Hand] = field(default_factory=list)
 
 
-@dataclass(frozen=True)
+@dataclass
 class SceneObject:
-    """One object inside a SceneSnapshot."""
+    """One entry of SceneSnapshot.objects, from scene to dashboard."""
 
     object_id: int
     class_label: str
-    name: str
-    state: str
+    name: str  # Grok name, or empty
+    state: Literal["new", "idle", "touching", "held", "lost"]
     box: Box
     last_seen_ts: float
 
 
-@dataclass(frozen=True)
+@dataclass
 class SceneSnapshot:
-    """scene to dashboard, once per processed frame."""
+    """Scene to dashboard, once per processed frame."""
 
-    ts: float
-    frame_id: int
-    objects: list[SceneObject]
+    ts: float  # time of the frame it describes
+    frame_id: int  # matches the FrameResult
+    objects: list[SceneObject] = field(default_factory=list)
 
 
-@dataclass(frozen=True)
+@dataclass
 class NameRequest:
-    """scene to namer."""
+    """Scene to namer."""
 
-    ts: float
+    ts: float  # when requested
     object_id: int
-    class_label: str
-    crop_jpeg: bytes
+    class_label: str  # COCO class, as a hint
+    crop_jpeg: bytes  # JPEG of the object, padded 10%
 
 
-@dataclass(frozen=True)
+@dataclass
 class NameResult:
-    """namer to scene and audio."""
+    """Namer to scene and audio."""
 
-    ts: float
+    ts: float  # when answered
     object_id: int
-    name: str
-    ok: bool
+    name: str  # at most 40 characters, empty if naming failed
+    ok: bool  # False on timeout or error
 
 
-@dataclass(frozen=True)
+@dataclass
 class TouchEvent:
-    """scene to audio, storage, and dashboard."""
+    """Scene to audio, storage and dashboard."""
 
-    ts: float
+    ts: float  # when the transition happened
     object_id: int
-    class_label: str
-    name: str
-    kind: str
-    box: Box
-    neighbours: list[str]
+    class_label: str  # COCO class
+    name: str  # Grok name if known, else empty
+    kind: Literal["touch", "release"]
+    box: Box  # object box at that moment
+    neighbours: list[str] = field(default_factory=list)  # up to 3 nearest others
 
 
-@dataclass(frozen=True)
+@dataclass
 class HazardEvent:
-    """hazard to audio, storage, and dashboard."""
+    """Hazard to audio, storage and dashboard."""
 
-    ts: float
-    type: str
-    source: str
-    confidence: float
+    ts: float  # when detected
+    type: Literal["stairs_down", "drop_off", "vehicle", "obstacle"]
+    source: Literal["yolo", "grok"]
+    confidence: float  # 0 to 1
 
 
-@dataclass(frozen=True)
+@dataclass
 class LastSeenQuery:
-    """dashboard to storage."""
+    """Dashboard to storage."""
 
-    ts: float
-    text: str
+    ts: float  # when asked
+    text: str  # what to search for
 
 
-@dataclass(frozen=True)
+@dataclass
 class SpeakRequest:
-    """anyone to audio. priority is normal. Alarms are HazardEvents."""
+    """Anyone to audio. Alarms come from HazardEvent, never from here."""
 
-    ts: float
-    text: str
-    priority: str
-    source: str
+    ts: float  # when requested
+    text: str  # what to say
+    priority: Literal["normal"]
+    source: str  # folder name of the sender

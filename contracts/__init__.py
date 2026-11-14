@@ -1,4 +1,4 @@
-"""In-process message types shared by every module."""
+"""Shared message types from SPEC.md section 5. Import from here."""
 
 from contracts.messages import (
     Box,
@@ -8,6 +8,7 @@ from contracts.messages import (
     LastSeenQuery,
     NameRequest,
     NameResult,
+    Point,
     SceneObject,
     SceneSnapshot,
     SpeakRequest,
@@ -23,6 +24,7 @@ __all__ = [
     "LastSeenQuery",
     "NameRequest",
     "NameResult",
+    "Point",
     "SceneObject",
     "SceneSnapshot",
     "SpeakRequest",
