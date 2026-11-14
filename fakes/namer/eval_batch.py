@@ -75,7 +75,9 @@ def contains(reply: str, expected: str) -> bool:
 
 
 def class_hint(row: dict[str, str]) -> str:
-    """Return the COCO hint for one manifest row."""
+    """Return the COCO hint for one manifest row; a class_label column wins if present."""
+    if row.get("class_label", "").strip():
+        return row["class_label"].strip()  # the detector's real label, for camera crops
     if row["category"] != "objects":
         return CATEGORY_HINT.get(row["category"], "unknown")
     stem = Path(row["file"]).stem.split("--")[0]
@@ -179,14 +181,27 @@ def summarize(results: list[dict[str, Any]]) -> None:
         print(f"Mean successful latency {statistics.mean(ok):.0f} ms")
 
 
+def _path_arg(argv: list[str], flag: str, default: Path) -> Path:
+    """Value after flag in argv, else default."""
+    if flag in argv and argv.index(flag) + 1 < len(argv):
+        return Path(argv[argv.index(flag) + 1])
+    return default
+
+
 def main(argv: list[str]) -> int:
-    """Run the batch (or just the summary) and return an exit code."""
+    """Run the batch (or just the summary) and return an exit code.
+
+    --manifest PATH and --results PATH point at another set, such as camera
+    crops, so the web-photo results are not overwritten.
+    """
+    manifest = _path_arg(argv, "--manifest", MANIFEST)
+    results_path = _path_arg(argv, "--results", RESULTS)
     if "--summarize" in argv:
-        with RESULTS.open(newline="", encoding="utf-8") as f:
+        with results_path.open(newline="", encoding="utf-8") as f:
             summarize(list(csv.DictReader(f)))
         return 0
-    if not MANIFEST.exists():
-        print(f"No {MANIFEST}. Build the eval set first.")
+    if not manifest.exists():
+        print(f"No {manifest}. Build the eval set first.")
         return 1
     from dotenv import load_dotenv
 
@@ -195,16 +210,16 @@ def main(argv: list[str]) -> int:
     if missing:
         print(f"Missing {', '.join(missing)} in the environment. Add them to .env and retry.")
         return 1
-    with MANIFEST.open(newline="", encoding="utf-8") as f:
+    with manifest.open(newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     print(f"Naming {len(rows)} images, {NAME_MAX_IN_FLIGHT} in flight, "
           f"{NAME_MIN_INTERVAL_SECONDS:.1f} s between starts")
     results = asyncio.run(run_all(rows))
-    with RESULTS.open("w", newline="", encoding="utf-8") as f:
+    with results_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDS)
         writer.writeheader()
         writer.writerows(results)
-    print(f"Wrote {RESULTS}")
+    print(f"Wrote {results_path}")
     summarize(results)
     return 0
 

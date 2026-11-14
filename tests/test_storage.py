@@ -5,10 +5,12 @@ from __future__ import annotations
 import logging
 import os
 import re
+import socket
 import time
 import uuid
 from typing import Any
 
+import psycopg
 import pytest
 
 from storage import db
@@ -88,22 +90,41 @@ def test_format_answer_spec_example_and_fallbacks() -> None:
 
 # 2. unreachable database -------------------------------------------------
 
-def test_unreachable_db_never_blocks_and_warns_once(caplog: pytest.LogCaptureFixture) -> None:
-    """100 events with the DB down: each call is fast, exactly one warning, nothing raised."""
+def _feed_100(store: Store) -> float:
+    """Send 50 touch and 50 hazard events; return the slowest handler call in seconds."""
+    worst = 0.0
+    for i in range(100):
+        ev: Any = _touch(i) if i % 2 else HazardEvent(
+            ts=NOW + i, type="vehicle", source="yolo", confidence=0.9)
+        t0 = time.perf_counter()
+        if i % 2:
+            store.on_touch_event(ev)
+        else:
+            store.on_hazard_event(ev)
+        worst = max(worst, time.perf_counter() - t0)
+    return worst
+
+
+def test_unreachable_db_never_blocks_and_warns_once(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """100 events with the DB down: each call is fast, exactly one warning, nothing raised.
+
+    The connection failure is mocked so this is deterministic on every OS. How
+    long a real refused or silent connection takes is tested separately below.
+    """
+    attempts: list[str] = []
+
+    def refuse(url: str) -> Any:
+        attempts.append(url)
+        raise psycopg.OperationalError("connection refused (mocked)")
+
+    monkeypatch.setattr(db, "connect", refuse)
     published: list[Any] = []
     caplog.set_level(logging.WARNING, logger="storage")
     store = Store(published.append, UNREACHABLE_URL)
     try:
-        worst = 0.0
-        for i in range(100):
-            ev: Any = _touch(i) if i % 2 else HazardEvent(
-                ts=NOW + i, type="vehicle", source="yolo", confidence=0.9)
-            t0 = time.perf_counter()
-            if i % 2:
-                store.on_touch_event(ev)
-            else:
-                store.on_hazard_event(ev)
-            worst = max(worst, time.perf_counter() - t0)
+        worst = _feed_100(store)
         assert worst < 0.005, f"slowest call {worst * 1000:.2f} ms"
         assert _wait_for(lambda: store.dropped == 100)
 
@@ -111,12 +132,62 @@ def test_unreachable_db_never_blocks_and_warns_once(caplog: pytest.LogCaptureFix
         assert _wait_for(lambda: len(published) == 1)
     finally:
         store.stop()
+    # One connect attempt covers all 101 items: retries wait RETRY_INTERVAL_SECONDS.
+    assert len(attempts) == 1
+    assert store.written == 0
     warnings = [r for r in caplog.records if r.name == "storage" and r.levelno == logging.WARNING]
     assert len(warnings) == 1, [r.getMessage() for r in warnings]
+    assert "OperationalError" in warnings[0].getMessage()
     assert "127.0.0.1" not in caplog.text and "postgresql://" not in caplog.text
     answer = published[0]
     assert isinstance(answer, SpeakRequest)
     assert (answer.text, answer.priority, answer.source) == (NOT_SEEN, "normal", "storage")
+
+
+@pytest.fixture
+def silent_server() -> Any:
+    """A local TCP port that accepts connections and never answers, like a hung database."""
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(16)  # the kernel completes the handshake; nothing is ever read or sent
+    try:
+        yield f"postgresql://u@127.0.0.1:{srv.getsockname()[1]}/x?sslmode=disable"
+    finally:
+        srv.close()
+
+
+def test_real_connect_timeout_is_bounded(silent_server: str) -> None:
+    """A real connect to a silent server gives up after about CONNECT_TIMEOUT_SECONDS."""
+    t0 = time.monotonic()
+    with pytest.raises(psycopg.OperationalError):
+        db.connect(silent_server)
+    elapsed = time.monotonic() - t0
+    assert db.CONNECT_TIMEOUT_SECONDS - 0.5 <= elapsed < db.CONNECT_TIMEOUT_SECONDS + 3
+
+
+def test_hung_db_does_not_block_handlers(
+    silent_server: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """While the worker sits in a real connect timeout, handlers still return at once."""
+    caplog.set_level(logging.WARNING, logger="storage")
+    published: list[Any] = []
+    store = Store(published.append, silent_server)
+    try:
+        worst = _feed_100(store)  # the worker is stuck connecting for most of this
+        # 50 ms, not 5 ms: with the worker busy in a real connect, a handler can
+        # wait one GIL switch interval (5 ms by default) just to run. Blocking on
+        # the DB would cost the whole CONNECT_TIMEOUT_SECONDS, far above this.
+        assert worst < 0.05, f"slowest call {worst * 1000:.2f} ms"
+        store.on_last_seen_query(LastSeenQuery(ts=NOW, text="ketchup"))
+        # Wait well past the connect timeout, never just up to it.
+        settle = db.CONNECT_TIMEOUT_SECONDS + 5
+        assert _wait_for(lambda: store.dropped == 100 and len(published) == 1, settle)
+    finally:
+        store.stop()
+    warnings = [r for r in caplog.records if r.name == "storage" and r.levelno == logging.WARNING]
+    assert len(warnings) == 1, [r.getMessage() for r in warnings]
+    assert "127.0.0.1" not in caplog.text and "postgresql://" not in caplog.text
+    assert published[0].text == NOT_SEEN
 
 
 # 3. queue full -----------------------------------------------------------
