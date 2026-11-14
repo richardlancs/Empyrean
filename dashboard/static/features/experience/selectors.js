@@ -153,6 +153,11 @@ export function selectCamera(snapshot, stream, browserNowMs) {
     kind = "live";
     title = "Live";
     detail = cam.status === "degraded" ? cam.detail || "Camera reports reduced performance." : "";
+    // Integration (Agent 4): a recorded clip is current, but it is not a camera.
+    if (cam.mode === "fake") {
+      title = "Live (recorded clip, not a camera)";
+      detail = detail || "This run uses a recorded test clip instead of the glasses camera.";
+    }
   }
   return {
     kind,
