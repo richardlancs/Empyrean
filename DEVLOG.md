@@ -72,6 +72,16 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 1 (app fake voice question demo), ChatGPT
+**Changed:** Added `app/voice_demo.py`, an optional, standalone push-to-talk microphone demo that runs Empyrean with fake vision, naming and storage and publishes only existing `LastSeenQuery` and `SpeakRequest` messages. Added `tests/test_voice_demo_p1.py` to check question routing. No real camera integration, shared contracts, thresholds or another owner's files changed.
+
+**Tested:** User confirmed their earlier local Python 3.11 / SpeechRecognition / PyAudio push-to-talk fake-scene script recognized spoken questions and spoke replies on their Mac. The committed module and its new pytest tests have not yet been run on the integration laptop; teammate should validate before merge.
+
+**Decisions:** Voice input remains an optional, manually launched demo, not part of `python -m app`. `SpeechRecognition` / `PyAudio` and Google's online speech recognition are not approved stack dependencies; all four teammates must approve and pin exact versions before merge. Hazard audio remains under the existing audio module.
+
+**Teammates need to know:** Run `python -m app.voice_demo` interactively after installing approved dependencies and making sure the Mac's `flac` executable is on PATH. It uses scripted fake objects; no YOLO model, Grok API key or Tiger Data URL is needed to test spoken answers. The app still starts the real hazard module, which may log that Grok checks are disabled without keys. Do not treat it as full integration or offline transcription.
+
+
 ### 2026-11-14, Person 2 (shared `config/` and `SPEC.md`, agreed by all four), Claude Code
 **Changed:**
 - `config/thresholds.py`: `DET_MIN_CONFIDENCE` 0.5 to 0.3 and `DET_MIN_AREA_FRACTION` 0.02 to 0.002. These are the values Person 4 proposed in the tabletop detection trace entry below.
