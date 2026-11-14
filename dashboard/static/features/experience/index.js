@@ -17,6 +17,7 @@ import {
   selectDetector,
   selectFindAvailability,
   selectObjects,
+  selectPip,
   selectSpeech,
   selectTouchCard,
   serverNow,
@@ -234,7 +235,9 @@ export function mountExperience(ctx) {
         streamNonce,
       ),
     );
-    cameraPanel?.updateDetector(selectDetector(snapshot, detectorLocal));
+    const detectorVm = selectDetector(snapshot, detectorLocal);
+    cameraPanel?.updateDetector(detectorVm);
+    cameraPanel?.updatePip(selectPip(snapshot, cam, detectorVm, selectCurrentTouch(snapshot.state)));
     objectList?.update(selectObjects(snapshot, prefs, nowMs));
     findPanel?.update(
       selectFindAvailability(snapshot.state),

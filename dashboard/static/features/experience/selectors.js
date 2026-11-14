@@ -498,3 +498,62 @@ export function selectDetector(snapshot, local = { sending: null, error: null })
   }
   return vm;
 }
+
+// ---------------------------------------------------------------------------
+// Pip, the camera companion. Pose and help text come only from confirmed state:
+// the camera view model, the detector view model (vision's DetectorStatus), the
+// current touch and the warning. Pip never claims listening, recognition or sound.
+
+export const PIP_TIP = "Keep the object and your hand in view.";
+const CAMERA_TROUBLE = new Set(["offline", "disconnected", "stale", "unknown"]);
+
+/** What Pip says about the detector, in Pip's voice, without overstating anything. */
+function pipModeLine(d, detectorVm) {
+  if (!d || d.state === "unknown" || !detectorVm?.pressed) {
+    return "Vision has not said which detector is running yet.";
+  }
+  if (d.fake) {
+    return `This is a recorded test clip, so no detector is running. The control is set to ${detectorVm.pressed === "demo" ? "Demo" : "Regular"}.`;
+  }
+  if (d.active_mode === "demo") {
+    if (d.demo_kind === "trained") return "I’m using the model trained for our demo objects.";
+    if (d.demo_kind === "prompt-fallback") return "I’m using a fallback detector, not the model trained for our demo objects.";
+    return "I’m using a demo detector.";
+  }
+  return "I’m using the general-purpose detector.";
+}
+
+/**
+ * Pip's view model.
+ * cam: selectCamera() result. detectorVm: selectDetector() result. touch: selectCurrentTouch() result.
+ * Returns { pose, mode, recovery, tip } where pose is
+ * "recline" | "attentive" | "wait" | "concerned".
+ */
+export function selectPip(snapshot, cam, detectorVm, touch) {
+  const state = snapshot?.state ?? null;
+  const d = state?.detector ?? null;
+  // An active real hazard hides Pip through layout.css (the warning slot's urgent
+  // emphasis), the same switch that hides every other Pip, so there is one source of truth.
+  const base = { pose: "recline", mode: pipModeLine(d, detectorVm), recovery: "", tip: PIP_TIP };
+
+  if (cam && CAMERA_TROUBLE.has(cam.kind)) {
+    const fix = {
+      offline: "The camera is offline. Check that it is plugged in, then restart the app.",
+      disconnected: "The video stream dropped. I’ll show the picture again when it reconnects.",
+      stale: snapshot?.connection === "connected"
+        ? "The picture stopped updating. Check the camera cable and that the app is still running."
+        : "This page lost its connection to the laptop. It will reconnect on its own.",
+      unknown: "The laptop does not report frame times, so I can’t tell whether the picture is current.",
+    }[cam.kind];
+    return { ...base, pose: "concerned", recovery: fix };
+  }
+  if (d?.state === "failed") {
+    return { ...base, pose: "concerned", recovery: `The last detector switch did not finish. ${d.message || ""}`.trim() };
+  }
+  if (d && d.state === "switching" && detectorVm?.busy) {
+    const target = detectorVm.busy === "demo" ? "Demo" : "Regular";
+    return { ...base, pose: "wait", recovery: `Waiting for ${target} to load. The current detector keeps running until then.` };
+  }
+  if (touch) return { ...base, pose: "attentive" };
+  return base;
+}

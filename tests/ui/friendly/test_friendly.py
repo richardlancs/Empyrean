@@ -11,7 +11,9 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[3]
 STATIC = ROOT / "dashboard" / "static"
 PIP = STATIC / "assets" / "pip"
-POSES = ("pip-wave", "pip-point", "pip-sit", "pip-peek")
+POSES = ("pip-wave", "pip-point", "pip-sit", "pip-peek", "pip-recline", "pip-peek-edge", "pip-wait", "pip-concerned")
+# Crops that end on a straight edge by design (the sign top; the frame edge Pip peeks over).
+FLUSH_BOTTOM = ("pip-peek", "pip-peek-edge")
 SOURCES = [
     *STATIC.glob("styles/*.css"),
     *STATIC.glob("features/*/*.css"),
@@ -31,8 +33,9 @@ def test_pip_assets_are_clean_single_shapes_with_transparent_padding() -> None:
         alpha = image[:, :, 3]
         count, _labels, _stats, _ = cv2.connectedComponentsWithStats((alpha > 8).astype(np.uint8), 8)
         assert count - 1 == 1, f"{name}: {count - 1} separate shapes (specks left?)"
-        if name != "pip-peek":  # the peek crop ends at the sign edge by design
-            for edge in (alpha[0], alpha[-1], alpha[:, 0], alpha[:, -1]):
+        edges = (alpha[0], alpha[:, 0], alpha[:, -1]) if name in FLUSH_BOTTOM else (alpha[0], alpha[-1], alpha[:, 0], alpha[:, -1])
+        if name != "pip-peek":  # the sign peek is also trimmed to the sign's width
+            for edge in edges:
                 assert edge.max() == 0, f"{name}: artwork touches the image edge"
         assert (alpha == 255).mean() > 0.25, f"{name}: body is not opaque"
         assert max(image.shape[:2]) <= 480, f"{name}: larger than needed"
@@ -45,6 +48,10 @@ def test_pip_is_decorative_everywhere_and_never_in_camera_or_thumbnails() -> Non
         "pip-peek.png": STATIC / "features" / "experience" / "touch-card.js",
         "pip-sit.png": STATIC / "features" / "operations" / "event-history.js",
         "pip-wave.png": STATIC / "components" / "app-shell.js",
+        "pip-recline.png": STATIC / "features" / "experience" / "pip-companion.js",
+        "pip-peek-edge.png": STATIC / "features" / "experience" / "pip-companion.js",
+        "pip-wait.png": STATIC / "features" / "experience" / "pip-companion.js",
+        "pip-concerned.png": STATIC / "features" / "experience" / "pip-companion.js",
     }
     for name, source in uses.items():
         text = source.read_text(encoding="utf-8")
@@ -61,9 +68,26 @@ def test_pip_is_decorative_everywhere_and_never_in_camera_or_thumbnails() -> Non
 
 
 def test_pip_steps_aside_during_an_active_real_hazard() -> None:
-    """layout.css hides every Pip while the warning slot is marked urgent."""
+    """layout.css hides every Pip, the camera companion and its bubble while the warning slot is urgent."""
     css = (STATIC / "styles" / "layout.css").read_text(encoding="utf-8")
-    assert re.search(r'\.app-slot--warning\[data-emphasis="urgent"\]\) \.pip \{\s*display: none;', css)
+    rule = re.search(r'((?::root:has\(\.app-slot--warning\[data-emphasis="urgent"\]\) [.\w-]+,?\s*)+)\{\s*display: none;', css)
+    assert rule, "no urgent-hazard rule"
+    for selector in (".pip", ".pip-perch", ".pip-bubble"):
+        assert re.search(re.escape(selector) + r"\b(?!-)", rule.group(1)), selector
+
+
+def test_camera_pip_is_a_named_help_button_that_never_switches_models() -> None:
+    """Pip is a real button with a fixed name, a decorative image, and no request to the engine."""
+    pip = (STATIC / "features" / "experience" / "pip-companion.js").read_text(encoding="utf-8")
+    assert '"aria-label": "Help with the camera."' in pip
+    assert 'alt: ""' in pip and '"aria-expanded"' in pip and '"Close help"' in pip
+    assert "Escape" in pip
+    for forbidden in ("request(", "fetch(", "/api/", "aria-live", 'role: "status"', 'role: "alert"'):
+        assert forbidden not in pip, forbidden
+    css = (STATIC / "features" / "experience" / "experience.css").read_text(encoding="utf-8")
+    pip_css = css[css.index("Pip, the camera companion") :]
+    assert "infinite" not in pip_css, "Pip must not loop"
+    assert "prefers-reduced-motion: reduce" in pip_css
 
 
 def test_help_sign_text_is_html_not_part_of_the_image() -> None:

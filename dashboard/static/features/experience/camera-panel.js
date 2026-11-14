@@ -4,6 +4,7 @@
 // user intent and <img> load/error through callbacks.
 
 import { createDetectorSwitch } from "./detector-switch.js";
+import { createPipCompanion } from "./pip-companion.js";
 import { el, setHidden, setText, uniqueId } from "./dom.js";
 
 const LEGEND = [
@@ -111,6 +112,8 @@ export function createCameraPanel(root, { onStream, onOption, onDetector = () =>
   // for as long as vision reports the demo detector.
   const detectorMount = el("div", { class: "experience-detector-mount" });
   const detector = createDetectorSwitch(detectorMount, { onChoose: onDetector });
+  const pipMount = el("div", { class: "experience-pip-mount" });
+  const pip = createPipCompanion(pipMount);
   const card = el(
     "section",
     { class: "experience-card experience-camera", "aria-labelledby": headingId },
@@ -121,7 +124,10 @@ export function createCameraPanel(root, { onStream, onOption, onDetector = () =>
       el("div", { class: "experience-controls" }, fsButton, fsFallback),
     ),
     detectorMount,
-    stateLine,
+    // Pip perches on the frame's top edge in this row, beside the camera state, so the
+    // space is reserved and Pip never covers the picture, labels or controls.
+    el("div", { class: "experience-camera-perch-row" }, stateLine, pipMount),
+    pip.bubble,
     frame,
     footer,
     options,
@@ -194,8 +200,10 @@ export function createCameraPanel(root, { onStream, onOption, onDetector = () =>
   return {
     update,
     updateDetector: detector.update,
+    updatePip: pip.update,
     destroy() {
       detector.destroy();
+      pip.destroy();
       img.removeEventListener("load", onLoad);
       img.removeEventListener("error", onError);
       document.removeEventListener("fullscreenchange", onFsChange);

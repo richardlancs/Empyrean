@@ -768,3 +768,126 @@
 @media (prefers-reduced-motion: reduce) {
   .experience-segment[aria-busy="true"] .experience-segment-mark::before { animation: none; border-right-color: currentColor; border-style: dotted; }
 }
+
+/* ---- Pip, the camera companion (feature/pip-companion) ----
+ * Pip sits in the state row, its feet on the picture's top edge: the row reserves
+ * its height, so Pip never covers the picture, the labels or any control.
+ * Motion is a short reaction only (hover/focus tilt, a settle when the pose
+ * changes); nothing loops, and reduced motion turns all of it off. */
+.experience-camera-perch-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4px var(--x-s1);
+  min-height: 44px;
+}
+.experience-camera-perch-row .experience-camera-state { margin: 0 0 8px; min-width: 0; }
+.experience-pip-mount { flex: none; margin-inline-start: auto; }
+.pip-perch { display: flex; align-items: flex-end; }
+.pip-perch__button {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 4px;
+  margin: 0;                   /* feet rest on the frame edge, never below it */
+  border: 0;
+  border-radius: 12px 12px 0 0;
+  background: transparent;
+  color: var(--x-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pip-perch__button:focus-visible { outline: 3px solid var(--x-focus); outline-offset: 2px; }
+/* Motion reviewed with Codex (docs/dashboard-redesign/pip/README.md): interaction
+   motion lives on the picture, pose entrances on the artwork, so they never fight;
+   the feet never move below the frame edge. */
+.pip-perch__picture {
+  display: block;
+  transform-origin: 50% 100%;
+  transition: transform 140ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.pip-perch__art {
+  height: 56px;
+  width: auto;
+  transform-origin: 50% 100%;
+}
+.pip-perch[data-pose="recline"] .pip-perch__art { height: 64px; }
+/* A small head tilt that says "ask me": keyboard focus always, hover only with a fine pointer. */
+.pip-perch__button:focus-visible .pip-perch__picture { transform: translateY(-2px) rotate(-3deg); }
+@media (hover: hover) and (pointer: fine) {
+  .pip-perch__button:hover .pip-perch__picture { transform: translateY(-2px) rotate(-3deg); }
+}
+/* Waiting and concerned stay still: the words carry the state. */
+.pip-perch[data-pose="wait"] .pip-perch__picture,
+.pip-perch[data-pose="concerned"] .pip-perch__picture { transform: none; }
+/* One entrance per confirmed pose change, never on load or resize; concern appears at once. */
+.pip-perch--arrive[data-pose="recline"] .pip-perch__art { animation: pip-rest 260ms cubic-bezier(0.2, 0.7, 0.3, 1); }
+.pip-perch--arrive[data-pose="attentive"] .pip-perch__art { animation: pip-attend 180ms cubic-bezier(0.2, 0.7, 0.3, 1); }
+.pip-perch--arrive[data-pose="wait"] .pip-perch__art { animation: pip-settle 220ms cubic-bezier(0.2, 0.7, 0.3, 1); }
+@keyframes pip-rest { from { transform: scaleY(0.97); } to { transform: none; } }
+@keyframes pip-attend { from { transform: scale(0.96); } to { transform: none; } }
+@keyframes pip-settle { from { transform: scaleY(0.98); } to { transform: none; } }
+.pip-perch__fallback { display: none; padding: 0 8px 10px; }
+.pip-perch--no-art .pip-perch__picture { display: none; }
+.pip-perch--no-art .pip-perch__fallback { display: inline; text-decoration: underline; }
+
+.pip-bubble {
+  position: relative;
+  margin: 0 0 10px auto;
+  width: min(100%, 22rem);
+  padding: 12px 14px;
+  border: 2px solid #5D4946;          /* Pip's outline colour, as on the help sign */
+  border-radius: 16px;
+  background: #FDF4EB;                 /* text on it 15:1 */
+  color: var(--x-text);
+  font-size: var(--text-small, 0.9375rem);
+  line-height: 1.4;
+}
+.pip-bubble[hidden] { display: none; }
+.pip-bubble:not([hidden]) { animation: pip-help-open 120ms ease-out; }   /* opacity only: no layout motion */
+@keyframes pip-help-open { from { opacity: 0.85; } to { opacity: 1; } }
+.pip-bubble::before {                  /* points up at Pip */
+  content: "";
+  position: absolute;
+  top: -9px;
+  right: 34px;
+  width: 14px;
+  height: 14px;
+  background: inherit;
+  border-top: 2px solid #5D4946;
+  border-left: 2px solid #5D4946;
+  transform: rotate(45deg);
+}
+.pip-bubble p { margin: 0 0 6px; }
+.pip-bubble__title { font-weight: 700; }
+.pip-bubble__mode { font-weight: 600; }
+.pip-bubble__note { color: var(--x-muted); }
+.pip-bubble__close {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--x-primary);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.pip-bubble__close:focus-visible { outline: 3px solid var(--x-focus); outline-offset: 2px; }
+:root[data-theme="high-contrast"] .pip-bubble,
+:root[data-theme="high-contrast"] .pip-bubble::before { border-color: #000000; background: #FFFFFF; }
+
+/* Narrow screens: a smaller Pip that peeks over the edge instead of lying along it. */
+@media (max-width: 30em) {
+  .pip-perch__art { height: 44px; }
+  .pip-perch[data-pose="recline"] .pip-perch__art { height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pip-perch__picture,
+  .pip-perch__art { animation: none !important; transition: none !important; transform: none !important; }
+  .pip-bubble:not([hidden]) { animation: none; }
+}

@@ -200,7 +200,9 @@
 }
 
 /* During an active real hazard Pip steps aside: nothing cheerful beside a warning. */
-:root:has(.app-slot--warning[data-emphasis="urgent"]) .pip {
+:root:has(.app-slot--warning[data-emphasis="urgent"]) .pip,
+:root:has(.app-slot--warning[data-emphasis="urgent"]) .pip-perch,
+:root:has(.app-slot--warning[data-emphasis="urgent"]) .pip-bubble {
   display: none;
 }
 
