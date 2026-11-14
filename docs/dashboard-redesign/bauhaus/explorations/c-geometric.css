@@ -1,0 +1,14 @@
+/* Exploration C: geometric composition of hand, object and sound.
+   The touch zone is staged as circle (fingertip), square (object) and arcs
+   (sound); the camera is framed as a square instrument with a yellow circle mark. */
+.app-header { background: #FFFCF5; border-bottom: 2px solid #171717; position: relative; overflow: hidden; }
+.app-header::after { content: ""; position: absolute; right: 18%; top: -40px; width: 140px; height: 140px; border-radius: 50%; background: #F2C94C; z-index: 0; }
+.app-header__inner { position: relative; z-index: 1; }
+.experience-touch { position: relative; padding-top: 120px !important; border: 2px solid #171717 !important; }
+.experience-touch::before { content: ""; position: absolute; left: 24px; top: 24px; width: 64px; height: 64px; border-radius: 50%; background: #1947B8; box-shadow: 88px 0 0 0 #171717; }
+.experience-touch::after { content: ""; position: absolute; left: 200px; top: 16px; width: 80px; height: 80px; border-radius: 50%; border: 6px solid transparent; border-right-color: #F2C94C; box-shadow: 18px 0 0 -2px transparent; }
+.experience-camera { border: 2px solid #171717 !important; position: relative; }
+.experience-camera::after { content: ""; position: absolute; right: -14px; top: -14px; width: 28px; height: 28px; border-radius: 50%; background: #F2C94C; border: 2px solid #171717; }
+.experience-objects, .experience-find, .operations-history { border: 2px solid #171717 !important; }
+.app-layout { gap: var(--space-4) !important; }
+.experience-touch-name { font-size: clamp(2.5rem, 1.5rem + 3vw, 4rem) !important; font-weight: 800; }

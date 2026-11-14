@@ -1,5 +1,10 @@
 # Empyrean dashboard design system
 
+> **Superseded palette (design/bauhaus-polish, 2026-11-14).** The token *names*, layering, mount
+> contract and announcement policy below still apply. The colours, geometry and composition were
+> replaced by the Bauhaus system: see [bauhaus/README.md](bauhaus/README.md) and `styles/tokens.css`.
+
+
 Owner: Agent 1 (`design/light-foundation`). Agent 4 reconciles this document with the integrated API.
 
 The dashboard serves a helper, operator, developer or demonstrator, and may be read by a low-vision wearer. Its job is to make one interaction obvious: **touch an object, hear its name**. Everything else on the page explains or supports that.

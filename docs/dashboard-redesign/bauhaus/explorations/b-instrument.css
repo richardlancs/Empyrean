@@ -1,0 +1,22 @@
+/* Exploration B: instrument panel with strong rails and dividers.
+   A black top rail holds identity and system status; zones are separated by
+   2px black rules instead of floating cards; each module has a ruled label bar. */
+.app-header { background: #171717; color: #FFFCF5; border-bottom: 0; }
+.app-header .app-header__explainer { color: #D9D2C3; }
+.app-header .ui-chip { background: transparent; color: #FFFCF5; border-color: #FFFCF5; }
+.app-header .ui-button { background: transparent; color: #FFFCF5; border-color: #FFFCF5; }
+.app-main { padding-top: 0; }
+.app-layout { gap: 0 !important; border-left: 2px solid #171717; border-right: 2px solid #171717; background: #FFFCF5; }
+.app-slot { border-bottom: 2px solid #171717; padding: var(--space-3); }
+@media (min-width: 64em) {
+  .app-layout { grid-template-columns: minmax(0, 1fr) var(--info-column); }
+  .app-slot--camera, .app-slot--events { border-right: 2px solid #171717; }
+}
+.app-slot--health { background: #F4F0E7; padding-block: var(--space-2); }
+.experience-card, .operations-status, .operations-history, .operations-warning { border: 0 !important; background: transparent !important; padding: 0 !important; }
+.experience-heading, .operations-heading { display: flex; align-items: center; gap: 8px; font-size: 0.875rem !important; text-transform: none; letter-spacing: 0.04em; border-bottom: 1px solid #171717; padding-bottom: 6px; margin-bottom: 12px !important; }
+.experience-heading::before, .operations-heading::before { content: ""; width: 10px; height: 10px; background: #171717; }
+.experience-touch { border-left: 8px solid #1947B8 !important; padding-left: var(--space-2) !important; }
+.experience-touch-name { font-size: clamp(2.5rem, 1.6rem + 3vw, 4rem) !important; font-weight: 800; letter-spacing: -0.03em; }
+.operations-chips { gap: 0 !important; }
+.operations-chip { border: 0 !important; border-right: 1px solid #171717 !important; background: transparent !important; min-height: 44px; }

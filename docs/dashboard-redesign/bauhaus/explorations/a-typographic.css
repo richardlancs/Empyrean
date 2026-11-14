@@ -1,0 +1,23 @@
+/* Exploration A: asymmetric typographic composition.
+   The touched name is set as a poster headline across a wide left column; the
+   camera sits in a narrower right column; everything else is quiet text on rules. */
+.app-header { background: transparent; border-bottom: 0; }
+.app-header__inner { align-items: baseline; padding-block: var(--space-4) var(--space-2); }
+.app-brand__name { font-size: var(--text-xl); font-weight: 800; letter-spacing: -0.03em; }
+.app-header__tagline { font-size: var(--text-xl); font-weight: 300; letter-spacing: -0.02em; }
+@media (min-width: 64em) {
+  .app-layout {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    grid-template-areas:
+      "touch   camera"
+      "touch   health"
+      "warning warning"
+      "objects find"
+      "events  demo";
+    gap: var(--space-5) var(--space-6);
+  }
+}
+.experience-card, .operations-status, .operations-history { border: 0 !important; background: transparent !important; padding: 0 !important; border-top: 2px solid #171717 !important; padding-top: var(--space-2) !important; }
+.experience-touch-name { font-size: clamp(3rem, 2rem + 4.5vw, 6.5rem) !important; font-weight: 800 !important; letter-spacing: -0.04em; line-height: 0.95; }
+.experience-touch { border-top: 12px solid #1947B8 !important; }
+.operations-chip { border: 0 !important; background: transparent !important; padding-left: 0 !important; }
