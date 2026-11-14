@@ -24,10 +24,15 @@ SCRIPT = (
 class FakeHazard:
     """Publish one sample of each supported tier/type pairing repeatedly."""
 
-    def __init__(self, publish: Callable[[object], None]) -> None:
+    def __init__(self, publish: Callable[[object], None], *, autostart: bool = True) -> None:
         self._publish = publish
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, name="fake-hazard", daemon=True)
+        if autostart:
+            self.start()
+
+    def start(self) -> None:
+        """Start publishing after consumers have subscribed."""
         self._thread.start()
 
     def _run(self) -> None:
@@ -43,9 +48,10 @@ class FakeHazard:
     def stop(self) -> None:
         """Stop the fake event stream."""
         self._stop.set()
-        self._thread.join(timeout=1.0)
+        if self._thread.is_alive():
+            self._thread.join(timeout=1.0)
 
 
-def register(bus: Any) -> FakeHazard:
+def register(bus: Any, *, autostart: bool = True) -> FakeHazard:
     """Start the scripted hazard publisher using bus.publish."""
-    return FakeHazard(bus.publish)
+    return FakeHazard(bus.publish, autostart=autostart)

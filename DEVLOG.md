@@ -21,8 +21,6 @@ Copy this template. Keep it short. Never include keys or connection strings.
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
-- **Person 1 (`app/` start order):** with `--fake hazard`, the fake hazard starts publishing as soon as it is registered, before audio and dashboard have subscribed, so its first `HazardEvent` (vehicle, yolo) reaches nobody. Start the fake's thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
-- **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` fails on Person 4's Windows laptop, on a clean copy of `main` as well. Run directly, `python -m app --fake vision` starts fine, but audio startup (pyttsx3 and pygame) takes longer than the test's 1.4 s wait before vision publishes its first frame. Wait for the expected output line instead of a fixed sleep. Found by Person 4, 2026-11-14.
 - **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
 - **Person 1 (`app/` bus):** Person 3's modules are ready to be registered. Requests for `app/`:
   1. **Bus shape.** `namer.register(bus)`, `storage.register(bus)`, `fakes.namer.fake_namer.register(bus)` and `fakes.storage.fake_store.register(bus)` call only `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, keyed on the `contracts` class. If the bus uses a different shape, tell Person 3 before building against it.
@@ -70,6 +68,29 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 1 (app, fake hazard, tests), Codex
+**Changed:**
+- Fake hazard registration can defer playback; app starts it after all selected modules subscribe. The first vehicle event is no longer lost during startup. Direct fake users retain automatic startup by default; stopping an unstarted fake is safe.
+- CLI smoke test waits for a published-frame log with a bounded 15-second timeout instead of sleeping 1.4 seconds. It runs scene plus fake vision without loading audio, and cleans up the child process and output reader.
+- Added `python -m app --record-crops [DIRECTORY]`. Registers Person 3's existing background crop recorder before producers and stops it at shutdown. Each run gets a fresh `session-*` directory under `scratch/camera_crops` (or the selected directory), avoiding cross-run file collisions. The path is logged at startup.
+- Regression tests cover first fake-hazard delivery to a later subscriber, crop persistence across two sessions, and recorder shutdown. No audio files, shared contracts, thresholds, model choices, or other owners' modules changed.
+
+**Tested:**
+- Non-audio suite: `python -m pytest -q --ignore=tests/test_audio.py --ignore=tests/test_audio_pyttsx3.py --ignore=tests/test_speak_test.py`: 159 passed, 1 skipped (live database), one existing FastAPI/httpx deprecation warning.
+- After final cleanup, Person 1 app/hazard/vision tests: 15 passed. Ruff on app, fake hazard and app tests is clean; `git diff --check` is clean.
+- Tested on macOS with Python 3.14.10 in a new local `.venv`; Python 3.11 is not installed here. No real camera, Grok call, database credentials, or audio hardware used. Initial sandbox TCP failures disappeared with local port access enabled.
+
+**Decisions:**
+- Scope is Person 1's non-audio work. Existing module dependencies installed for tests only; no new runtime dependency added. Root dependency pinning remains pending Python 3.11 verification.
+- Voice input/transcription and spoken answers are outside this non-audio pass. New voice contracts and dependencies still need the agreement described in AGENTS.md and the voice-plan branch.
+
+**Teammates need to know:**
+- Run `python -m app --record-crops` on the demo laptop. Use the logged session's `manifest.csv`, fill `expected_brand` and `expected_product`, then run `python -m fakes.namer.eval_batch --manifest <session>/manifest.csv --results <session>/results.csv`.
+- Collect 5–10 real demo objects alone, with small labels, partly covered, and in groups. Real crop accuracy remains unmeasured here.
+- Still required: Python 3.11/Windows validation, Logitech camera tests, and real stairs/doorway/wall checks of the narrowed hazard prompt. Unit tests cannot establish the prompt's real-world detection accuracy.
+- Changes are local on `p1-vision`; not pushed or merged.
+
 
 ### 2026-11-14, Person 2 working in Person 3's `namer/`, Claude Code: brand names only when readable
 **Changed:**
