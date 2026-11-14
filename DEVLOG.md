@@ -18,6 +18,8 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 ## Needs attention
 
+- **IN PROGRESS — Person 4: missed tabletop objects in video (assigned by user, 2026-11-14).** Person 4 leads this investigation now. Coordinate with Person 1 for vision changes and Person 2 for camera footage and scene changes. See the handoff entry below; coordinate with Person 4 before duplicating work. Root cause and fix remain unverified.
+
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
@@ -70,6 +72,24 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, coordination (Person 4 assignment), Codex
+**Changed:** Recorded the user's assignment of the missed tabletop-object investigation to Person 4, working on it now. Documentation only; no runtime code, thresholds, contracts, or folder ownership changed.
+
+**Tested:** Inspected `vision/vision.py`, `config/thresholds.py`, and dashboard drawing paths. The pipeline supports multiple objects. Current code uses `yolo11s.pt`, 640 x 360 processed frames, ByteTrack, confidence 0.5, and a 2% minimum bounding-box area. Boxes without tracking IDs and the person class are excluded. No camera validation or runtime tests performed for this documentation-only update.
+
+**Decisions:**
+- Person 4 leads diagnosis and coordinates implementation with folder owners. The size filter is a suspect, not a confirmed cause: a 30 x 100 pixel bottle box falls below the 4,608 pixel minimum.
+- Compare the same recorded frames through raw YOLO boxes/confidence, tracking IDs, filtered `FrameResult.objects`, `SceneSnapshot`, and dashboard overlays. Identify where objects disappear.
+- First local experiment: `DET_MIN_AREA_FRACTION = 0.002` instead of `0.02`. Separately, if needed, try `DET_MIN_CONFIDENCE = 0.3` instead of `0.5`. Compare recovered objects, false detections, and tracking stability. These are experiments, not approved shared defaults.
+
+**Teammates need to know:**
+- **Person 2:** provide a short representative recording of the failing table scene, including the water bottle at different distances; assist with scene stabilization/touch issues. Recorded footage permits reproduction on this laptop without a live camera.
+- **Person 1:** coordinate diagnostics and fixes in `vision/`; preserve frame-loop and hazard performance.
+- **Person 4:** inspect dashboard rendering in your folder; gather before/after evidence from the same clip. Coordinate other-folder edits with their owners; this assignment does not transfer ownership.
+- **All four:** agree before committing shared configuration defaults. No model swap or training is authorized by this handoff.
+- **Completion:** run relevant regression tests and full `pytest`, document results and remaining camera limitations, and remove the Needs attention item once fixed.
+
 
 ### 2026-11-14, Person 2 working in Person 3's `namer/`, Claude Code: brand names only when readable
 **Changed:**
