@@ -18,9 +18,16 @@ log = logging.getLogger("namer")
 # Shape checked against docs.x.ai/docs/guides/image-understanding on 2026-11-13.
 GROK_RESPONSES_URL = "https://api.x.ai/v1/responses"
 
+# Departs from SPEC.md 4.5's wording: the original prompt let Grok guess a brand or
+# model from shape and colour ("Asus Zenbook" for any laptop). A brand is now named
+# only when it is printed and readable in the crop.
 INSTRUCTION = (
-    "Identify the product in this image. Reply with the brand and product type in at most "
-    "5 words. If no brand is readable, reply with the plain object name. No sentences."
+    "Name the object in this image. Only include a brand or model name if you can "
+    "actually read it printed on the object in this image. Never guess a brand from "
+    "the object's shape, colour or style. If a brand is readable, reply with the "
+    "brand and product type, for example 'Diet Coke can'. Otherwise reply with only "
+    "the plain object name, for example 'laptop' or 'water bottle'. At most 5 words. "
+    "No sentences."
 )
 
 _env_loaded = False

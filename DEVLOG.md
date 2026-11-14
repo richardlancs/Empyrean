@@ -33,6 +33,7 @@ Problems in someone else's folder go here. The owner removes the line once fixed
   6. **`--fake namer storage`.** Use the `register` functions in `fakes/namer/fake_namer.py` and `fakes/storage/fake_store.py`. They subscribe to the same message types as the real modules, so the rest of `app/` does not change.
 
 - **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed to your folder at their own request, outside the ownership rule. New `dashboard/video.py`, plus edits to `dashboard/server.py`, `dashboard/__init__.py`, `dashboard/index.html`, `dashboard/requirements.txt` and `tests/test_dashboard.py`, and a new `tests/test_dashboard_video.py`. Details are in the 2026-11-14 Person 2 entry below. Keep it, change it or revert it as you see fit, then remove this line. Nothing in `vision/` or `app/` changed, so Person 1 has nothing to do.
+- **Person 3 (`namer/grok_client.py`, please review):** Person 2 rewrote `INSTRUCTION` at their own request, outside the ownership rule, so Grok names a brand only when it is printed and readable. Details are in the 2026-11-14 Person 2 naming entry below. Keep, change or revert it, then remove this line.
 
 ## Contract changes
 
@@ -69,6 +70,19 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 2 working in Person 3's `namer/`, Claude Code: brand names only when readable
+**Changed:**
+- **Departs from SPEC.md 4.5's wording, `namer/grok_client.py`:** Grok was guessing brands and models from shape and colour, for example "Asus Zenbook" for a laptop with no visible logo. `INSTRUCTION` now says to include a brand or model only if it can be read printed on the object, never to guess from shape, colour or style, and otherwise to reply with the plain object name ("laptop", "water bottle"). Still at most 5 words, no sentences. Nothing else in `namer/` changed.
+
+**Tested:**
+- Real Grok (`GROK_MODEL` from `.env`), old prompt against new, two calls each: three live webcam frames, a drawn red can with no text, and the same can with "Diet Coke" printed on it. New prompt: "laptop" for every webcam frame, "can" for the blank can, "Diet Coke can" for the labelled one. Old prompt: once "White hoodie laptop sleeve", and "Red bottle" for the blank can.
+- **Not reproduced:** the exact over-guess the user saw (a brand invented for an unbranded object) did not happen with the old prompt on these images, so the fix is shown to keep readable brands and give plain names, not yet shown to remove that specific guess. Check on the demo objects.
+- Full `pytest` (`.venv`, Python 3.11.18): 182 passed, 1 skipped. `ruff check namer/` clean.
+
+**Teammates need to know:**
+- Person 3: please review the new prompt and rerun `fakes.namer.eval_batch` on your eval set; `brand_correct` may drop for items whose brand was only guessable, which is intended.
+- All four: SPEC.md 4.5's prompt wording now differs from the code, so it needs updating once you agree.
 
 ### 2026-11-14, Person 2 working in Person 4's `audio/` and Person 1's `hazard/`, Claude Code: silent speech and false hazards
 **Changed:**
