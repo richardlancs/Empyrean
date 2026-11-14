@@ -1,0 +1,43 @@
+# Python 3.11. Install with: python scripts/install_dependencies.py
+# Ultralytics is installed separately without dependencies so its opencv-python
+# requirement cannot overwrite MediaPipe's opencv-contrib-python cv2 package.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Camera, tracking and training. CPU wheels avoid downloading CUDA on Linux.
+numpy==1.26.4
+opencv-contrib-python==4.11.0.86
+mediapipe==0.10.21
+torch==2.14.0+cpu; sys_platform != "darwin"
+torchvision==0.29.0+cpu; sys_platform != "darwin"
+torch==2.14.0; sys_platform == "darwin"
+torchvision==0.29.0; sys_platform == "darwin"
+lap==0.5.13
+jax==0.7.1
+jaxlib==0.7.1
+protobuf==4.25.9
+
+# Ultralytics runtime dependencies (its wheel is in requirements-vision.txt).
+matplotlib==3.11.2
+pillow==13.0.0
+requests==2.34.2
+psutil==7.2.2
+polars==2.1.0
+nvidia-ml-py==13.615.71
+ultralytics-thop==2.2.5
+ultralytics-platform==0.1.111
+PyYAML==6.0.3
+scipy==1.17.1
+
+# Existing application, database, audio and dashboard.
+httpx==0.28.1
+psycopg[binary]==3.3.8
+python-dotenv==1.2.4
+pyttsx3==2.99
+pygame==2.6.1
+fastapi==0.162.7
+uvicorn[standard]==0.54.0
+websockets==17.4
+
+# Shared verification commands.
+pytest==9.2.0
+ruff==0.17.5

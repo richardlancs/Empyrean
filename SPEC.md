@@ -46,7 +46,7 @@ This is the whole stack. Do not substitute or add to it without all four people 
 |---|---|---|
 | Language | Python 3.11 | Everything |
 | Camera capture and drawing | OpenCV (`opencv-python`) | `vision/`, `dashboard/` |
-| Object detection and tracking | Ultralytics YOLO, nano model with COCO weights, built-in ByteTrack tracker | `vision/` |
+| Object detection and tracking | Ultralytics YOLO, small model (`yolo11s.pt`) with COCO weights, built-in ByteTrack tracker; Demo mode adds an explicitly installed demo-trained checkpoint (`vision/DEMO.md`) | `vision/` |
 | Hand tracking | MediaPipe Hands | `vision/` |
 | Brand naming and hazard check | A Grok model that accepts images, called over the Grok API with `httpx` | `namer/`, `hazard/` |
 | Database | Tiger Data (managed Postgres with time-series hypertables), `psycopg` 3 driver | `storage/` |
@@ -72,7 +72,7 @@ One Python 3.11 process on the laptop. Modules never call each other directly. T
 | # | Module | Folder | Owner | Subscribes to | Publishes | Built with |
 |---|---|---|---|---|---|---|
 | 1 | Camera capture | `vision/` | Person 1 | nothing | raw frames (internal to `vision/`) | OpenCV |
-| 2 | Object tracker | `vision/` | Person 1 | raw frames | part of `FrameResult` | Ultralytics YOLO nano, COCO weights, ByteTrack |
+| 2 | Object tracker | `vision/` | Person 1 | raw frames | part of `FrameResult` | Ultralytics YOLO small, COCO weights, ByteTrack |
 | 3 | Hand tracker | `vision/` | Person 1 | raw frames | part of `FrameResult` | MediaPipe Hands |
 | 4 | Hazard detector | `hazard/` | Person 1 | `FrameResult` | `HazardEvent` | YOLO classes plus Grok vision |
 | 5 | Scene database | `scene/` | Person 2 | `FrameResult`, `NameResult` | `SceneSnapshot`, `NameRequest` | In-memory state |
@@ -116,10 +116,10 @@ Shared folders:
 
 ### 4.2 Object tracking
 
-- Use the YOLO nano model with COCO weights and its built-in ByteTrack tracker so each object keeps the same `object_id` across frames.
-- Drop detections with confidence below 0.5.
+- Use the YOLO small model (`yolo11s.pt`) with COCO weights and its built-in ByteTrack tracker so each object keeps the same `object_id` across frames.
+- Drop detections with confidence below 0.3 (0.25 for the demo-trained detector).
 - Drop the `person` class. The wearer's own arm must never be an object.
-- Drop boxes smaller than 2% of the frame area.
+- Drop boxes smaller than 0.2% of the frame area.
 
 ### 4.3 Hand tracking
 
@@ -351,6 +351,34 @@ Added for the dashboard redesign. Published only for a `LastSeenQuery` that has 
 | `label` | text | Name or class label of the match, empty unless `found` |
 | `neighbours` | list of text | Neighbours recorded with the match |
 
+### `ModeChange` (dashboard to vision)
+
+A request to switch detectors (Regular or Demo). Vision answers with `DetectorStatus`; a `ModeChange` is never treated as confirmation.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When the switch was requested |
+| `mode` | text | `actual` (Regular: COCO `yolo11s.pt`) or `demo` (the demo-trained detector) |
+| `request_id` | text or empty | Optional; echoed by the `DetectorStatus` that answers it |
+
+### `DetectorStatus` (vision to dashboard)
+
+The only confirmation of a mode change. `active_mode` changes only after the replacement detector has been loaded, validated and swapped in at a frame boundary; until then the previous detector keeps running.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When this status was true |
+| `state` | text | `active`, `switching` or `failed` |
+| `active_mode` | text | `actual` or `demo`: the detector processing frames now |
+| `detector` | text | Plain identity of the active detector |
+| `requested_mode` | text or empty | Set while switching or after a failure |
+| `request_id` | text or empty | From the `ModeChange` this answers |
+| `checkpoint` | text | File, size and SHA-256 prefix of the loaded demo checkpoint |
+| `demo_kind` | text | `trained`, `prompt-fallback`, `fake` or `none` |
+| `demo_available` | true, false or empty | Empty until checked |
+| `message` | text | Why a switch failed, or how to make Demo available |
+| `fake` | true or false | True when vision is a fake (recorded clip): no model runs |
+
 ### `SpeakRequest` (anyone to audio)
 
 | Field | Type | Meaning |
@@ -447,8 +475,9 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 |---|---|---|
 | `PROCESS_FPS` | 5 | vision |
 | `PROCESS_WIDTH`, `PROCESS_HEIGHT` | 640, 360 | vision |
-| `DET_MIN_CONFIDENCE` | 0.5 | vision |
-| `DET_MIN_AREA_FRACTION` | 0.02 | vision |
+| `DET_MIN_CONFIDENCE` | 0.3 | vision |
+| `DET_MIN_AREA_FRACTION` | 0.002 | vision |
+| `DEMO_DET_MIN_CONFIDENCE` | 0.25 | vision |
 | `STABLE_FRAMES` | 5 | scene |
 | `LOST_KEEP_SECONDS` | 2.0 | scene |
 | `BOX_SHRINK_FRACTION` | 0.10 | scene |
@@ -474,6 +503,7 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 | `CAMERA_STALE_SECONDS` | 2.0 | dashboard |
 | `LAST_SEEN_TIMEOUT_SECONDS` | 8.0 | dashboard |
 | `THUMBNAIL_MAX_AGE_SECONDS` | 30.0 | dashboard |
+| `MODE_SWITCH_TIMEOUT_SECONDS` | 30.0 | dashboard |
 
 ---
 

@@ -19,8 +19,10 @@ from dashboard.api.schemas import (
     LastSeenAccepted,
     LastSeenRequest,
     LastSeenStatus,
+    ModeRequest,
 )
 from dashboard.services.container import DashboardServices
+from dashboard.services.detector_mode import ModeRejected
 from dashboard.services.last_seen import QueryRejected
 from dashboard.video import BOUNDARY, OverlayOptions, mjpeg_stream
 
@@ -102,6 +104,31 @@ def build_router(services: DashboardServices) -> APIRouter:
         if record is None:
             return _error(404, "That search is unknown or has expired. Search again.")
         return LastSeenStatus(**{k: record[k] for k in LastSeenStatus.model_fields})
+
+    @router.post(
+        "/api/mode",
+        responses={202: {"description": "Switch requested"}, 409: {"model": ErrorBody}, 503: {"model": ErrorBody}},
+    )
+    async def set_mode(body: ModeRequest) -> Any:
+        """Ask vision to switch detector (Regular "actual" or Demo "demo").
+
+        202 means only "requested": the page shows the new mode as active after
+        vision confirms it with DetectorStatus. 200 means it is already active.
+        """
+        try:
+            reply = services.detector_mode.request(body.mode)
+        except ModeRejected as exc:
+            return _error(exc.status_code, exc.message)
+        LOGGER.info("Detector switch to %s requested from the dashboard", body.mode)
+        return JSONResponse(
+            {**reply, "detector": services.detector_mode.view()},
+            status_code=202 if reply["state"] == "switching" else 200,
+        )
+
+    @router.get("/api/mode")
+    async def get_mode() -> dict[str, Any]:
+        """Return the detector state as vision last reported it."""
+        return services.detector_mode.view()
 
     @router.get(
         "/api/objects/{object_id}/thumbnail",

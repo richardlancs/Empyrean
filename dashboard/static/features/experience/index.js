@@ -14,6 +14,7 @@ import { createTouchCard } from "./touch-card.js";
 import {
   selectCamera,
   selectCurrentTouch,
+  selectDetector,
   selectFindAvailability,
   selectObjects,
   selectSpeech,
@@ -26,6 +27,8 @@ import {
 const TICK_MS = 1000;
 const STREAM_RETRY_MIN_MS = 1000;
 const STREAM_RETRY_MAX_MS = 10000;
+/** Longest wait for the shared state to show this page's accepted switch. */
+const HANDOFF_MS = 5000;
 const PREFS_KEY = "empyrean.experience.camera";
 
 function loadCameraPrefs() {
@@ -76,6 +79,9 @@ export function mountExperience(ctx) {
   let lastCameraKind = null;
   let findView = { status: "idle", query: "", answer: "", matchedAt: null, message: "" };
   let findGeneration = 0;
+  // This page's own detector request; the engine's DetectorStatus stays the truth.
+  let detectorLocal = { sending: null, error: null, requestId: null, at: null };
+  let detectorHandoff = null;
 
   const touchCard = roots.touch ? createTouchCard(roots.touch) : null;
   const cameraPanel = roots.camera
@@ -91,6 +97,7 @@ export function mountExperience(ctx) {
           saveCameraPrefs(camera);
           render();
         },
+        onDetector: (mode) => chooseDetector(mode),
       })
     : null;
   const objectList = roots.objects
@@ -124,6 +131,48 @@ export function mountExperience(ctx) {
         onRetry: () => lastSeen.retry(),
       })
     : null;
+
+  /**
+   * Ask the engine for a detector. One request at a time; nothing reads as active until
+   * vision confirms it. Outcomes are read out by the control's own status line.
+   */
+  async function chooseDetector(mode) {
+    const vm = selectDetector(snapshot, detectorLocal);
+    if (vm.locked || detectorLocal.sending || vm.pressed === mode) return;
+    detectorLocal = { sending: mode, error: null, requestId: null, at: null };
+    render();
+    try {
+      const reply = await ctx.request("/api/mode", { method: "POST", body: { mode } });
+      if (disposed) return;
+      if (reply?.state === "switching" && reply.request_id) {
+        // Stay locked until the shared state shows this request, so a quick second
+        // click cannot slip in between the reply and the next snapshot.
+        if (snapshot.state?.detector?.request_id === reply.request_id) {
+          detectorLocal = { sending: null, error: null, requestId: null, at: null };
+          render();
+          return;
+        }
+        detectorLocal = { ...detectorLocal, requestId: reply.request_id };
+        clearTimeout(detectorHandoff);
+        detectorHandoff = setTimeout(() => {
+          detectorHandoff = null;
+          detectorLocal = { sending: null, error: null, requestId: null, at: null };
+          render();
+        }, HANDOFF_MS);
+        return;
+      }
+      detectorLocal = { sending: null, error: null, requestId: null, at: null };
+    } catch (error) {
+      if (disposed) return;
+      const message = error?.status === 409
+        ? "Another switch is already in progress."
+        : error?.kind === "timeout" || error?.kind === "network"
+          ? "The request did not reach the laptop."
+          : error?.message || "The switch was refused.";
+      detectorLocal = { sending: null, error: message, requestId: null, at: snapshot.state?.detector?.updated_ts ?? null };
+    }
+    render();
+  }
 
   function scheduleStreamRetry() {
     if (streamRetryTimer !== null || disposed) return;
@@ -161,6 +210,7 @@ export function mountExperience(ctx) {
       announce(`Camera: ${cam.title}`, { priority: "polite", key: `camera:${cam.kind}:${frameTs}` });
     }
     lastCameraKind = cam.kind;
+
   }
 
   function render() {
@@ -184,6 +234,7 @@ export function mountExperience(ctx) {
         streamNonce,
       ),
     );
+    cameraPanel?.updateDetector(selectDetector(snapshot, detectorLocal));
     objectList?.update(selectObjects(snapshot, prefs, nowMs));
     findPanel?.update(
       selectFindAvailability(snapshot.state),
@@ -200,6 +251,12 @@ export function mountExperience(ctx) {
     if (connected && !wasConnected && snapshot.receivedAt !== null) streamNonce += 1;
     wasConnected = connected;
     snapshot = next;
+    const requestId = next.state?.detector?.request_id;
+    if (detectorLocal.requestId && (requestId === detectorLocal.requestId || !connected)) {
+      clearTimeout(detectorHandoff);
+      detectorHandoff = null;
+      detectorLocal = { sending: null, error: null, requestId: null, at: null };
+    }
     render();
   });
   const ticker = setInterval(render, TICK_MS);
@@ -209,6 +266,7 @@ export function mountExperience(ctx) {
     if (typeof unsubscribe === "function") unsubscribe();
     clearInterval(ticker);
     if (streamRetryTimer !== null) clearTimeout(streamRetryTimer);
+    clearTimeout(detectorHandoff);
     lastSeen.dispose();
     touchCard?.destroy();
     cameraPanel?.destroy();

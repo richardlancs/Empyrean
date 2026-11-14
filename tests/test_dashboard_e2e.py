@@ -114,6 +114,7 @@ def test_engine_events_reach_the_page_over_the_real_websocket(running: tuple[Any
     assert state["diagnostics"]["scene"]["mode"] == "real"
     assert state["capabilities"] == {
         "last_seen": True, "thumbnails": True, "overlays": True, "speech_status": True,
+        "mode_switch": True,  # Regular/Demo detector switching (feature/demo-model-toggle)
     }
     statuses = {o["naming_status"] for o in state["objects"]}
     assert statuses <= {"pending", "named", "fallback", "failed", "unknown"}

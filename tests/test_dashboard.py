@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from config import HAZARD_COOLDOWN_SECONDS
 from contracts import (
+    DetectorStatus,
     FrameResult,
     HazardEvent,
     LastSeenResult,
@@ -137,6 +138,7 @@ def test_register_and_real_events_are_not_simulated() -> None:
     # telemetry and correlation inputs (docs/dashboard-redesign/api.md).
     original = {HazardEvent, TouchEvent, FrameResult, SceneSnapshot}
     added = {NameRequest, NameResult, SpeechStatus, ModuleStatus, LastSeenResult}
+    added |= {DetectorStatus}  # Regular/Demo: vision's confirmation of a detector switch
     assert set(bus.subscribers) == original | added
 
     bus.publish(HazardEvent(ts=NOW, type="vehicle", source="yolo", confidence=0.91))

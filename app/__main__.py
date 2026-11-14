@@ -7,9 +7,11 @@ import importlib
 import inspect
 import logging
 import os
+import tempfile
 import threading
 import time
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -170,7 +172,11 @@ def _lifecycle(module: str, status: str, mode: str, detail: str) -> ModuleStatus
     )
 
 
-def start(only: str | None = None, fakes: Sequence[str] = ()) -> RunningApp:
+def start(
+    only: str | None = None,
+    fakes: Sequence[str] = (),
+    record_crops: Path | None = None,
+) -> RunningApp:
     """Load environment settings and register selected modules with a fresh bus."""
     load_dotenv()
     os.environ.setdefault("CAMERA_INDEX", "0")
@@ -203,6 +209,14 @@ def start(only: str | None = None, fakes: Sequence[str] = ()) -> RunningApp:
             lifecycle.append(_lifecycle(name, "starting", mode, detail))
         else:
             lifecycle.append(_lifecycle(name, "offline", mode, "Not available"))
+    if record_crops is not None:
+        # From main (vision/DEMO.md rehearsal): save naming crops for later review.
+        from fakes.namer.crop_recorder import register as register_recorder
+
+        record_crops.mkdir(parents=True, exist_ok=True)
+        session = Path(tempfile.mkdtemp(prefix="session-", dir=record_crops))
+        instances.append(register_recorder(bus, out_dir=session))
+        log.info("Recording naming crops to %s", session)
     # Lifecycle facts for the dashboard. A module's own later status wins over these.
     for message in lifecycle:
         if message.module != "dashboard":
@@ -220,10 +234,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run Empyrean")
     parser.add_argument("--only", choices=MODULES)
     parser.add_argument("--fake", nargs="+", metavar="MODULE", default=[])
+    parser.add_argument(
+        "--record-crops", type=Path, nargs="?",
+        const=Path("scratch/camera_crops"),
+        help="Save naming crops in a fresh session folder under this directory",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     try:
-        running = start(only=args.only, fakes=args.fake)
+        running = start(only=args.only, fakes=args.fake, record_crops=args.record_crops)
     except ValueError as exc:
         parser.error(str(exc))
     stop = threading.Event()

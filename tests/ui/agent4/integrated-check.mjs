@@ -151,8 +151,8 @@ if (scenario === "normal") {
   const camera = await waitText(a.page, "camera-panel", /Live|recorded clip/, 10000);
   check("recorded clip is labelled, not shown as a camera", /recorded clip/.test(camera || ""));
   const health = await text(a.page, "health-panel");
-  // Fakes are labelled either per module "(fake)" or by a visible "Demo mode" tag plus the count.
-  check("fake modules are labelled fake", (/\(fake\)/.test(health) || /Demo mode/.test(health)) && /running as fake/.test(health));
+  // Fakes are labelled either per module "(fake)" or by a visible "Fake inputs" tag plus the count.
+  check("fake modules are labelled fake", (/\(fake\)/.test(health) || /Fake inputs/.test(health)) && /running as fake/.test(health));
   const touch = await waitText(a.page, "touch-panel", /Demo audio — no sound/, 15000);
   check("fake audio is never shown as real playback", touch !== null);
   const objects = await text(a.page, "objects-panel");

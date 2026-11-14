@@ -43,3 +43,11 @@ class ErrorBody(BaseModel):
     """Every error reply: one plain sentence the page can show."""
 
     detail: str
+
+
+class ModeRequest(BaseModel):
+    """POST /api/mode body (main's shape): {"mode": "actual" | "demo"}."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["actual", "demo"]

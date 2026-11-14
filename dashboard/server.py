@@ -28,6 +28,7 @@ from dashboard import bus_adapter
 from dashboard.api.realtime import ClientHub, build_realtime_router
 from dashboard.api.routes import INDEX_PATH, build_router
 from dashboard.services.container import DashboardServices
+from dashboard.services.detector_mode import DetectorModeService
 from dashboard.services.heartbeat import Heartbeat
 from dashboard.services.last_seen import LastSeenService
 from dashboard.state import DashboardState
@@ -58,6 +59,7 @@ class Dashboard:
         *,
         last_seen: LastSeenService | None = None,
         thumbnails: ThumbnailCache | None = None,
+        detector_mode: DetectorModeService | None = None,
     ) -> None:
         """Hold the services; call serve() to start the web page."""
         self.state = state
@@ -65,8 +67,10 @@ class Dashboard:
         self.video = video if video is not None else VideoFeed()
         self.thumbnails = thumbnails if thumbnails is not None else ThumbnailCache()
         self.last_seen = last_seen if last_seen is not None else LastSeenService(None)
+        self.detector_mode = detector_mode if detector_mode is not None else DetectorModeService(None)
         self.state.thumbnails = self.thumbnails
         self.state.last_seen = self.last_seen
+        self.state.detector_mode = self.detector_mode
         self.heartbeat = Heartbeat(self.tick)
         self._server: Any = None
         self._thread: threading.Thread | None = None
@@ -74,11 +78,14 @@ class Dashboard:
     @property
     def services(self) -> DashboardServices:
         """The services the routes call into."""
-        return DashboardServices(self.state, self.video, self.last_seen, self.thumbnails)
+        return DashboardServices(
+            self.state, self.video, self.last_seen, self.thumbnails, self.detector_mode
+        )
 
     def tick(self) -> None:
         """Expire old searches and pictures, then push the state to open pages."""
         self.last_seen.expire()
+        self.detector_mode.expire()
         self.thumbnails.expire()
         self.state.tick()
 
@@ -140,7 +147,9 @@ def register(
     published on this bus for storage/ to answer.
     """
     dashboard = Dashboard(
-        state or DashboardState(), last_seen=LastSeenService(bus.publish)
+        state or DashboardState(),
+        last_seen=LastSeenService(bus.publish),
+        detector_mode=DetectorModeService(bus.publish),
     )
     bus_adapter.connect(bus, dashboard.services)
     if serve:
@@ -154,14 +163,16 @@ def create_app(
     *,
     last_seen: LastSeenService | None = None,
     thumbnails: ThumbnailCache | None = None,
+    detector_mode: DetectorModeService | None = None,
 ) -> FastAPI:
     """Build the dashboard web app (new empty services for anything not given)."""
     state = state if state is not None else DashboardState()
     thumbnails = _first(thumbnails, state.thumbnails, ThumbnailCache)
     last_seen = _first(last_seen, state.last_seen, lambda: LastSeenService(None))
-    state.thumbnails, state.last_seen = thumbnails, last_seen
+    detector_mode = _first(detector_mode, state.detector_mode, lambda: DetectorModeService(None))
+    state.thumbnails, state.last_seen, state.detector_mode = thumbnails, last_seen, detector_mode
     video = video if video is not None else VideoFeed()
-    return _build_app(DashboardServices(state, video, last_seen, thumbnails))
+    return _build_app(DashboardServices(state, video, last_seen, thumbnails, detector_mode))
 
 
 def _first(given: Any, attached: Any, make: Any) -> Any:
@@ -179,6 +190,7 @@ def _build_app(services: DashboardServices) -> FastAPI:
     hub = ClientHub(services.state.snapshot)
     services.state.add_listener(hub.push)
     services.last_seen.add_listener(hub.push)
+    services.detector_mode.add_listener(hub.push)
     app.include_router(build_router(services))
     app.include_router(build_realtime_router(hub))
     if STATIC_DIR.is_dir():

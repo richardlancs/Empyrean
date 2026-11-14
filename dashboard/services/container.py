@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from dashboard.services.detector_mode import DetectorModeService
 from dashboard.services.last_seen import LastSeenService
 from dashboard.state import DashboardState
 from dashboard.thumbnails import ThumbnailCache
@@ -18,3 +19,4 @@ class DashboardServices:
     video: VideoFeed
     last_seen: LastSeenService
     thumbnails: ThumbnailCache
+    detector_mode: DetectorModeService

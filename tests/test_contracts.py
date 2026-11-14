@@ -8,11 +8,13 @@ from pathlib import Path
 import config
 import contracts
 from contracts import (
+    DetectorStatus,
     FrameResult,
     Hand,
     HazardEvent,
     LastSeenQuery,
     LastSeenResult,
+    ModeChange,
     ModuleStatus,
     NameRequest,
     NameResult,
@@ -117,6 +119,20 @@ def _all_messages() -> list[object]:
             detail="",
         ),
         ModuleStatus(ts=TS, module="audio", status="active", mode="fake", detail=""),
+        ModeChange(ts=TS, mode="demo", request_id="m1"),
+        DetectorStatus(
+            ts=TS,
+            state="active",
+            active_mode="demo",
+            detector="Demo-trained detector",
+            requested_mode=None,
+            request_id="m1",
+            checkpoint="demo-yolo11s.pt",
+            demo_kind="trained",
+            demo_available=True,
+            message="",
+            fake=False,
+        ),
     ]
 
 
@@ -177,7 +193,7 @@ def test_list_fields_default_to_empty() -> None:
 def test_config_matches_spec_section_9() -> None:
     """config has every section 9 name with the spec's value and type, and nothing else."""
     spec = _spec_thresholds()
-    assert len(spec) == 30  # 27 original + 3 dashboard redesign values
+    assert len(spec) == 32  # 27 original + 3 redesign + DEMO_DET_MIN_CONFIDENCE + MODE_SWITCH_TIMEOUT_SECONDS
     assert set(config.__all__) == set(spec)
     for name, value in spec.items():
         actual = getattr(config, name)

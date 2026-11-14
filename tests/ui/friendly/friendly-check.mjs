@@ -73,7 +73,7 @@ if (!only || only === "fake") {
     await f.page.locator("#health-panel summary", { hasText: "System details" }).click();
     return ["Camera", "Object tracking", "Naming", "Storage", "Audio"].every((m) => t.includes(m)) && /fake/.test(t);
   })());
-  check("demo mode is marked in the status line", /Demo mode/.test(await text(f.page, "#health-panel")));
+  check("fake inputs are marked in the status line", /Fake inputs/.test(await text(f.page, "#health-panel")));
 
   const sizes = await f.page.evaluate(() => {
     const px = (sel) => parseFloat(getComputedStyle(document.querySelector(sel)).fontSize);

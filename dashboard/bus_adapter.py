@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from contracts import (
+    DetectorStatus,
     FrameResult,
     HazardEvent,
     LastSeenResult,
@@ -48,3 +49,5 @@ def connect(bus: Any, services: DashboardServices) -> None:
     bus.subscribe(SpeechStatus, state.on_speech)
     bus.subscribe(ModuleStatus, state.on_module_status)
     bus.subscribe(LastSeenResult, last_seen.on_result)
+    # Regular/Demo: vision's DetectorStatus is the only confirmation of a switch.
+    bus.subscribe(DetectorStatus, services.detector_mode.on_status)

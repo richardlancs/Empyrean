@@ -12,7 +12,7 @@
 
 export const DIAGNOSTIC_KEYS = Object.freeze(["camera", "scene", "naming", "storage", "audio"]);
 export const DIAGNOSTIC_STATUSES = Object.freeze(["starting", "active", "degraded", "offline", "unknown"]);
-export const CAPABILITY_KEYS = Object.freeze(["last_seen", "thumbnails", "overlays", "speech_status"]);
+export const CAPABILITY_KEYS = Object.freeze(["last_seen", "thumbnails", "overlays", "speech_status", "mode_switch"]);
 const CAMERA_MEASUREMENTS = Object.freeze(["last_frame_ts", "fps", "width", "height"]);
 
 /** True for a non-null, non-array object. */
@@ -100,6 +100,7 @@ export function normalizeState(raw) {
     latest_simulated_warning: warnings.simulated,
     current_touch: recordOrNull(raw.current_touch),
     speech: recordOrNull(raw.speech),
+    detector: recordOrNull(raw.detector),
     diagnostics: normalizeDiagnostics(raw.diagnostics),
     capabilities: normalizeCapabilities(raw.capabilities),
   };

@@ -7,8 +7,9 @@ spec's "Used by" column.
 PROCESS_FPS = 5  # vision
 PROCESS_WIDTH = 640  # vision
 PROCESS_HEIGHT = 360  # vision
-DET_MIN_CONFIDENCE = 0.5  # vision
-DET_MIN_AREA_FRACTION = 0.02  # vision
+DET_MIN_CONFIDENCE = 0.3  # vision
+DET_MIN_AREA_FRACTION = 0.002  # vision
+DEMO_DET_MIN_CONFIDENCE = 0.25  # vision
 STABLE_FRAMES = 5  # scene
 LOST_KEEP_SECONDS = 2.0  # scene
 BOX_SHRINK_FRACTION = 0.10  # scene
@@ -34,11 +35,13 @@ DASHBOARD_PORT = 8000  # dashboard
 CAMERA_STALE_SECONDS = 2.0  # dashboard: no frame for this long means stale
 LAST_SEEN_TIMEOUT_SECONDS = 8.0  # dashboard: longer than storage connect timeout
 THUMBNAIL_MAX_AGE_SECONDS = 30.0  # dashboard
+MODE_SWITCH_TIMEOUT_SECONDS = 30.0  # dashboard: no detector confirmation this long means failed
 
 __all__ = [
     "BOX_SHRINK_FRACTION",
     "CAMERA_STALE_SECONDS",
     "DASHBOARD_PORT",
+    "DEMO_DET_MIN_CONFIDENCE",
     "DET_MIN_AREA_FRACTION",
     "DET_MIN_CONFIDENCE",
     "HAZARD_COOLDOWN_SECONDS",
@@ -54,6 +57,7 @@ __all__ = [
     "LAST_SEEN_TIMEOUT_SECONDS",
     "LATE_NAME_WINDOW_SECONDS",
     "LOST_KEEP_SECONDS",
+    "MODE_SWITCH_TIMEOUT_SECONDS",
     "NAME_CROP_PADDING",
     "NAME_MAX_CHARS",
     "NAME_MAX_IN_FLIGHT",

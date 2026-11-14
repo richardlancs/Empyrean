@@ -2,11 +2,13 @@
 
 from contracts.messages import (
     Box,
+    DetectorStatus,
     FrameResult,
     Hand,
     HazardEvent,
     LastSeenQuery,
     LastSeenResult,
+    ModeChange,
     ModuleStatus,
     NameRequest,
     NameResult,
@@ -21,11 +23,13 @@ from contracts.messages import (
 
 __all__ = [
     "Box",
+    "DetectorStatus",
     "FrameResult",
     "Hand",
     "HazardEvent",
     "LastSeenQuery",
     "LastSeenResult",
+    "ModeChange",
     "ModuleStatus",
     "NameRequest",
     "NameResult",

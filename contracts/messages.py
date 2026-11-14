@@ -166,3 +166,37 @@ class ModuleStatus:
     status: Literal["starting", "active", "degraded", "offline", "unknown"]
     mode: Literal["real", "fake", "unknown"] = "unknown"
     detail: str = ""  # short plain reason; never a key or connection string
+
+
+@dataclass
+class ModeChange:
+    """Dashboard to vision: a request to switch detectors (from main, extended).
+
+    Vision answers with DetectorStatus; a ModeChange is never a confirmation.
+    """
+
+    ts: float  # when the switch was requested
+    mode: Literal["actual", "demo"]  # actual: general COCO detector. demo: demo detector
+    request_id: str | None = None  # optional; echoed in the DetectorStatus that answers it
+
+
+@dataclass
+class DetectorStatus:
+    """Vision to dashboard: which detector is really running, and any switch in progress.
+
+    This is the only confirmation of a mode change. active_mode is what the
+    frame loop uses now; it changes only after the replacement detector is
+    loaded, validated and swapped in.
+    """
+
+    ts: float  # when this status was true
+    state: Literal["active", "switching", "failed"]
+    active_mode: Literal["actual", "demo"]  # the detector processing frames now
+    detector: str  # plain identity of the active detector, never a guess
+    requested_mode: Literal["actual", "demo"] | None = None  # set while switching or after a failure
+    request_id: str | None = None  # from the ModeChange this answers, if any
+    checkpoint: str = ""  # file, size, SHA-256 prefix of the loaded demo checkpoint
+    demo_kind: Literal["trained", "prompt-fallback", "fake", "none"] = "none"
+    demo_available: bool | None = None  # None: not checked yet
+    message: str = ""  # why a switch failed, or how to make Demo available
+    fake: bool = False  # True when vision is a fake (recorded clip): no model runs

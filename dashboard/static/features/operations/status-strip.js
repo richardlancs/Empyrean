@@ -11,7 +11,7 @@ export function createStatusStrip(root) {
   // Friendly clarity: one compact line (connection, mode, summary); everything else is in
   // "System details". The heading stays for screen-reader navigation but is not drawn.
   const heading = el("h2", { className: "operations-heading operations-sr-only", text: "System status", attrs: { id: headingId } });
-  const mode = el("span", { className: "operations-mode", text: "Demo mode", attrs: { hidden: "" } });
+  const mode = el("span", { className: "operations-mode", text: "Fake inputs", attrs: { hidden: "" } });
 
   const connection = el("p", { className: "operations-connection" });
   const connectionText = el("span", { className: "operations-connection-text" });
@@ -91,6 +91,7 @@ export function createStatusStrip(root) {
         chip(m);
         detailRow(m);
       }
+      if (model.detector) detailRow({ id: "detector", ...model.detector });
       setText(summary, model.summary);
       section.dataset.attention = String(model.attention);
       const demo = model.modules.some((m) => m.fake);

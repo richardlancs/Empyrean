@@ -252,6 +252,23 @@ const CONNECTION = {
   },
 };
 
+const DETECTOR_STATE = { active: "Active", switching: "Switching", failed: "Last switch failed", unknown: "Not reported" };
+
+/** System details row for the running detector: its identity and checkpoint, as vision reported them. */
+export function selectDetectorDetails(state, connected) {
+  const d = state && typeof state.detector === "object" ? state.detector : null;
+  if (!d) return { label: "Detector", statusLabel: "Not reported", tone: "unknown", detail: "This server does not report the detector.", facts: [] };
+  const mode = d.active_mode === "demo" ? "Demo" : d.active_mode === "actual" ? "Regular" : null;
+  let statusLabel = DETECTOR_STATE[d.state] || "Not reported";
+  if (mode && d.state !== "unknown") statusLabel = `${mode}: ${statusLabel.toLowerCase()}`;
+  if (!connected) statusLabel = `${statusLabel} (last known)`;
+  const facts = [];
+  if (d.checkpoint) facts.push({ label: "Demo checkpoint", value: d.checkpoint });
+  if (d.message && d.state !== "active") facts.push({ label: "Note", value: d.message });
+  const tone = d.state === "failed" ? "caution" : d.state === "active" ? (connected ? "ok" : "neutral") : "unknown";
+  return { label: "Detector", statusLabel, tone, detail: d.detector || "Vision has not reported which detector is running.", facts };
+}
+
 /**
  * Build the status strip model from real telemetry.
  * Missing diagnostics mean "unknown", never "working". The only thing the browser adds is
@@ -325,6 +342,7 @@ export function selectHealth({ state, connection, nowSeconds }) {
   return {
     connection: { state: connection, label: conn.label, tone: conn.tone, detail: conn.detail },
     modules,
+    detector: selectDetectorDetails(state, connected),
     summary: parts.join(" · "),
     attention: counts.attention > 0 || conn.tone === "error",
   };

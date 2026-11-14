@@ -392,3 +392,109 @@ export function selectFindAvailability(state) {
   }
   return { enabled: true, reason: "" };
 }
+
+// ---------------------------------------------------------------------------
+// Detector choice (Regular | Demo). The engine's DetectorStatus is the truth:
+// a button reads as active only after vision confirms it; a request in flight,
+// a switch in progress, a failure or a lost connection each say so in words.
+
+const MODE_NAME = { actual: "Regular", demo: "Demo" };
+const SUPPORT = {
+  actual: "General-purpose object detection.",
+  trained: "Custom model trained for our demo objects.",
+  "prompt-fallback": "Fallback detector using visual prompts. This is not the demo-trained model.",
+  fake: "Test clip: no detector runs, so this choice changes only the label.",
+};
+const BADGE = {
+  trained: "Demo-trained model",
+  "prompt-fallback": "Demo fallback, not trained",
+  fake: "Demo label only (fake vision)",
+};
+
+/** The checkpoint's recorded training status, e.g. "experimental; NOT demo-ready", or "". */
+export function checkpointStatus(checkpoint) {
+  const match = /status: (.+)$/.exec(typeof checkpoint === "string" ? checkpoint : "");
+  return match ? match[1].trim() : "";
+}
+
+/**
+ * View model for the Regular | Demo control.
+ * local = { sending, error, at } for this page's own request only: sending is the mode asked
+ * for, error a refusal message, at the detector updated_ts when it was refused.
+ */
+export function selectDetector(snapshot, local = { sending: null, error: null }) {
+  const state = snapshot?.state ?? null;
+  const connected = snapshot?.connection === "connected";
+  const d = state?.detector ?? null;
+  const base = {
+    visible: true,
+    locked: true,
+    pressed: null,
+    busy: null,
+    tone: "neutral",
+    status: "",
+    support: "",
+    note: "",
+    badge: null,
+  };
+  if (!state) return { ...base, status: "Waiting for the dashboard to connect." };
+  if (!state.capabilities?.mode_switch || !d) {
+    return { ...base, status: "Choosing a detector is not available on this server." };
+  }
+  if (d.state === "unknown" || !MODE_NAME[d.active_mode]) {
+    return { ...base, status: "Vision has not reported which detector is running yet." };
+  }
+
+  const active = d.active_mode;
+  const kind = active === "demo" ? d.demo_kind : null;
+  const vm = {
+    ...base,
+    locked: false,
+    pressed: active,
+    support: active === "demo" ? SUPPORT[kind] || "Demo detector." : SUPPORT.actual,
+    badge: active === "demo" && BADGE[kind] ? { kind, text: BADGE[kind] } : null,
+    tone: "ok",
+    status: `${MODE_NAME[active]} is active.`,
+  };
+  const recorded = kind === "trained" ? checkpointStatus(d.checkpoint) : "";
+  if (recorded && !/^demo-ready$/i.test(recorded)) vm.note = `Checkpoint status: ${recorded}.`;
+  if (d.fake && active === "actual") vm.note = "Test clip: no detector is running.";
+  if (d.demo_available === false && active === "actual" && !d.fake) vm.note = "No demo-trained checkpoint is installed.";
+
+  const other = active === "demo" ? "actual" : "demo";
+  if (!connected) {
+    return {
+      ...vm,
+      locked: true,
+      tone: "neutral",
+      status: `Disconnected. ${MODE_NAME[active]} was active when the page lost its connection; switching resumes after it reconnects.`,
+    };
+  }
+  if (d.state === "switching") {
+    const target = MODE_NAME[d.switching_to] ? d.switching_to : other;
+    return {
+      ...vm,
+      locked: true,
+      busy: target,
+      tone: "busy",
+      status: `Switching to ${MODE_NAME[target]}… ${MODE_NAME[active]} stays on until ${MODE_NAME[target]} is ready.`,
+    };
+  }
+  if (local.sending) {
+    return { ...vm, locked: true, busy: local.sending, tone: "busy", status: `Asking to switch to ${MODE_NAME[local.sending]}…` };
+  }
+  if (d.state === "failed") {
+    const failed = MODE_NAME[d.failed_mode] || null;
+    const lead = failed ? `Could not switch to ${failed}.` : "The last switch did not complete.";
+    return {
+      ...vm,
+      tone: "error",
+      status: `${lead} Still using ${MODE_NAME[active]}. ${d.message || ""}`.trim(),
+    };
+  }
+  // This page's refused request, until the engine reports anything newer.
+  if (local.error && (local.at ?? null) === (d.updated_ts ?? null)) {
+    return { ...vm, tone: "error", status: `${local.error} Still using ${MODE_NAME[active]}.` };
+  }
+  return vm;
+}

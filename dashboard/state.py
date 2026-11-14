@@ -84,6 +84,7 @@ class DashboardState:
         # Attached by register()/create_app(); None means the capability is absent.
         self.thumbnails: Any = None
         self.last_seen: Any = None
+        self.detector_mode: Any = None  # DetectorModeService; None means no switching
 
     def add_listener(self, listener: Callable[[], None]) -> None:
         """Call listener (from the updating thread) after every change."""
@@ -308,6 +309,7 @@ class DashboardState:
             "current_touch": current_touch,
             "last_touch": last_touch,
             "speech": speech,
+            "detector": self.detector_mode.view() if self.detector_mode is not None else None,
             "diagnostics": self.health.diagnostics(),
             "capabilities": {
                 # Searching needs a bus and a storage module running in this launch.
@@ -321,6 +323,7 @@ class DashboardState:
                 ),
                 "overlays": True,
                 "speech_status": speech_reported,
+                "mode_switch": bool(self.detector_mode is not None and self.detector_mode.available),
             },
         }
 

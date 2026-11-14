@@ -3,6 +3,7 @@
 // decides the stream URL and options; this module only shows them and reports
 // user intent and <img> load/error through callbacks.
 
+import { createDetectorSwitch } from "./detector-switch.js";
 import { el, setHidden, setText, uniqueId } from "./dom.js";
 
 const LEGEND = [
@@ -24,9 +25,10 @@ function fullscreenApi(node) {
 /**
  * Build the camera panel. Callbacks:
  * onStream(status) with "loading" | "loaded" | "error";
- * onOption(name, value) for boxes | hands | labels | fit.
+ * onOption(name, value) for boxes | hands | labels | fit;
+ * onDetector(mode) when the Regular | Demo control is chosen.
  */
-export function createCameraPanel(root, { onStream, onOption }) {
+export function createCameraPanel(root, { onStream, onOption, onDetector = () => {} }) {
   const headingId = uniqueId("experience-camera-heading");
   const stateTitle = el("span", { class: "experience-camera-state-title" });
   const stateDetail = el("span", { class: "experience-muted" });
@@ -105,10 +107,20 @@ export function createCameraPanel(root, { onStream, onOption }) {
     overlayGroup,
     legend,
   );
+  // Regular | Demo sits right under the heading; its badge stays beside the heading
+  // for as long as vision reports the demo detector.
+  const detectorMount = el("div", { class: "experience-detector-mount" });
+  const detector = createDetectorSwitch(detectorMount, { onChoose: onDetector });
   const card = el(
     "section",
     { class: "experience-card experience-camera", "aria-labelledby": headingId },
-    el("div", { class: "experience-camera-top" }, heading, el("div", { class: "experience-controls" }, fsButton, fsFallback)),
+    el(
+      "div",
+      { class: "experience-camera-top" },
+      el("div", { class: "experience-camera-title" }, heading, detector.badge),
+      el("div", { class: "experience-controls" }, fsButton, fsFallback),
+    ),
+    detectorMount,
     stateLine,
     frame,
     footer,
@@ -181,7 +193,9 @@ export function createCameraPanel(root, { onStream, onOption }) {
 
   return {
     update,
+    updateDetector: detector.update,
     destroy() {
+      detector.destroy();
       img.removeEventListener("load", onLoad);
       img.removeEventListener("error", onError);
       document.removeEventListener("fullscreenchange", onFsChange);
