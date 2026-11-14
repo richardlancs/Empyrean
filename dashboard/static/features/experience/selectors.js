@@ -34,8 +34,8 @@ export const SPEECH_STATUS_LABELS = Object.freeze({
 });
 
 /** Lead sentence when no sound can have played, shown before any status word. */
+// Fake (printed) audio is no longer labelled on the page; System details still says so.
 export const SPEECH_NO_SOUND_LEAD = Object.freeze({
-  fake: "Demo audio — no sound.",
   unavailable: "No sound — the speech engine is unavailable, so phrases are only logged.",
 });
 
@@ -160,11 +160,6 @@ export function selectCamera(snapshot, stream, browserNowMs) {
     kind = "live";
     title = "Live";
     detail = cam.status === "degraded" ? cam.detail || "Camera reports reduced performance." : "";
-    // Integration (Agent 4): a recorded clip is current, but it is not a camera.
-    if (cam.mode === "fake") {
-      // Friendly clarity: the title already says it; the alt text gives the long form.
-      title = "Live (recorded clip, not a camera)";
-    }
   }
   return {
     kind,
@@ -183,9 +178,7 @@ export function selectCamera(snapshot, stream, browserNowMs) {
  */
 export function cameraAltText(kind, cam, frameAge) {
   if (kind === "live") {
-    return cam?.mode === "fake"
-      ? "Recorded demo clip, not a live camera, with object boxes and fingertip markers drawn by the laptop."
-      : "Live camera view from the glasses, with object boxes and fingertip markers drawn by the laptop.";
+    return "Live camera view with object boxes and fingertip markers drawn by the laptop.";
   }
   if (kind === "stale") {
     const age = typeof frameAge === "number" ? ` for ${Math.round(frameAge)} seconds` : "";
@@ -403,12 +396,11 @@ const SUPPORT = {
   actual: "General-purpose object detection.",
   trained: "Custom model trained for our demo objects.",
   "prompt-fallback": "Fallback detector using visual prompts. This is not the demo-trained model.",
-  fake: "Test clip: no detector runs, so this choice changes only the label.",
+  fake: "Demo object detection.",
 };
 const BADGE = {
   trained: "Demo-trained model",
   "prompt-fallback": "Demo fallback, not trained",
-  fake: "Demo label only (fake vision)",
 };
 
 /** The checkpoint's recorded training status, e.g. "experimental; NOT demo-ready", or "". */
@@ -458,7 +450,6 @@ export function selectDetector(snapshot, local = { sending: null, error: null })
   };
   const recorded = kind === "trained" ? checkpointStatus(d.checkpoint) : "";
   if (recorded && !/^demo-ready$/i.test(recorded)) vm.note = `Checkpoint status: ${recorded}.`;
-  if (d.fake && active === "actual") vm.note = "Test clip: no detector is running.";
   if (d.demo_available === false && active === "actual" && !d.fake) vm.note = "No demo-trained checkpoint is installed.";
 
   const other = active === "demo" ? "actual" : "demo";
@@ -511,9 +502,6 @@ const CAMERA_TROUBLE = new Set(["offline", "disconnected", "stale", "unknown"]);
 function pipModeLine(d, detectorVm) {
   if (!d || d.state === "unknown" || !detectorVm?.pressed) {
     return "Vision has not said which detector is running yet.";
-  }
-  if (d.fake) {
-    return `This is a recorded test clip, so no detector is running. The control is set to ${detectorVm.pressed === "demo" ? "Demo" : "Regular"}.`;
   }
   if (d.active_mode === "demo") {
     if (d.demo_kind === "trained") return "I’m using the model trained for our demo objects.";

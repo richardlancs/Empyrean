@@ -313,9 +313,8 @@ export function selectHealth({ state, connection, nowSeconds }) {
     if (entry && Number.isFinite(entry.last_update_ts) && entry.last_update_ts !== null) {
       facts.push({ label: "Last update", value: formatRelative(nowSeconds - entry.last_update_ts), ts: entry.last_update_ts });
     }
-    // Integration (Agent 4): a module running as a fake must never read as the real thing.
+    // Fakes are no longer labelled in the strip (user request); entry.mode still says "fake".
     const fake = Boolean(entry && entry.mode === "fake");
-    if (fake) statusLabel = `${statusLabel} (fake)`;
     if (!connected && state) {
       statusLabel = `${statusLabel} (last known)`;
       if (tone === "ok") tone = "neutral";
@@ -337,7 +336,6 @@ export function selectHealth({ state, connection, nowSeconds }) {
     parts.push(`${counts.active} of ${modules.length} modules active`);
     if (counts.attention) parts.push(`${counts.attention} need${counts.attention === 1 ? "s" : ""} attention`);
     if (counts.unknown) parts.push(`${counts.unknown} not reported`);
-    if (counts.fake) parts.push(`${counts.fake} running as fake${counts.fake === 1 ? "" : "s"}`);
   }
   return {
     connection: { state: connection, label: conn.label, tone: conn.tone, detail: conn.detail },
