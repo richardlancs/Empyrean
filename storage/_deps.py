@@ -6,6 +6,8 @@ from config import PROCESS_HEIGHT, PROCESS_WIDTH
 from contracts import (
     HazardEvent,
     LastSeenQuery,
+    LastSeenResult,
+    ModuleStatus,
     SpeakRequest,
     TouchEvent,
 )
@@ -15,6 +17,8 @@ __all__ = [
     "PROCESS_WIDTH",
     "HazardEvent",
     "LastSeenQuery",
+    "LastSeenResult",
+    "ModuleStatus",
     "SpeakRequest",
     "TouchEvent",
 ]

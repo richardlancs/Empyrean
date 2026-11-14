@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Operations fixture harness</title>
+<!-- Fixture-only tokens standing in for Agent 1's styles/tokens.css. Not production. -->
+<link rel="stylesheet" href="./fixture-tokens.css">
+<link rel="stylesheet" href="../../../dashboard/static/features/operations/operations.css">
+</head>
+<body>
+<div class="fixture-banner" role="note">
+  <strong>FIXTURE HARNESS.</strong> Everything on this page is artificial test data from
+  <code>tests/ui/agent3/harness.js</code>. Nothing here is connected to a camera, the engine or storage.
+</div>
+
+<details class="fixture-controls" open>
+  <summary>Fixture controls (artificial)</summary>
+  <div class="fixture-row" id="fixture-scenarios" role="group" aria-label="Scenario"></div>
+  <div class="fixture-row" id="fixture-actions" role="group" aria-label="Fixture actions"></div>
+  <div class="fixture-row">
+    <label>Connection
+      <select id="fixture-connection">
+        <option value="connected">connected</option>
+        <option value="connecting">connecting</option>
+        <option value="reconnecting">reconnecting</option>
+      </select>
+    </label>
+    <label>Simulate request result
+      <select id="fixture-request">
+        <option value="success">success (socket echoes it 400 ms later)</option>
+        <option value="slow">slow success (2 s)</option>
+        <option value="http">HTTP 500</option>
+        <option value="network">network failure</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="fixture-contrast"> High-contrast light</label>
+  </div>
+</details>
+
+<main class="fixture-shell">
+  <div id="health-panel" class="fixture-panel"></div>
+  <div id="warning-panel" class="fixture-panel"></div>
+  <div class="fixture-split">
+    <div class="fixture-panel fixture-placeholder">Touch, camera, objects and find panels belong to Agent 2 and are not rendered here.</div>
+    <div id="events-panel" class="fixture-panel"></div>
+  </div>
+  <div id="demo-panel" class="fixture-panel"></div>
+</main>
+
+<section class="fixture-log" aria-label="Announcement log (fixture)">
+  <h2>Announcements sent to ctx.announce</h2>
+  <ol id="fixture-announcements"></ol>
+</section>
+
+<script type="module" src="./harness.js"></script>
+</body>
+</html>

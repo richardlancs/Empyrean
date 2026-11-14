@@ -1,0 +1,267 @@
+/*
+ * Page frame: header, the eight mount slots and their responsive order.
+ *
+ * Friendly clarity (design/friendly-clarity, layout A "touch beside camera";
+ * see docs/dashboard-redesign/friendly/README.md): a slim header, one compact
+ * status line, a compact warning line, then the current touch with its speech
+ * beside the camera so both are on the first screen. No page-wide cage: slots
+ * are transparent, features draw light surfaces, and every row is as tall as
+ * its content (align-items: start, no stretched compartments).
+ *
+ * DOM order (and therefore reading and tab order) is the mobile order:
+ *   health, warning, touch, camera, objects, find, events, demo.
+ * Wider screens only rearrange columns; they never reorder content with `order`.
+ * Breakpoints are in em so 200% zoom reflows to the narrower layout.
+ */
+
+.app-container {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* ---- Header: slim, on the page colour ---- */
+
+.app-header {
+  background: var(--color-page);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.app-header__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding-block: 12px;
+}
+
+.app-brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) 10px;
+}
+
+.app-brand__mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--color-accent);
+}
+
+/* Deliberately modest: the touched object's name is the largest text on the page. */
+.app-brand__name {
+  font-size: var(--text-large);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
+}
+
+.app-header__purpose {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.app-header__tagline {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.app-header__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+
+/* Optional welcome guidance: closed by default, a small panel when opened. */
+.app-welcome {
+  position: relative;
+}
+
+.app-welcome > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.app-welcome > summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-welcome__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-1));
+  z-index: 30;
+  width: min(26rem, 90vw);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sticky);
+}
+
+.app-welcome__panel::before {
+  /* A pastel wash behind Pip only. */
+  content: "";
+  grid-row: 1;
+  grid-column: 1;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: var(--color-pastel-lavender);
+}
+
+.app-welcome__panel .pip {
+  grid-row: 1;
+  grid-column: 1;
+  margin: 6px 4px;
+}
+
+.app-welcome__steps {
+  margin: 0;
+  padding-left: 1.25em;
+  display: grid;
+  gap: 6px;
+  font-size: var(--text-small);
+}
+
+/* ---- Main grid ---- */
+
+.app-main {
+  padding-block: var(--space-2) var(--space-6);
+}
+
+.app-main:focus {
+  outline: none;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "health"
+    "warning"
+    "touch"
+    "questions"
+    "camera"
+    "objects"
+    "find"
+    "events"
+    "demo";
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.app-slot {
+  min-width: 0;          /* lets long names wrap inside grid tracks */
+  scroll-margin-top: var(--space-2);
+}
+
+.app-slot--health  { grid-area: health; }
+.app-slot--warning { grid-area: warning; }
+.app-slot--touch   { grid-area: touch; }
+.app-slot--questions { grid-area: questions; }
+.app-slot--camera  { grid-area: camera; }
+.app-slot--objects { grid-area: objects; }
+.app-slot--find    { grid-area: find; }
+.app-slot--events  { grid-area: events; }
+.app-slot--demo    { grid-area: demo; }
+
+.app-slot:focus {
+  outline: none;
+}
+
+/* Empty mounts take no space: no blank boxes while a feature has nothing to show. */
+.app-slot:empty {
+  display: none;
+}
+
+/*
+ * Warning emphasis hook. The operations feature sets data-emphasis="urgent" on the
+ * warning mount while a real warning is active, and removes it when it expires.
+ * The slot then stays pinned in view while scrolling, without taking extra space
+ * the rest of the time. Simulations use "simulated" and are never pinned.
+ */
+.app-slot--warning[data-emphasis="urgent"] {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--color-page);
+  padding-block: var(--space-1);
+}
+
+.app-slot--warning[data-emphasis="urgent"] > * {
+  box-shadow: var(--shadow-sticky);
+}
+
+/* During an active real hazard Pip steps aside: nothing cheerful beside a warning. */
+:root:has(.app-slot--warning[data-emphasis="urgent"]) .pip,
+:root:has(.app-slot--warning[data-emphasis="urgent"]) .pip-perch,
+:root:has(.app-slot--warning[data-emphasis="urgent"]) .pip-bubble {
+  display: none;
+}
+
+/* Medium: touch above a full-width camera; objects and search share a row. */
+@media (min-width: 45em) {
+  .app-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "health  health"
+      "warning warning"
+      "touch   touch"
+      "questions questions"
+      "camera  camera"
+      "objects find"
+      "events  events"
+      "demo    demo";
+    gap: var(--space-2) var(--space-3);
+  }
+}
+
+/*
+ * Wide: the current touch and its speech on the left, the camera beside it, so
+ * the object and a useful picture are both on the first screen. Objects follow
+ * the touch on the left; search and activity sit below.
+ */
+@media (min-width: 64em) {
+  .app-layout {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-areas:
+      "health  health"
+      "warning warning"
+      "touch   camera"
+      "questions camera"
+      "objects camera"
+      "find    events"
+      "demo    events";
+  }
+  /* The camera is deliberately not sticky: sticky grid items are bounded by the
+     whole grid, not their area, so it would slide over the activity panel. */
+}
+
+/* ---- Footer ---- */
+
+.app-footer {
+  padding-block: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--text-small);
+}
+
+.app-footer__note {
+  border-top: var(--border-width) solid var(--color-border);
+  padding-top: var(--space-2);
+}
+
+/* Narrow screens: the touch card already says "Touch an object", so the header
+   keeps only the brand and its two controls. */
+@media (max-width: 30em) {
+  .app-header__purpose { display: none; }
+  .app-header__inner { padding-block: var(--space-1); }
+}

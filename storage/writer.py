@@ -11,8 +11,15 @@ from collections.abc import Callable
 from typing import Any
 
 from storage import db
-from storage._deps import HazardEvent, LastSeenQuery, SpeakRequest, TouchEvent
-from storage.last_seen import NOT_SEEN, format_answer
+from storage._deps import (
+    HazardEvent,
+    LastSeenQuery,
+    LastSeenResult,
+    ModuleStatus,
+    SpeakRequest,
+    TouchEvent,
+)
+from storage.last_seen import NOT_SEEN, UNAVAILABLE, format_answer
 
 log = logging.getLogger("storage")
 
@@ -36,9 +43,16 @@ class Store:
         url: str | None,
         *,
         start: bool = True,
+        status_publish: Callable[[Any], None] | None = None,
     ) -> None:
-        """Create the store; start=True launches the worker thread immediately."""
+        """Create the store; start=True launches the worker thread immediately.
+
+        status_publish, if given, receives a ModuleStatus whenever the database
+        availability changes. It must not block (bus.publish only enqueues).
+        """
         self._publish = publish
+        self._status_publish = status_publish
+        self._last_status: tuple[str, str] | None = None
         self._url = url or None
         self._queue: queue.Queue[Any] = queue.Queue(maxsize=QUEUE_MAX_ITEMS)
         self._stop_event = threading.Event()
@@ -124,8 +138,13 @@ class Store:
         self._enqueue(("hazard", row))
 
     def on_last_seen_query(self, query: LastSeenQuery) -> None:
-        """Bus handler: queue a last-seen lookup; the answer is published as a SpeakRequest."""
-        self._enqueue(("query", str(getattr(query, "text", "") or "")))
+        """Bus handler: queue a last-seen lookup; the answer is published as a SpeakRequest.
+
+        A query with a request_id also gets a LastSeenResult with the same id.
+        """
+        text = str(getattr(query, "text", "") or "")
+        request_id = getattr(query, "request_id", None)
+        self._enqueue(("query", (text, None if request_id is None else str(request_id))))
 
     def _enqueue(self, item: tuple[str, Any]) -> None:
         """Put without blocking; count and drop when the queue is full."""
@@ -136,6 +155,7 @@ class Store:
             if not self._full_warned:
                 self._full_warned = True
                 log.warning("storage queue full (%d items); dropping events", QUEUE_MAX_ITEMS)
+                self._report("degraded", "Storage queue full; dropping events")
 
     def _count_drop(self) -> None:
         """Increment the dropped counter."""
@@ -144,8 +164,34 @@ class Store:
 
     # ---- worker thread ----------------------------------------------------
 
+    def _report(self, status: str, detail: str) -> None:
+        """Publish a ModuleStatus when the availability changes; never raises."""
+        if self._status_publish is None:
+            return
+        with self._lock:  # called from the worker and from bus handler threads
+            if self._last_status == (status, detail):
+                return
+            self._last_status = (status, detail)
+        try:
+            self._status_publish(
+                ModuleStatus(
+                    ts=time.time(),
+                    module="storage",
+                    status=status,  # type: ignore[arg-type]
+                    mode="real",
+                    detail=detail,
+                )
+            )
+        except Exception:
+            log.exception("publishing storage status failed")
+
     def _run(self) -> None:
         """Worker loop: drain the queue until stop()."""
+        if self._url is None:
+            self._report("offline", "TIGER_DATABASE_URL is not set; history is not saved")
+        else:
+            self._report("starting", "Connecting to Tiger Data")
+            self._connection()
         try:
             while not self._stop_event.is_set():
                 try:
@@ -183,23 +229,59 @@ class Store:
         with self._lock:
             self._written += 1
 
-    def _answer(self, text: str) -> None:
-        """Run a last-seen query and publish the spoken answer (fallback if the DB is down)."""
+    def _answer(self, payload: tuple[str, str | None] | str) -> None:
+        """Run a last-seen query and publish the spoken answer.
+
+        "I have not seen that." is said only when the query ran and matched
+        nothing. A database outage or failed query says "Touch history is
+        unavailable right now." When the query had a request_id, a
+        LastSeenResult follows carrying the same sentence the wearer heard.
+        """
+        text, request_id = payload if isinstance(payload, tuple) else (payload, None)
         answer = NOT_SEEN
+        status = "not_found"
+        row: dict[str, Any] | None = None
         text = text.strip()
         conn = self._connection() if text else None
+        if text and conn is None:
+            status = "unavailable"
+            answer = UNAVAILABLE
         if conn is not None:
             try:
-                answer = format_answer(db.last_seen(conn, text), time.time())
+                row = db.last_seen(conn, text)
+                answer = format_answer(row, time.time())
+                status = "found" if answer != NOT_SEEN else "not_found"
             except Exception as exc:  # noqa: BLE001
                 self._on_db_error(exc)
-                answer = NOT_SEEN
+                answer = UNAVAILABLE
+                status = "unavailable"
+                row = None
         try:
             self._publish(
                 SpeakRequest(ts=time.time(), text=answer, priority="normal", source="storage")
             )
         except Exception:
             log.exception("publishing last-seen answer failed")
+        if request_id is None:
+            return
+        found = status == "found" and row is not None
+        label = ""
+        if found:
+            label = (row.get("name") or "").strip() or (row.get("class_label") or "").strip()
+        try:
+            self._publish(
+                LastSeenResult(
+                    ts=time.time(),
+                    request_id=request_id,
+                    status=status,  # type: ignore[arg-type]
+                    answer=answer,  # exactly what was spoken
+                    matched_at=float(row["ts"]) if found else None,
+                    label=label,
+                    neighbours=[str(n) for n in (row.get("neighbours") or [])] if found else [],
+                )
+            )
+        except Exception:
+            log.exception("publishing last-seen result failed")
 
     def _connection(self) -> Any:
         """Return a live connection, reconnecting at most every RETRY_INTERVAL_SECONDS."""
@@ -227,6 +309,7 @@ class Store:
             log.info("Tiger Data reconnected; writes resumed")
         self._down_warned = False
         self._conn = conn
+        self._report("active", "Connected to Tiger Data")
         return conn
 
     def _warn_down(self, reason: str) -> None:
@@ -234,6 +317,8 @@ class Store:
         if self._down_warned:
             return
         self._down_warned = True
+        if self._url is not None:  # the missing-URL case was reported at start
+            self._report("offline", f"Tiger Data unavailable ({reason}); writes are dropped")
         log.warning(
             "Tiger Data unavailable (%s); dropping writes, retrying at most every %.0f s",
             reason,
@@ -250,6 +335,7 @@ class Store:
         elif not self._row_error_warned:
             self._row_error_warned = True
             log.warning("Tiger Data rejected a statement (%s); dropping it", type(exc).__name__)
+            self._report("degraded", f"Tiger Data rejected a statement ({type(exc).__name__})")
 
     def _close(self) -> None:
         """Close the connection from the worker thread."""

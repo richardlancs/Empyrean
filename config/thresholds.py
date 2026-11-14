@@ -34,9 +34,14 @@ HAZARD_COOLDOWN_SECONDS = 3.0  # hazard
 QUESTION_TIMEOUT_SECONDS = 4.0  # namer
 QUESTION_MAX_FRAME_AGE_SECONDS = 2.0  # namer
 DASHBOARD_PORT = 8000  # dashboard
+CAMERA_STALE_SECONDS = 2.0  # dashboard: no frame for this long means stale
+LAST_SEEN_TIMEOUT_SECONDS = 8.0  # dashboard: longer than storage connect timeout
+THUMBNAIL_MAX_AGE_SECONDS = 30.0  # dashboard
+MODE_SWITCH_TIMEOUT_SECONDS = 30.0  # dashboard: no detector confirmation this long means failed
 
 __all__ = [
     "BOX_SHRINK_FRACTION",
+    "CAMERA_STALE_SECONDS",
     "DASHBOARD_PORT",
     "DEMO_DET_MIN_CONFIDENCE",
     "DET_MIN_AREA_FRACTION",
@@ -51,8 +56,10 @@ __all__ = [
     "HELD_LOST_SECONDS",
     "HELD_MERGE_IOU",
     "HELD_MOVE_FRACTION",
+    "LAST_SEEN_TIMEOUT_SECONDS",
     "LATE_NAME_WINDOW_SECONDS",
     "LOST_KEEP_SECONDS",
+    "MODE_SWITCH_TIMEOUT_SECONDS",
     "NAME_CROP_PADDING",
     "NAME_MAX_CHARS",
     "NAME_MAX_IN_FLIGHT",
@@ -64,6 +71,7 @@ __all__ = [
     "QUESTION_MAX_FRAME_AGE_SECONDS",
     "QUESTION_TIMEOUT_SECONDS",
     "STABLE_FRAMES",
+    "THUMBNAIL_MAX_AGE_SECONDS",
     "TOUCH_ENTER_FRAMES",
     "TOUCH_EXIT_FRAMES",
 ]

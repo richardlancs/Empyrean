@@ -216,23 +216,35 @@ def test_demo_mode_switches_detector_and_keeps_ids_unique() -> None:
 
 
 def test_demo_mode_refused_without_demo_weights() -> None:
-    """With no demo detector loaded, vision stays in actual and reports it on the bus."""
-    from contracts import ModeChange
-    from vision.vision import Vision
+    """No usable demo detector: vision keeps Regular running and reports why (DetectorStatus)."""
+    import time as _time
+
+    from contracts import DetectorStatus, ModeChange
+    from vision.vision import DemoUnavailable, Vision
 
     processor = VisionProcessor(FakeYOLO(), FakeHands(), FakeMP)
     assert processor.set_mode("demo") is False and processor.mode == "actual"
 
+    def no_demo() -> Any:
+        raise DemoUnavailable("No demo-trained checkpoint is installed.")
+
     published: list[Any] = []
-    vision = Vision.__new__(Vision)  # no camera thread; exercise the mode handling only
-    vision._publish = published.append
-    vision._mode_lock = __import__("threading").Lock()
-    vision._wanted_mode = "actual"
-    vision.on_mode(ModeChange(ts=1.0, mode="demo"))
+    vision = Vision(published.append, loader=no_demo, start=False)
+    vision.on_mode(ModeChange(ts=1.0, mode="demo", request_id="r1"))
     vision._apply_mode(processor)
-    assert [(type(m), m.mode) for m in published] == [(ModeChange, "actual")]
-    vision._apply_mode(processor)  # nothing more to report
-    assert len(published) == 1
+    deadline = _time.monotonic() + 2
+    while len(published) < 2 and _time.monotonic() < deadline:
+        _time.sleep(0.01)
+    statuses = [m for m in published if isinstance(m, DetectorStatus)]
+    assert [(m.state, m.active_mode, m.request_id) for m in statuses] == [
+        ("switching", "actual", "r1"),
+        ("failed", "actual", "r1"),
+    ]
+    assert "No demo-trained checkpoint" in statuses[-1].message
+    assert statuses[-1].demo_available is False
+    vision._apply_mode(processor)  # nothing more to report; Regular keeps running
+    assert len(published) == 2 and processor.mode == "actual"
+    assert processor.process(np.zeros((720, 1280, 3), dtype=np.uint8), 0, 1.0).objects
     processor.close()
 
 

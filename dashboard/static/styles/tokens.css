@@ -1,0 +1,164 @@
+/*
+ * Design tokens: the single source of colour, space, type, geometry and motion.
+ * Every other stylesheet (shell and features) reads these names.
+ *
+ * Friendly clarity (design/friendly-clarity): Bauhaus discipline in alignment
+ * and type, softened execution. Warm off-white paper, clear dark text, light
+ * surfaces with restrained dividers, one deep blue for action and touch, small
+ * pastel accents only for illustration and subtle backgrounds, moderate
+ * rounding. Red is for hazards and errors; yellow is a fill with dark text;
+ * violet with a dashed line is simulation. Every text pair was measured
+ * (docs/dashboard-redesign/friendly/README.md).
+ */
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Paper and ink */
+  --color-page: #F8F5EF;              /* warm off-white */
+  --color-surface: #FFFFFF;           /* panels */
+  --color-surface-sunken: #F1EDE5;    /* wells, quiet areas */
+  --color-text: #1F1F1F;              /* 15.2:1 on page */
+  --color-text-secondary: #57524A;    /* 7.1:1 on page, 6.6:1 on sunken */
+  --color-border: #E4DED3;            /* decorative dividers only */
+  --color-border-control: #7A7367;    /* inputs and outlined controls: 4.3:1 or more */
+  --color-rule: #E4DED3;              /* restrained dividers */
+  --border-width: 1px;
+  --border-width-control: 1px;
+  --rule-width: 1px;
+
+  /* Action and touch: one deep blue */
+  --color-accent: #1947B8;            /* 7.3:1 on page; white on it 8.0:1 */
+  --color-accent-hover: #123A99;
+  --color-on-accent: #FFFFFF;
+  --color-accent-soft: #E8EEFB;       /* blue text on it 6.9:1 */
+  --color-accent-text: #1947B8;
+
+  /* Caution / held: yellow fill with dark text, never yellow text */
+  --color-caution: #1F1F1F;
+  --color-caution-soft: #FBEFC4;      /* 14.3:1 */
+  --color-caution-fill: #F2C94C;      /* 10.4:1 with dark text */
+
+  /* Hazard and error only */
+  --color-danger: #B42318;            /* 6.6:1 on surface */
+  --color-danger-hover: #912018;
+  --color-on-danger: #FFFFFF;
+  --color-danger-soft: #FDECEA;       /* 5.8:1 */
+
+  /* Simulation: violet, dashed, always labelled */
+  --color-sim: #6D28D9;
+  --color-sim-soft: #F3EEFF;          /* 6.3:1 */
+
+  /* Pastel accents: illustration and subtle backgrounds only, never text */
+  --color-pastel-lavender: #ECEAFB;
+  --color-pastel-mint: #E4F3EA;
+  --color-pastel-peach: #FDEBE2;
+
+  --color-neutral: #57524A;
+  --color-neutral-soft: #F1EDE5;
+
+  --color-focus: #1947B8;
+  --focus-width: 3px;
+  --focus-offset: 2px;
+
+  --shadow-raised: none;
+  --shadow-sticky: 0 6px 20px rgb(31 31 31 / 0.12);
+
+  /* 8px spacing scale */
+  --space-half: 4px;
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+  --space-8: 64px;
+
+  /* Geometry: moderate rounding; circles for indicators */
+  --radius-sm: 6px;
+  --radius: 12px;
+  --radius-pill: 6px;
+  --radius-circle: 50%;
+
+  /* Type. rem-based so the browser's text size setting and zoom are respected. */
+  --font-sans: "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-badge: 0.8125rem;   /* 13px: smallest text allowed anywhere */
+  --text-small: 0.9375rem;   /* 15px: metadata, hints */
+  --text-body: 1.0625rem;    /* 17px: body text */
+  --text-large: 1.25rem;     /* 20px: section titles */
+  --text-xl: 1.5rem;         /* 24px: emphasised values, warning text */
+  --text-display: clamp(2rem, 1.4rem + 2.4vw, 3.25rem); /* the touched object's name */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-black: 800;
+  --leading-tight: 1.1;
+  --leading-body: 1.5;
+  --tracking-tight: -0.02em;
+  --tracking-label: 0.02em;
+
+  /* Sizing */
+  --target-min: 44px;        /* minimum hit target for controls */
+  --content-max: 1440px;
+  --info-column: clamp(360px, 30vw, 420px);
+  --gutter: clamp(16px, 3vw, 32px);
+
+  /* Motion. Short, interruptible, none under reduced motion (base.css). */
+  --duration-fast: 120ms;
+  --duration: 180ms;
+  --easing: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/*
+ * Higher-contrast light. White paper, black ink, darker blue, red and violet,
+ * visible control edges: every text pair reaches 7:1. Not a dark mode.
+ */
+:root[data-theme="high-contrast"] {
+  color-scheme: light;
+
+  --color-page: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-sunken: #F2F2F2;
+  --color-text: #000000;
+  --color-text-secondary: #262626;
+  --color-border: #595959;
+  --color-border-control: #000000;
+  --color-rule: #595959;
+  --border-width: 1px;
+  --border-width-control: 2px;
+  --rule-width: 2px;
+
+  --color-accent: #0F3591;
+  --color-accent-hover: #0A2766;
+  --color-on-accent: #FFFFFF;
+  --color-accent-soft: #E4EAF8;
+  --color-accent-text: #0F3591;
+
+  --color-caution: #000000;
+  --color-caution-soft: #FBEFC4;
+  --color-caution-fill: #F2C94C;
+
+  --color-danger: #8F1A10;
+  --color-danger-hover: #6E140C;
+  --color-on-danger: #FFFFFF;
+  --color-danger-soft: #FCEBE7;
+
+  --color-sim: #4C1D95;
+  --color-sim-soft: #F1EAFE;
+
+  --color-pastel-lavender: #F2F2F2;
+  --color-pastel-mint: #F2F2F2;
+  --color-pastel-peach: #F2F2F2;
+
+  --color-neutral: #262626;
+  --color-neutral-soft: #F2F2F2;
+
+  --color-focus: #0F3591;
+  --focus-width: 4px;
+
+  --shadow-raised: none;
+  --shadow-sticky: 0 0 0 3px #000000;
+}

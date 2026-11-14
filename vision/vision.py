@@ -1,17 +1,27 @@
 """Publish unmirrored camera frames with tracked objects and two hand landmark sets.
 
-Actual mode detects with COCO yolo11s.pt. Demo mode prefers a locally fine-tuned
-detector for the eight demo objects, while COCO still supplies vehicle boxes.
-Without trained weights it falls back to the existing YOLOE reference prompts.
+Regular ("actual") mode detects with COCO yolo11s.pt. Demo mode uses the
+explicitly installed demo-trained checkpoint vision/models/demo-yolo11s.pt for
+the eight demo objects, while COCO still supplies vehicle boxes. Without that
+checkpoint it can use the older YOLOE visual-prompt detector, which is always
+reported as a fallback, never as the trained model.
+
+Switching (feature/demo-model-toggle): a ModeChange is a request. The demo
+detector is loaded and validated on a background thread while the current
+detector keeps running; the frame loop swaps it in between frames. Every outcome
+is reported as a DetectorStatus, the only confirmation the dashboard trusts.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -25,13 +35,27 @@ from config.thresholds import (
     PROCESS_HEIGHT,
     PROCESS_WIDTH,
 )
-from contracts import FrameResult, Hand, ModeChange, TrackedObject
+from contracts import DetectorStatus, FrameResult, Hand, ModeChange, TrackedObject
 from vision.build_demo_weights import DEMO_OBJECTS, VEHICLE_LABELS
 
 log = logging.getLogger("vision")
 MODEL_DIR = Path(__file__).resolve().parent / "models"
 YOLO_WEIGHTS = MODEL_DIR / "yolo11s.pt"
 TRAINED_DEMO_WEIGHTS = MODEL_DIR / "demo-yolo11s.pt"
+# Status manifest distributed with the checkpoint (the GitHub prerelease asset
+# training-status.json: sha256, classes, status). Download it next to the weights.
+TRAINED_DEMO_MANIFEST = MODEL_DIR / "training-status.json"
+# Local install record named in vision/DEMO.md; used for the SHA-256 when present.
+LOCAL_INSTALL_RECORD = Path(__file__).resolve().parents[1] / "scratch" / "demo-training" / "install.json"
+# A checkpoint modified more recently than this is treated as still being copied.
+DEMO_SETTLE_SECONDS = 10.0
+REGULAR_IDENTITY = "General-purpose COCO detector (yolo11s.pt)"
+TRAINED_IDENTITY = "Demo-trained detector (demo-yolo11s.pt), with COCO for vehicles"
+FALLBACK_IDENTITY = "YOLOE visual-prompt detector (fallback, not the demo-trained model)"
+INSTALL_HINT = (
+    "Install a completed checkpoint as vision/models/demo-yolo11s.pt "
+    "(copy to a temporary name, then rename; see vision/DEMO.md), then choose Demo again."
+)
 TRAINED_DEMO_IMAGE_SIZE = 416  # Internal inference size used by the approved training run.
 COCO_DEMO_LABELS = {"bottle": "water bottle", "cell phone": "phone", "toothbrush": "toothbrush"}
 # Demo mode: pretrained YOLOE plus prompts built once by
@@ -227,6 +251,11 @@ class VisionProcessor:
         kept = cv2.dnn.NMSBoxes(boxes, scores, 0.0, iou)
         return vehicles + [candidates[int(index)] for index in kept]
 
+    def install_demo(self, detector: Any, needs_vehicle_detector: bool) -> None:
+        """Make a loaded, validated demo detector available (frame-loop thread only)."""
+        self.demo_detector = detector
+        self.demo_needs_vehicle_detector = needs_vehicle_detector
+
     def set_mode(self, mode: Mode) -> bool:
         """Switch detector for the next frame; return False if that mode is unavailable."""
         if mode == self.mode:
@@ -266,39 +295,163 @@ def load_processor() -> VisionProcessor:
     from ultralytics import YOLO
 
     detector = YOLO(str(YOLO_WEIGHTS))
-    demo_detector = None
-    demo_needs_vehicle_detector = False
-    if TRAINED_DEMO_WEIGHTS.is_file():
-        candidate = YOLO(str(TRAINED_DEMO_WEIGHTS))
-        names = candidate.names.values() if isinstance(candidate.names, dict) else candidate.names
-        if set(names) == set(DEMO_OBJECTS):
-            demo_detector = candidate
-            demo_needs_vehicle_detector = True
-            log.info("Demo mode ready with fine-tuned weights: %s; COCO vehicles stay active",
-                     TRAINED_DEMO_WEIGHTS)
-        else:
-            log.error("Ignoring demo weights with unexpected classes: %s", TRAINED_DEMO_WEIGHTS)
-    if demo_detector is None and DEMO_WEIGHTS.is_file() and DEMO_PROMPTS.is_file():
-        import torch
-        from ultralytics import YOLOE
-
-        prompts = torch.load(DEMO_PROMPTS, weights_only=True)
-        demo_detector = YOLOE(str(DEMO_WEIGHTS))
-        demo_detector.set_classes(prompts["names"], prompts["embeddings"])
-        log.info("Demo mode ready for: %s", ", ".join(prompts["names"]))
-    elif demo_detector is None:
-        log.info(
-            "No demo prompts at %s; demo mode is off until "
-            "`python -m vision.build_demo_weights` has been run",
-            DEMO_PROMPTS,
-        )
+    # The demo detector is loaded on the first Demo request, off the frame path
+    # (load_demo_candidate), so a newly installed checkpoint is picked up without
+    # a restart and a bad one never blocks start-up.
     options = mp.tasks.vision.HandLandmarkerOptions(
         base_options=mp.tasks.BaseOptions(model_asset_path=str(HAND_MODEL)),
         running_mode=mp.tasks.vision.RunningMode.VIDEO,
         num_hands=2,
     )
     hands = mp.tasks.vision.HandLandmarker.create_from_options(options)
-    return VisionProcessor(detector, hands, mp, demo_detector, demo_needs_vehicle_detector)
+    return VisionProcessor(detector, hands, mp)
+
+
+class DemoUnavailable(Exception):
+    """The demo detector cannot be used; the message says why and what to do."""
+
+
+@dataclass
+class DemoCandidate:
+    """A loaded and validated demo detector, ready to swap in."""
+
+    detector: Any
+    needs_vehicle_detector: bool
+    kind: Literal["trained", "prompt-fallback"]
+    identity: str
+    checkpoint: str
+    stamp: tuple[str, int, int] | None  # (path, size, mtime_ns) of the file loaded
+
+
+def checkpoint_stamp(path: Path) -> tuple[str, int, int] | None:
+    """Cheap identity of an installed file, used to notice a newer install."""
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return (str(path), st.st_size, st.st_mtime_ns)
+
+
+def demo_presence() -> tuple[bool, str]:
+    """Whether a demo detector is installed (not yet validated) and what it is."""
+    if TRAINED_DEMO_WEIGHTS.is_file():
+        return True, "A demo-trained checkpoint is installed; it is validated when Demo is chosen."
+    if DEMO_WEIGHTS.is_file() and DEMO_PROMPTS.is_file():
+        return True, "Only the YOLOE visual-prompt fallback is installed, not a demo-trained checkpoint."
+    return False, f"No demo-trained checkpoint is installed. {INSTALL_HINT}"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def load_demo_candidate(
+    *,
+    weights: Path | None = None,
+    manifest: Path | None = None,
+    install_record: Path | None = None,
+    yolo_factory: Any = None,
+    now: Any = time.time,
+) -> DemoCandidate:
+    """Load and validate the installed demo detector. Slow: call off the frame path.
+
+    Never trains or downloads. Raises DemoUnavailable with a specific reason.
+    """
+    weights = weights or TRAINED_DEMO_WEIGHTS
+    manifest = manifest or TRAINED_DEMO_MANIFEST
+    install_record = install_record or LOCAL_INSTALL_RECORD
+    os.environ["YOLO_AUTOINSTALL"] = "False"
+    if weights.is_file():
+        before = weights.stat()
+        age = now() - before.st_mtime
+        if age < DEMO_SETTLE_SECONDS:
+            raise DemoUnavailable(
+                f"{weights.name} changed {max(age, 0):.0f} s ago and may still be copying. "
+                "Wait for the copy to finish, then choose Demo again."
+            )
+        sha = _sha256(weights)
+        after = weights.stat()
+        if (after.st_size, after.st_mtime_ns) != (before.st_size, before.st_mtime_ns):
+            raise DemoUnavailable(f"{weights.name} changed while it was being checked. Try again.")
+        status = "no status manifest"
+        for record in (manifest, install_record):
+            if not record.is_file():
+                continue
+            try:
+                info = json.loads(record.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                raise DemoUnavailable(f"{record.name} could not be read.") from None
+            expected = str(info.get("sha256", "")).lower()
+            if expected and expected != sha:
+                raise DemoUnavailable(
+                    f"{weights.name} does not match the SHA-256 in {record.name}; "
+                    "the copy may be incomplete or a different file."
+                )
+            listed = info.get("classes")
+            if isinstance(listed, list) and set(map(str, listed)) != set(DEMO_OBJECTS):
+                raise DemoUnavailable(f"{record.name} lists classes that are not the eight demo objects.")
+            if info.get("status"):
+                status = str(info["status"])
+            break
+        if yolo_factory is None:
+            from ultralytics import YOLO as yolo_factory
+        try:
+            model = yolo_factory(str(weights))
+        except Exception as exc:  # noqa: BLE001 - any loader error makes Demo unavailable
+            raise DemoUnavailable(
+                f"{weights.name} could not be loaded ({type(exc).__name__}). {INSTALL_HINT}"
+            ) from None
+        task = getattr(model, "task", "detect")
+        if task != "detect":
+            raise DemoUnavailable(f"{weights.name} is a {task} model, not a detector.")
+        raw = model.names.values() if isinstance(model.names, dict) else model.names
+        names = {str(n) for n in raw}
+        if names != set(DEMO_OBJECTS):
+            missing = sorted(set(DEMO_OBJECTS) - names)
+            extra = sorted(names - set(DEMO_OBJECTS))
+            raise DemoUnavailable(
+                f"{weights.name} has the wrong classes for the demo"
+                f"{'; missing ' + ', '.join(missing) if missing else ''}"
+                f"{'; unexpected ' + ', '.join(extra[:5]) if extra else ''}."
+            )
+        try:
+            import numpy as np
+
+            model.predict(
+                np.zeros((PROCESS_HEIGHT, PROCESS_WIDTH, 3), dtype=np.uint8),
+                imgsz=TRAINED_DEMO_IMAGE_SIZE,
+                verbose=False,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise DemoUnavailable(
+                f"{weights.name} loaded but could not run ({type(exc).__name__}); "
+                "it may need a different Ultralytics version."
+            ) from None
+        mtime = time.strftime("%Y-%m-%d %H:%M", time.localtime(before.st_mtime))
+        checkpoint = (
+            f"{weights.name}, {before.st_size / 1e6:.1f} MB, SHA-256 {sha[:12]}, "
+            f"installed {mtime}, status: {status}"
+        )
+        return DemoCandidate(model, True, "trained", TRAINED_IDENTITY, checkpoint,
+                             (str(weights), before.st_size, before.st_mtime_ns))
+    if DEMO_WEIGHTS.is_file() and DEMO_PROMPTS.is_file():
+        try:
+            import torch
+            from ultralytics import YOLOE
+
+            prompts = torch.load(DEMO_PROMPTS, weights_only=True)
+            model = YOLOE(str(DEMO_WEIGHTS))
+            model.set_classes(prompts["names"], prompts["embeddings"])
+        except Exception as exc:  # noqa: BLE001
+            raise DemoUnavailable(f"The YOLOE fallback could not be loaded ({type(exc).__name__}).") from None
+        return DemoCandidate(model, False, "prompt-fallback", FALLBACK_IDENTITY,
+                             f"{DEMO_WEIGHTS.name} + {DEMO_PROMPTS.name}",
+                             checkpoint_stamp(DEMO_PROMPTS))
+    raise DemoUnavailable(f"No demo-trained checkpoint is installed. {INSTALL_HINT}")
 
 
 class LatestCamera:
@@ -386,38 +539,163 @@ class LatestCamera:
 class Vision:
     """Drive frame processing at PROCESS_FPS on a background producer."""
 
-    def __init__(self, publish: Any) -> None:
+    def __init__(self, publish: Any, *, loader: Any = None, start: bool = True) -> None:
         self._publish = publish
+        self._loader = loader or load_demo_candidate
         self._stop = threading.Event()
         self._mode_lock = threading.Lock()
         self._wanted_mode: Mode = "actual"
+        self._request_id: str | None = None
+        self._loading_for: str | None = None  # request id the loader thread works for
+        self._ready: DemoCandidate | None = None  # validated, waiting to be swapped in
+        self._cached: DemoCandidate | None = None  # last validated candidate, for quick re-entry
+        self._installed: DemoCandidate | None = None  # the one the processor is using
         self._thread = threading.Thread(target=self._run, name="vision", daemon=True)
-        self._thread.start()
+        if start:
+            self._thread.start()
 
     def on_mode(self, msg: ModeChange) -> None:
-        """Remember the requested mode; the frame loop applies it before its next frame."""
+        """Remember the requested mode; the frame loop acts on it before its next frame."""
         with self._mode_lock:
             self._wanted_mode = msg.mode
+            self._request_id = getattr(msg, "request_id", None)
+
+    def _status(
+        self,
+        state: str,
+        active_mode: Mode,
+        *,
+        requested: Mode | None = None,
+        request_id: str | None = None,
+        message: str = "",
+        available: bool | None = None,
+    ) -> None:
+        """Publish what is really running (never blocks: the bus only enqueues)."""
+        demo = self._installed if active_mode == "demo" else None
+        identity = demo.identity if demo else REGULAR_IDENTITY
+        cached = self._installed or self._cached
+        try:
+            self._publish(
+                DetectorStatus(
+                    ts=time.time(),
+                    state=state,  # type: ignore[arg-type]
+                    active_mode=active_mode,
+                    detector=identity,
+                    requested_mode=requested,
+                    request_id=request_id,
+                    checkpoint=cached.checkpoint if cached else "",
+                    demo_kind=cached.kind if cached else "none",
+                    demo_available=available,
+                    message=message,
+                )
+            )
+        except Exception:
+            log.exception("Publishing the detector status failed")
+
+    def _load_demo(self, request_id: str | None) -> None:
+        """Background thread: load and validate the demo detector."""
+        try:
+            candidate = self._loader()
+        except DemoUnavailable as exc:
+            with self._mode_lock:
+                current = self._loading_for == request_id
+                self._loading_for = None
+                if current and self._wanted_mode == "demo":
+                    self._wanted_mode = "actual"
+                    if self._request_id == request_id:
+                        self._request_id = None  # answered by the failure below
+            if current:
+                log.warning("Demo mode unavailable: %s", exc)
+                self._status("failed", "actual", requested="demo", request_id=request_id,
+                             message=str(exc), available=False)
+            return
+        except Exception as exc:
+            with self._mode_lock:
+                current = self._loading_for == request_id
+                self._loading_for = None
+                if current and self._wanted_mode == "demo":
+                    self._wanted_mode = "actual"
+                    if self._request_id == request_id:
+                        self._request_id = None  # answered by the failure below
+            log.exception("Loading the demo detector failed")
+            if current:
+                self._status("failed", "actual", requested="demo", request_id=request_id,
+                             message=f"Loading the demo detector failed ({type(exc).__name__}).",
+                             available=False)
+            return
+        with self._mode_lock:
+            self._cached = candidate
+            if self._loading_for == request_id:
+                self._ready = candidate
+            self._loading_for = None
+        log.info("Demo detector validated: %s (%s)", candidate.identity, candidate.checkpoint)
 
     def _apply_mode(self, processor: VisionProcessor) -> None:
-        """Switch the processor to the requested mode, or report back that it cannot."""
+        """Frame-loop thread: act on the latest request between frames. Cheap."""
         with self._mode_lock:
-            wanted = self._wanted_mode
-        if wanted == processor.mode:
+            wanted, request_id = self._wanted_mode, self._request_id
+            loading = self._loading_for is not None
+            ready, self._ready = self._ready, None
+            cached = self._cached
+        if wanted == "actual":
+            if loading:
+                with self._mode_lock:
+                    self._loading_for = None  # a later demo result is cached, not installed
+            if processor.mode != "actual":
+                processor.set_mode("actual")
+                log.info("Vision mode is now actual (%s)", REGULAR_IDENTITY)
+                self._status("active", "actual", request_id=request_id, available=True)
+            elif request_id is not None:
+                self._status("active", "actual", request_id=request_id)
+            with self._mode_lock:
+                if self._request_id == request_id:
+                    self._request_id = None
             return
-        if processor.set_mode(wanted):
-            log.info("Vision mode is now %s", wanted)
+        # wanted == "demo"
+        if processor.mode == "demo":
+            if request_id is not None:
+                self._status("active", "demo", request_id=request_id, available=True)
+                with self._mode_lock:
+                    if self._request_id == request_id:
+                        self._request_id = None
             return
-        log.warning("Demo mode requested but the demo prompts are not built; staying in actual")
-        with self._mode_lock:
-            self._wanted_mode = processor.mode
-        self._publish(ModeChange(ts=time.time(), mode=processor.mode))
+        candidate = ready
+        if (
+            candidate is None
+            and cached is not None
+            # A fallback is stale once the preferred trained checkpoint has been installed.
+            and not (cached.kind == "prompt-fallback" and TRAINED_DEMO_WEIGHTS.is_file())
+            and cached.stamp == checkpoint_stamp(
+                Path(cached.stamp[0]) if cached.stamp else TRAINED_DEMO_WEIGHTS
+            )
+        ):
+            candidate = cached  # validated earlier and the file is unchanged
+        if candidate is not None:
+            processor.install_demo(candidate.detector, candidate.needs_vehicle_detector)
+            processor.set_mode("demo")
+            self._installed = candidate
+            log.info("Vision mode is now demo (%s; %s)", candidate.identity, candidate.checkpoint)
+            self._status("active", "demo", request_id=request_id, available=True)
+            with self._mode_lock:
+                if self._request_id == request_id:
+                    self._request_id = None
+            return
+        if not loading:
+            with self._mode_lock:
+                self._loading_for = request_id or "startup"
+            self._status("switching", processor.mode, requested="demo", request_id=request_id)
+            threading.Thread(
+                target=self._load_demo, args=(request_id or "startup",), name="vision-demo-load",
+                daemon=True,
+            ).start()
 
     def _run(self) -> None:
         processor: VisionProcessor | None = None
         camera: LatestCamera | None = None
         try:
             processor = load_processor()
+            available, note = demo_presence()
+            self._status("active", "actual", available=available, message="" if available else note)
             index = int(os.environ.get("CAMERA_INDEX", "0"))
             camera = LatestCamera(index)
             frame_id = 0
@@ -444,6 +722,11 @@ class Vision:
                 next_at = max(next_at + 1.0 / PROCESS_FPS, time.monotonic())
         except (FileNotFoundError, ValueError, RuntimeError, ImportError) as exc:
             log.error("Vision unavailable: %s", exc)
+            self._publish(DetectorStatus(
+                ts=time.time(), state="failed", active_mode="actual",
+                detector="No detector running", message=f"Vision is unavailable: {exc}",
+                demo_available=None,
+            ))
         except Exception:
             log.exception("Vision stopped due to an error")
         finally:

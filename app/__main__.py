@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import inspect
 import logging
 import os
 import tempfile
 import threading
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -16,10 +18,12 @@ from dotenv import load_dotenv
 
 from app.bus import Bus
 from config.thresholds import PROCESS_FPS
-from contracts import FrameResult, NameResult
+from contracts import FrameResult, ModuleStatus, NameResult
 
 log = logging.getLogger("app")
-MODULES = ("hazard", "scene", "namer", "storage", "audio", "dashboard", "vision")
+# Dashboard first: it only subscribes, and must be listening before the other
+# modules announce their status (ModuleStatus) while they register.
+MODULES = ("dashboard", "hazard", "scene", "namer", "storage", "audio", "vision")
 FAKE_PATHS = {
     "vision": "fakes.vision.fake_vision",
     "hazard": "fakes.hazard.fake_hazard",
@@ -104,6 +108,31 @@ class _FakeScenePlayback:
             self._thread.join(timeout=1.0)
 
 
+class _Deferred:
+    """A fake publisher created unstarted; start() runs after all registrations."""
+
+    def __init__(self, publisher: Any) -> None:
+        self.publisher = publisher
+
+    def start(self) -> None:
+        """Start publishing."""
+        self.publisher.start()
+
+    def stop(self) -> None:
+        """Stop publishing."""
+        stop = getattr(self.publisher, "stop", None)
+        if callable(stop):
+            stop()
+
+
+def _accepts_start(register: Any) -> bool:
+    """True when register(bus, start=False) is supported."""
+    try:
+        return "start" in inspect.signature(register).parameters
+    except (TypeError, ValueError):
+        return False
+
+
 def _register(name: str, fake: bool, bus: Bus) -> Any:
     """Load one module entry point, allowing not-yet-written folders."""
     dotted = FAKE_PATHS.get(name, f"fakes.{name}") if fake else name
@@ -121,8 +150,10 @@ def _register(name: str, fake: bool, bus: Bus) -> Any:
 
     register = getattr(module, "register", None)
     if callable(register):
-        if name == "hazard" and fake:
-            return register(bus, autostart=False)
+        if fake and _accepts_start(register):
+            # Scripted publishers (fake hazard, fake vision) wait until every
+            # consumer has subscribed; start() below starts them.
+            return _Deferred(register(bus, start=False))
         return register(bus)
     if name == "scene":
         return _FakeScenePlayback(bus) if fake else _scene_adapter(bus)
@@ -130,8 +161,20 @@ def _register(name: str, fake: bool, bus: Bus) -> Any:
     return None
 
 
+def _lifecycle(module: str, status: str, mode: str, detail: str) -> ModuleStatus:
+    """Build the ModuleStatus app/ publishes for one module at startup."""
+    return ModuleStatus(
+        ts=time.time(),
+        module=module,
+        status=status,  # type: ignore[arg-type]
+        mode=mode,  # type: ignore[arg-type]
+        detail=detail,
+    )
+
+
 def start(
-    only: str | None = None, fakes: Sequence[str] = (),
+    only: str | None = None,
+    fakes: Sequence[str] = (),
     record_crops: Path | None = None,
 ) -> RunningApp:
     """Load environment settings and register selected modules with a fresh bus."""
@@ -146,6 +189,8 @@ def start(
     selected.update(fakes)
     bus = Bus()
     instances: list[Any] = []
+    lifecycle: list[ModuleStatus] = []
+    # The crop recorder subscribes before any module, so no NameRequest is missed.
     if record_crops is not None:
         from fakes.namer.crop_recorder import register as register_recorder
 
@@ -155,20 +200,31 @@ def start(
         log.info("Recording naming crops to %s", session)
     # Vision is last, so subscribers are ready before the first camera frame.
     for name in MODULES:
+        mode = "fake" if name in fakes else "real"
         if name not in selected:
+            lifecycle.append(_lifecycle(name, "offline", "unknown", "Not started in this run"))
             continue
         try:
             instance = _register(name, name in fakes, bus)
         except Exception:
             log.exception("Module %s could not start; continuing", name)
+            lifecycle.append(_lifecycle(name, "offline", mode, "Could not start"))
             continue
         if instance is not None:
             instances.append(instance)
             log.info("Started %s%s", name, " (fake)" if name in fakes else "")
-    from fakes.hazard.fake_hazard import FakeHazard
-
+            detail = "Started with a fake" if name in fakes else "Started"
+            lifecycle.append(_lifecycle(name, "starting", mode, detail))
+        else:
+            lifecycle.append(_lifecycle(name, "offline", mode, "Not available"))
+    # Lifecycle facts for the dashboard. A module's own later status wins over these.
+    for message in lifecycle:
+        if message.module != "dashboard":
+            bus.publish(message)
+    # Scripted fakes publish only now, so their first message reaches every
+    # consumer (for example the first fake hazard reaches audio).
     for instance in instances:
-        if isinstance(instance, (_FakeScenePlayback, FakeHazard)):
+        if isinstance(instance, _FakeScenePlayback | _Deferred):
             instance.start()
     return RunningApp(bus, instances)
 

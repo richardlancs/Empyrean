@@ -43,3 +43,7 @@ scratch/
 .DS_Store
 .idea/
 .vscode/
+
+# Demo checkpoint manifest and partial copies (distributed with the release, never committed).
+vision/models/training-status.json
+vision/models/*.partial

@@ -145,8 +145,7 @@ def test_fake_pipeline_announces_touch_and_answers_independently() -> None:
     from app.bus import Bus
     from audio.audio import AudioManager
     from contracts import TouchEvent
-    from dashboard.questions import ask_question
-    from dashboard.state import DashboardState
+    from dashboard import register as register_dashboard
     from fakes.namer.fake_namer import register
 
     bus = Bus()
@@ -157,6 +156,7 @@ def test_fake_pipeline_announces_touch_and_answers_independently() -> None:
     bus.subscribe(TouchEvent, audio.on_touch)
     bus.subscribe(SpeakRequest, audio.on_speak)
     namer = register(bus)
+    dashboard = register_dashboard(bus, serve=False)
     try:
         bus.publish(
             TouchEvent(
@@ -164,8 +164,17 @@ def test_fake_pipeline_announces_touch_and_answers_independently() -> None:
             )
         )
         assert settle(speaker, 1) == ["Heinz ketchup"]
-        ask_question("Where are my keys?", DashboardState(), bus.publish, False)
+        record = dashboard.questions.ask("Where are my keys?")
+        assert record["status"] == "looking_up"
         assert settle(speaker, 2)[-1] == "Demo answer: your keys are to your right."
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            done = dashboard.questions.get(record["question_id"])
+            if done and done["status"] != "looking_up":
+                break
+            time.sleep(0.01)
+        assert done is not None and done["answered_by"] == "namer"
+        assert done["answer"] == "Demo answer: your keys are to your right."
     finally:
         namer.stop()
         bus.stop()

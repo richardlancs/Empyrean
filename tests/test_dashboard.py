@@ -11,11 +11,16 @@ from fastapi.testclient import TestClient
 
 from config import HAZARD_COOLDOWN_SECONDS
 from contracts import (
+    DetectorStatus,
     FrameResult,
     HazardEvent,
-    ModeChange,
+    LastSeenResult,
+    ModuleStatus,
+    NameRequest,
+    NameResult,
     SceneSnapshot,
     SpeakRequest,
+    SpeechStatus,
     TouchEvent,
 )
 from dashboard import DashboardState, create_app, register
@@ -56,13 +61,36 @@ def client_and_state() -> tuple[TestClient, DashboardState]:
 def test_page_has_button_and_both_areas(
     client_and_state: tuple[TestClient, DashboardState],
 ) -> None:
-    """The single page has the Simulate alert button, Latest warning and Recent events."""
+    """The served page loads modules that render Simulate alert, warnings and recent events.
+
+    The page used to be one HTML file with these labels inline. The redesign
+    renders them from JavaScript modules, so this follows the same requirement
+    through the files the server actually serves for the page. The old labels
+    "Latest warning" and "Recent events" are now "Warnings" and "Recent activity".
+    """
     client, _ = client_and_state
     page = client.get("/")
     assert page.status_code == 200
-    for text in ("Simulate alert", "Latest warning", "Recent events", "Simulated"):
-        assert text in page.text
-    assert "safety" not in page.text.lower()
+    assert '<div id="app">' in page.text and "/static/app.js" in page.text
+    served = {"/": page.text}
+    for path in (
+        "/static/app.js",
+        "/static/features/operations/index.js",
+        "/static/features/operations/demo-tools.js",
+        "/static/features/operations/warning-panel.js",
+        "/static/features/operations/event-history.js",
+        "/static/features/experience/index.js",
+    ):
+        reply = client.get(path)
+        assert reply.status_code == 200, path
+        assert reply.headers["content-type"].startswith("text/javascript"), path
+        served[path] = reply.text
+    text = "\n".join(served.values())
+    for label in ("Simulate alert", "Warnings", "Recent activity", "Simulated"):
+        assert label in text, label
+    for feature in ("experience", "operations"):
+        assert f"/static/features/{feature}/index.js" in served["/static/app.js"], feature
+    assert "safety" not in text.lower()
 
 
 def test_one_click_sets_latest_warning_and_adds_exactly_one_event(
@@ -107,14 +135,13 @@ def test_register_and_real_events_are_not_simulated() -> None:
     """Real HazardEvent and touch TouchEvent from the bus are shown without the label."""
     bus = TestBus()
     state = register(bus, serve=False).state
-    assert set(bus.subscribers) == {
-        HazardEvent,
-        TouchEvent,
-        FrameResult,
-        SceneSnapshot,
-        ModeChange,
-        SpeakRequest,
-    }
+    # The original four subscriptions stay; the redesign adds exactly these
+    # telemetry and correlation inputs (docs/dashboard-redesign/api.md).
+    original = {HazardEvent, TouchEvent, FrameResult, SceneSnapshot}
+    added = {NameRequest, NameResult, SpeechStatus, ModuleStatus, LastSeenResult}
+    added |= {DetectorStatus}  # Regular/Demo: vision's confirmation of a detector switch
+    added |= {SpeakRequest}  # namer's scene answers, shown on the page (SPEC 4.9.1)
+    assert set(bus.subscribers) == original | added
 
     bus.publish(HazardEvent(ts=NOW, type="vehicle", source="yolo", confidence=0.91))
     bus.publish(
@@ -243,20 +270,30 @@ def test_scene_snapshot_fills_object_list_touched_first() -> None:
     assert objects[2]["last_seen_ts"] == NOW - 1
 
 
-def test_demo_button_publishes_mode_change_and_shows_mode() -> None:
-    """The Demo mode button publishes ModeChange on the bus and the page state follows."""
+def test_mode_request_uses_mains_body_and_waits_for_vision() -> None:
+    """Main's {"mode": ...} body still works, via the one detector switch.
+
+    The merge keeps a single switch path: /api/mode publishes one ModeChange and
+    the page shows Demo only after vision's DetectorStatus confirms it. Main's
+    old echo (vision publishing ModeChange back) is replaced by DetectorStatus.
+    """
     bus = TestBus()
     dashboard = register(bus, DashboardState(clock=lambda: NOW), serve=False)
-    client = TestClient(create_app(dashboard.state, publish=bus.publish))
-    assert client.get("/api/state").json()["mode"] == "actual"
-    assert 'id="mode"' in client.get("/").text
-
-    body = client.post("/api/mode", json={"mode": "demo"}).json()
-    assert body["mode"] == "demo"
-    assert [(type(m), m.mode) for m in bus.published] == [(ModeChange, "demo")]
-
-    # Vision answers "actual" when it has no demo weights; the page must follow.
-    bus.publish(ModeChange(ts=NOW, mode="actual"))
-    assert client.get("/api/state").json()["mode"] == "actual"
-
+    client = TestClient(create_app(dashboard.state))
+    assert 'id="mode"' not in client.get("/").text  # main's inline button is gone
+    bus.publish(
+        DetectorStatus(ts=NOW, state="active", active_mode="actual", detector="COCO")
+    )
+    reply = client.post("/api/mode", json={"mode": "demo"})
+    assert reply.status_code == 202
+    sent = [m for m in bus.published if not isinstance(m, DetectorStatus)]
+    assert len(sent) == 1 and sent[0].mode == "demo" and sent[0].request_id
+    assert client.get("/api/state").json()["detector"]["active_mode"] == "actual"
+    bus.publish(
+        DetectorStatus(
+            ts=NOW, state="active", active_mode="demo", detector="trained",
+            request_id=sent[0].request_id,
+        )
+    )
+    assert client.get("/api/state").json()["detector"]["active_mode"] == "demo"
     assert client.post("/api/mode", json={"mode": "replay"}).status_code == 422

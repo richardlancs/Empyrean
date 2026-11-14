@@ -1,0 +1,29 @@
+/* FIXTURE ONLY. Stand-in for Agent 1's shared tokens and base styles so the harness renders.
+   The production dashboard loads dashboard/static/styles/*.css instead. */
+@import url("../../../dashboard/static/styles/tokens.css");
+/* Integration (Agent 4): the harness now uses the shell's real tokens and its
+   data-theme="high-contrast" switch instead of stand-in names. */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-text);
+  font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.fixture-banner {
+  background: repeating-linear-gradient(45deg, #fff4d6 0 12px, #ffffff 12px 24px);
+  border-bottom: 2px dashed #92400e;
+  color: #172b4d;
+  padding: 8px 16px;
+}
+.fixture-controls { margin: 8px 16px; padding: 8px 16px; border: 2px dashed #92400e; border-radius: 12px; background: #fff; }
+.fixture-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; align-items: center; }
+.fixture-row button, .fixture-row select { font: inherit; font-size: 15px; min-height: 36px; }
+.fixture-shell { display: grid; gap: 16px; padding: 16px; max-width: 1440px; margin: 0 auto; }
+.fixture-split { display: grid; gap: 16px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .fixture-split { grid-template-columns: minmax(0, 1fr); } }
+.fixture-panel { background: #fff; border: 1px solid #d8e1eb; border-radius: 12px; padding: 16px; min-width: 0; }
+.fixture-placeholder { color: #526176; border-style: dashed; min-height: 120px; }
+.fixture-log { margin: 0 16px 32px; padding: 8px 16px; border: 2px dashed #92400e; border-radius: 12px; background: #fff; font-size: 15px; }
+.fixture-log h2 { font-size: 16px; }
+.fixture-log li { overflow-wrap: anywhere; }

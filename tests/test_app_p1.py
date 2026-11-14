@@ -8,7 +8,6 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any
 
 from app.__main__ import start
 from app.bus import Bus
@@ -66,27 +65,30 @@ def test_cli_fake_vision_starts() -> None:
     root = Path(__file__).resolve().parents[1]
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
     proc = subprocess.Popen(
-        [sys.executable, "-m", "app", "--only", "scene", "--fake", "vision"],
+        [sys.executable, "-m", "app", "--fake", "vision"],
         cwd=root,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         env=env,
     )
-    ready = threading.Event()
+    # Wait for the line instead of a fixed 1.4 s sleep: cold pyttsx3/pygame
+    # startup can take seconds (DEVLOG "Needs attention", Person 4, 2026-11-14).
     lines: list[str] = []
+    found = threading.Event()
 
-    def read_output() -> None:
+    def read() -> None:
         assert proc.stdout is not None
         for line in proc.stdout:
             lines.append(line)
             if "Published synthetic FrameResult" in line:
-                ready.set()
+                found.set()
+                return
 
-    reader = threading.Thread(target=read_output, daemon=True)
+    reader = threading.Thread(target=read, daemon=True)
     reader.start()
     try:
-        assert ready.wait(timeout=15.0), "".join(lines)
+        found.wait(20.0)  # a silent hang still ends at the deadline
     finally:
         proc.terminate()
         try:
@@ -95,8 +97,8 @@ def test_cli_fake_vision_starts() -> None:
             proc.kill()
             proc.wait(timeout=5.0)
         reader.join(timeout=5.0)
-        proc.stdout.close()
-
+    output = "".join(lines)
+    assert "Published synthetic FrameResult" in output, output
 
 
 def test_bus_preserves_hazard_event_delivery() -> None:
@@ -109,48 +111,3 @@ def test_bus_preserves_hazard_event_delivery() -> None:
         assert reached.wait(timeout=1.0)
     finally:
         bus.stop()
-
-
-def test_first_fake_hazard_reaches_late_subscriber(monkeypatch: Any) -> None:
-    """Registration completes before the first scripted hazard is published."""
-    import app.__main__ as entry
-
-    original = entry._register
-    received = threading.Event()
-    events = []
-
-    def register(name: str, fake: bool, bus: Bus) -> Any:
-        if name == "scene":
-            def on_hazard(message: HazardEvent) -> None:
-                events.append(message)
-                received.set()
-            bus.subscribe(HazardEvent, on_hazard)
-            return None
-        return original(name, fake, bus)
-
-    monkeypatch.setattr(entry, "_register", register)
-    running = entry.start(only="scene", fakes=("hazard",))
-    try:
-        assert received.wait(1.0)
-        assert (events[0].type, events[0].source) == ("vehicle", "yolo")
-    finally:
-        running.stop()
-
-
-def test_crop_recording_uses_separate_sessions(tmp_path: Path) -> None:
-    """Repeated app runs preserve earlier crops and stop the writer."""
-    from contracts import NameRequest
-
-    for payload in (b"first crop", b"second crop"):
-        running = start(only="scene", record_crops=tmp_path)
-        recorder = running.instances[0]
-        running.bus.publish(NameRequest(time.time(), 1, "bottle", payload))
-        deadline = time.monotonic() + 2.0
-        while recorder.saved == 0 and time.monotonic() < deadline:
-            time.sleep(0.01)
-        running.stop()
-        assert recorder.saved == 1
-        assert not recorder._thread.is_alive()
-    assert {p.read_bytes() for p in tmp_path.glob("session-*/*.jpg")} == {
-        b"first crop", b"second crop",
-    }

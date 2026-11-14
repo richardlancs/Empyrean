@@ -10,11 +10,12 @@ This file is the single source of truth for what the system does. `AGENTS.md` is
 
 ## 1. Goal
 
-A wearer picks things up off a table or shelf. Each time their hand lands on an object, a speaker says exactly what it is, down to the brand ("Heinz ketchup", not "bottle"). Nothing is spoken for objects that are only in view. Touching the same object again says it again. Separately, if the wearer walks toward stairs, a drop, a vehicle or an obstacle, an alarm interrupts everything else.
+A wearer picks things up off a table or shelf and asks what they are touching; a speaker says exactly what it is, down to the brand ("Heinz ketchup", not "bottle"). Since 2026-11-14 object names are spoken only in answer to a question (typed or spoken on the dashboard), at the user's request; the original automatic touch announcement remains available as an audio option (`announce_touches`). Separately, if the wearer walks toward stairs, a drop, a vehicle or an obstacle, an alarm interrupts everything else.
 
 ### In scope
 
-- Touch-triggered announcement of the touched object's specific name.
+- The touched object's specific name, spoken in answer to a question ("What am I touching?"). Automatic touch announcement is an option, off by default.
+- Questions typed or spoken in the dashboard: what is in view, what is being touched, and where an object was last touched.
 - Brand-level naming through Grok vision.
 - Independent spoken questions about current surroundings, answered by Grok vision.
 - Hazard alarm from the same camera.
@@ -47,14 +48,14 @@ This is the whole stack. Do not substitute or add to it without all four people 
 |---|---|---|
 | Language | Python 3.11 | Everything |
 | Camera capture and drawing | OpenCV (`opencv-python`) | `vision/`, `dashboard/` |
-| Object detection and tracking | Ultralytics YOLO, small model (`yolo11s.pt`) with COCO weights, built-in ByteTrack tracker | `vision/` |
+| Object detection and tracking | Ultralytics YOLO, small model (`yolo11s.pt`) with COCO weights, built-in ByteTrack tracker; Demo mode adds an explicitly installed demo-trained checkpoint (`vision/DEMO.md`) | `vision/` |
 | Hand tracking | MediaPipe Hands | `vision/` |
 | Brand naming and hazard check | A Grok model that accepts images, called over the Grok API with `httpx` | `namer/`, `hazard/` |
 | Database | Tiger Data (managed Postgres with time-series hypertables), `psycopg` 3 driver | `storage/` |
 | Speech | `pyttsx3`, offline text to speech | `audio/` |
 | Alarm sound | `pygame` mixer playing a pre-made WAV file | `audio/` |
 | Web server | FastAPI on Uvicorn | `dashboard/` |
-| Dashboard page | One HTML file with plain JavaScript and CSS. MJPEG for video, one WebSocket for data. No front-end framework | `dashboard/` |
+| Dashboard page | Minimal `index.html` loading native ES modules and plain CSS from `dashboard/static/`, layered as described in `docs/dashboard-redesign/`. MJPEG for video, one WebSocket for data. No front-end framework or build step | `dashboard/` |
 | Message bus | In-process publish and subscribe, written by us in `app/`. No external broker | Everything |
 | Settings and secrets | `python-dotenv` reading `.env` | Everything |
 | Tests and formatting | `pytest`, `ruff` | Everything |
@@ -81,7 +82,7 @@ One Python 3.11 process on the laptop. Modules never call each other directly. T
 | 7 | Grok namer and scene questions | `namer/` | Person 3 | `NameRequest`, `SceneQuestion`, `FrameResult` | `NameResult`, `SpeakRequest` | Grok vision API |
 | 8 | Tiger Data store | `storage/` | Person 3 | `TouchEvent`, `HazardEvent`, `LastSeenQuery` | `SpeakRequest` (answers) | Tiger Data (Postgres with time-series) |
 | 9 | Audio manager | `audio/` | Person 4 | `TouchEvent`, `NameResult`, `HazardEvent`, `SpeakRequest` | sound to the JBL | Offline text to speech plus a tone file |
-| 10 | Dashboard | `dashboard/` | Person 4 | `FrameResult`, `SceneSnapshot`, `TouchEvent`, `HazardEvent`, `SpeakRequest` | `LastSeenQuery`, `SceneQuestion` | FastAPI, one static HTML page |
+| 10 | Dashboard | `dashboard/` | Person 4 | `FrameResult`, `SceneSnapshot`, `TouchEvent`, `HazardEvent`, `NameRequest`, `NameResult`, `SpeechStatus`, `ModuleStatus`, `LastSeenResult`, `DetectorStatus`, `SpeakRequest` (namer's scene answers, shown not spoken) | `LastSeenQuery`, `SceneQuestion`, `SpeakRequest` (question answers), `ModeChange` | FastAPI, a minimal `index.html` plus native ES modules under `dashboard/static/` |
 
 Shared folders:
 
@@ -118,7 +119,7 @@ Shared folders:
 ### 4.2 Object tracking
 
 - Use the YOLO small model (`yolo11s.pt`) with COCO weights and its built-in ByteTrack tracker so each object keeps the same `object_id` across frames. The nano model missed held objects on the real camera (a backpack at any confidence); small costs about 49 ms per frame on the laptop CPU against 24 ms.
-- Drop detections with confidence below 0.3.
+- Drop detections with confidence below 0.3 (0.25 for the demo-trained detector).
 - Drop the `person` class. The wearer's own arm must never be an object.
 - Drop boxes smaller than 0.2% of the frame area.
 
@@ -200,11 +201,12 @@ Known limit: one webcam cannot measure distance. Tier B lags by 1 to 3 seconds a
 | Priority | Sound | Trigger |
 |---|---|---|
 | 1 (highest) | Alarm: three short 880 Hz beeps, then the spoken hazard ("Stop. Stairs.") | `HazardEvent` |
-| 2 | Spoken object name | `TouchEvent` with kind `touch` |
-| 3 | Spoken answer | `SpeakRequest` with priority `normal` |
+| 2 | Spoken object name (only with `announce_touches`, off by default) | `TouchEvent` with kind `touch` |
+| 3 | Spoken answer, including "You are touching Heinz ketchup." | `SpeakRequest` with priority `normal` |
 
 Rules:
 
+- Object speech is question-only by default: a `TouchEvent` or late `NameResult` is silent unless `AudioManager(announce_touches=True)`. The dashboard's question panel publishes the answer as a `SpeakRequest`.
 - An alarm cuts off whatever is playing and empties the queue.
 - The speech queue holds one item. A newer item replaces a waiting older one. Stale speech is worse than no speech.
 - Spoken hazard phrases: `stairs_down` is "Stop. Stairs.", `drop_off` is "Stop. Drop ahead.", `vehicle` is "Stop. Vehicle.", `obstacle` is "Stop. Obstacle."
@@ -213,7 +215,7 @@ Rules:
 
 ### 4.9 Dashboard
 
-One web page served from the laptop on port 8000.
+One web page served from the laptop on port 8000. Since the 2026-11-14 light redesign it is layered: `dashboard/api/` (routes, WebSocket), `dashboard/services/` and `dashboard/state.py` (read model), `dashboard/bus_adapter.py` (engine wiring), and the browser modules under `dashboard/static/`. Layout and wording are in `docs/dashboard-redesign/`; the table below lists what the page must show, not where.
 
 | Area | Content |
 |---|---|
@@ -238,10 +240,20 @@ Object list and events reach the page over one WebSocket at `/ws`, sent after ev
 
 The search box publishes a `LastSeenQuery`. The answer is shown on the page and spoken through the JBL.
 
+**Questions.** The page has a question panel (`dashboard/static/features/questions/`) with a labelled text box, example questions, an Ask button and a microphone button. The microphone uses the browser's own speech recognition, one utterance per click, never automatically; the transcript lands in the text box for editing and is sent only when the wearer presses Ask. `POST /api/question {"text"}` is answered by `dashboard/services/questions.py` using the routing in `dashboard/questions.py`:
+
+| Question | Route |
+|---|---|
+| "Where did I last touch the keys?", "When did I last see my phone?" | A correlated `LastSeenQuery`; the question stays `looking_up` until storage's `LastSeenResult` with the same `request_id` |
+| Anything else, for example "What can you see?" or "Where are my keys?" | A `SceneQuestion` to namer (4.9.1); the question stays `looking_up` until namer's answer |
+
+Rules: storage and namer speak their own answers, so the dashboard never repeats them; it only shows them. Only one scene question is outstanding at a time, so the next `SpeakRequest` with source `namer` is its answer; a second scene question meanwhile is answered "Please wait for the current question to finish." by the dashboard. If namer is not running, or does not answer within `LAST_SEEN_TIMEOUT_SECONDS` (longer than `QUESTION_TIMEOUT_SECONDS`), the question is unavailable. If storage is not running or does not answer within `LAST_SEEN_TIMEOUT_SECONDS`, the answer is "Touch history is unavailable right now." (spoken by the dashboard), never a "not found". A returned answer does not prove it was heard: `SpeechStatus` reports what the speech engine did. `GET /api/question/{question_id}` returns one question; the five newest are in the page state as `questions.recent`, so every open page shows the same answers.
+
 ### 4.9.1 Independent voice questions
 
 Touch announcements remain automatic and never require microphone input or a question.
-The dashboard microphone transcribes a question and publishes `SceneQuestion`.
+A dashboard question (typed, or transcribed by the microphone button) that is not an
+explicit history question is published as `SceneQuestion`.
 The namer retains the latest `FrameResult` and uses a separate background worker to
 send the full current image and question to Grok. Answers are short and spoken via
 `SpeakRequest` with source `namer`, and shown on the dashboard. "Where are my keys?"
@@ -285,7 +297,7 @@ Two time-series tables.
 | `source` | text | `yolo` or `grok` |
 | `confidence` | real | 0 to 1 |
 
-Last-seen query: given some text, find the most recent `touch_events` row whose `name` or `class_label` contains it, ignoring case. The answer is one sentence, for example "Heinz ketchup, 4 minutes ago, next to mug and cereal box." If nothing matches: "I have not seen that."
+Last-seen query: given some text, find the most recent `touch_events` row whose `name` or `class_label` contains it, ignoring case. The answer is one sentence, for example "Heinz ketchup, 4 minutes ago, next to mug and cereal box." If the query ran and nothing matches: "I have not seen that." If the database is unreachable or the query fails: "Touch history is unavailable right now."
 
 Writes to Tiger Data must never block the frame loop. If the database is unreachable, keep running and drop the writes.
 
@@ -358,15 +370,49 @@ These are the contract between modules. Field names, types and units are fixed.
 |---|---|---|
 | `ts` | number | When asked |
 | `text` | text | What to search for |
+| `request_id` | text or empty | Optional. When set, storage also publishes a `LastSeenResult` with the same value |
 
-### `ModeChange` (dashboard to vision, and vision back to dashboard)
+### `LastSeenResult` (storage to dashboard)
+
+Added for the dashboard redesign. Published only for a `LastSeenQuery` that has a `request_id`, after the spoken `SpeakRequest`.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `ts` | number | When the mode was set |
-| `mode` | text | One of `actual`, `demo` |
+| `ts` | number | When answered |
+| `request_id` | text | Copied from the `LastSeenQuery` |
+| `status` | text | `found`, `not_found` or `unavailable`. A database error or outage is `unavailable`, never `not_found` |
+| `answer` | text | Exactly the sentence that was spoken for this query |
+| `matched_at` | number or empty | `ts` of the matching touch row, only when `found` |
+| `label` | text | Name or class label of the match, empty unless `found` |
+| `neighbours` | list of text | Neighbours recorded with the match |
 
-The dashboard publishes this when the Demo mode button is pressed. In `demo`, vision detects with pretrained YOLOE (`yoloe-11s-seg.pt`) instead of `yolo11s.pt`. YOLOE is prompted with reference pictures of the demo objects, taken with `python -m vision.capture_demo_refs` and turned into prompts once by `python -m vision.build_demo_weights`. Nothing is trained. The camera, hands, scene, naming, audio and hazard paths are unchanged. If vision cannot switch (the demo prompts are not built), it publishes `ModeChange` with `mode` set to `actual`, so the page shows the mode that is really running.
+### `ModeChange` (dashboard to vision)
+
+A request to switch detectors (Regular or Demo). Vision answers with `DetectorStatus`; a `ModeChange` is never treated as confirmation.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When the switch was requested |
+| `mode` | text | `actual` (Regular: COCO `yolo11s.pt`) or `demo` (the demo-trained detector) |
+| `request_id` | text or empty | Optional; echoed by the `DetectorStatus` that answers it |
+
+### `DetectorStatus` (vision to dashboard)
+
+The only confirmation of a mode change. `active_mode` changes only after the replacement detector has been loaded, validated and swapped in at a frame boundary; until then the previous detector keeps running.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When this status was true |
+| `state` | text | `active`, `switching` or `failed` |
+| `active_mode` | text | `actual` or `demo`: the detector processing frames now |
+| `detector` | text | Plain identity of the active detector |
+| `requested_mode` | text or empty | Set while switching or after a failure |
+| `request_id` | text or empty | From the `ModeChange` this answers |
+| `checkpoint` | text | File, size and SHA-256 prefix of the loaded demo checkpoint |
+| `demo_kind` | text | `trained`, `prompt-fallback`, `fake` or `none` |
+| `demo_available` | true, false or empty | Empty until checked |
+| `message` | text | Why a switch failed, or how to make Demo available |
+| `fake` | true or false | True when vision is a fake (recorded clip): no model runs |
 
 ### `SceneQuestion` (dashboard to namer)
 
@@ -386,6 +432,34 @@ for current image context; no other module calls the namer directly.
 | `text` | text | What to say |
 | `priority` | text | `normal` only. Alarms come from `HazardEvent`, never from here |
 | `source` | text | Folder name of the sender |
+
+### `SpeechStatus` (audio to dashboard)
+
+Added for the dashboard redesign. One message per step of one phrase. `completed` means the speech engine returned; it does not prove anyone heard it.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When the step happened |
+| `speech_id` | integer | The same for every step of one phrase |
+| `text` | text | What is, was, or would have been said |
+| `status` | text | `queued`, `speaking`, `completed`, `interrupted` or `failed` |
+| `mode` | text | `real` (a speech engine), `fake` (printed by the fake) or `unavailable` (logged only) |
+| `kind` | text | `touch`, `answer` or `hazard` |
+| `object_id` | integer or empty | Object spoken about, for touch speech |
+| `source` | text | Folder name of whoever asked for it |
+| `detail` | text | Why it was interrupted or failed |
+
+### `ModuleStatus` (any module to dashboard)
+
+Added for the dashboard redesign. Explicit lifecycle and availability changes. A module that never sends one is shown as unknown, not healthy.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When the status changed |
+| `module` | text | Folder name of the module described |
+| `status` | text | `starting`, `active`, `degraded`, `offline` or `unknown` |
+| `mode` | text | `real`, `fake` or `unknown` |
+| `detail` | text | Short plain reason. Never a key or connection string |
 
 ---
 
@@ -473,6 +547,10 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 | `QUESTION_TIMEOUT_SECONDS` | 4.0 | namer |
 | `QUESTION_MAX_FRAME_AGE_SECONDS` | 2.0 | namer |
 | `DASHBOARD_PORT` | 8000 | dashboard |
+| `CAMERA_STALE_SECONDS` | 2.0 | dashboard |
+| `LAST_SEEN_TIMEOUT_SECONDS` | 8.0 | dashboard |
+| `THUMBNAIL_MAX_AGE_SECONDS` | 30.0 | dashboard |
+| `MODE_SWITCH_TIMEOUT_SECONDS` | 30.0 | dashboard |
 
 ---
 
@@ -482,7 +560,7 @@ Only after the Sat 8 pm checkpoint is met.
 
 1. **Unknown objects.** If fingertips rest for 1 second where no object box exists, crop the area around the hand and send it to the namer. COCO has only 80 classes, so many groceries are never detected.
 2. **Teach mode.** The wearer names a personal item ("my allergy meds"). Store an embedding in Tiger Data and match later touches by vector similarity.
-3. **Voice query.** Implemented as current-view questions and explicit history queries (section 4.9.1).
+3. **Voice query.** Implemented as current-view questions and explicit history queries (section 4.9.1), asked from the dashboard with browser speech recognition. A microphone on the glasses themselves is still a stretch goal.
 
 ---
 

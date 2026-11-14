@@ -3,6 +3,11 @@
 Frames come from FrameResult on the bus; object states come from SceneSnapshot.
 Each bus subscription has its own worker, so drawing and JPEG encoding here never
 delay vision, scene or hazard.
+
+Each /video viewer may choose its own overlays (OverlayOptions). The default
+picture is drawn once per frame on the bus worker, exactly as before. Other
+option sets are drawn on demand off the event loop, one picture per frame per
+option set, and shared by every viewer that asked for the same options.
 """
 
 from __future__ import annotations
@@ -10,7 +15,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from collections import OrderedDict
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any
 
 import cv2
@@ -37,6 +44,10 @@ YELLOW = (36, 165, 245)
 HAND_DOT = (255, 166, 88)
 LABEL_TEXT = (15, 17, 21)
 BG = (21, 17, 15)
+BLACK = (0, 0, 0)
+SELECTED = (118, 118, 15)  # #0F766E, the page's touch emphasis colour
+SELECTED_HALO = 9  # black, then white, then teal: visible on dark and light images
+SELECTED_RING = 5
 THIN, NORMAL, THICK = 1, 2, 4
 DASH_PIXELS = 8
 HAND_DOT_RADIUS = 5
@@ -52,6 +63,25 @@ STATE_STYLE: dict[str, tuple[tuple[int, int, int], int, str, bool]] = {
     "held": (YELLOW, THICK, "HELD", True),
     "lost": (WHITE, NORMAL, "", False),
 }
+
+
+@dataclass(frozen=True)
+class OverlayOptions:
+    """What one viewer wants drawn. The defaults are the original overlays."""
+
+    boxes: bool = True
+    hands: bool = True
+    labels: bool = True
+    selected_id: int | None = None
+
+    @property
+    def is_default(self) -> bool:
+        """True when this is the original picture every viewer used to get."""
+        return self == DEFAULT_OPTIONS
+
+
+DEFAULT_OPTIONS = OverlayOptions()
+MAX_OPTION_SETS = 8  # distinct non-default option sets kept rendered
 
 
 def _placeholder_jpeg(text: str) -> bytes:
@@ -126,9 +156,18 @@ def _label(image: Any, text: str, x: int, y: int, colour: tuple[int, int, int]) 
     )
 
 
-def _draw_object(image: Any, obj: SceneObject) -> None:
+def _draw_selected(image: Any, box: tuple[float, float, float, float]) -> None:
+    """Outline the selected object in black, white and teal so it stands out on any image."""
+    a, b = _point(box[0], box[1]), _point(box[2], box[3])
+    cv2.rectangle(image, a, b, BLACK, SELECTED_HALO)
+    cv2.rectangle(image, a, b, WHITE, SELECTED_RING)
+    cv2.rectangle(image, a, b, SELECTED, NORMAL)
+
+
+def _draw_object(image: Any, obj: SceneObject, labels: bool = True) -> None:
     """Draw one scene object in the style SPEC.md 4.9 gives its state."""
     colour, thickness, tag, labelled = STATE_STYLE.get(obj.state, STATE_STYLE["new"])
+    labelled = labelled and labels
     if obj.state == "lost":
         _dashed_rectangle(image, obj.box, colour, thickness)
     else:
@@ -146,31 +185,47 @@ def _draw_object(image: Any, obj: SceneObject) -> None:
         _label(image, text, x, y, colour)
 
 
-def render_frame(frame: FrameResult, snapshot: SceneSnapshot | None) -> Any:
+def render_frame(
+    frame: FrameResult,
+    snapshot: SceneSnapshot | None,
+    options: OverlayOptions = DEFAULT_OPTIONS,
+) -> Any:
     """Return a copy of the frame with object boxes and fingertip dots drawn on it.
 
     With a recent SceneSnapshot, boxes use its states (including lost objects).
     Without one, every detected object is drawn in the plain `new` style.
+    options can hide boxes, labels or hands and emphasise one object. The
+    frame's own image is never changed; coordinates are drawn unscaled.
     """
     image = np.ascontiguousarray(frame.image).copy()  # scene crops the original
-    if (
+    recent = (
         snapshot is not None
         and abs(frame.frame_id - snapshot.frame_id) <= SNAPSHOT_MAX_FRAME_LAG
-    ):
+    )
+    selected_box = None
+    if recent:
         # Touching and held last so their boxes sit on top.
         order = {"lost": 0, "new": 1, "idle": 2, "held": 3, "touching": 4}
         for obj in sorted(snapshot.objects, key=lambda o: order.get(o.state, 0)):
-            _draw_object(image, obj)
+            if obj.object_id == options.selected_id:
+                selected_box = obj.box
+            if options.boxes:
+                _draw_object(image, obj, labels=options.labels)
     else:
         for tracked in frame.objects:
-            cv2.rectangle(
-                image,
-                _point(tracked.box[0], tracked.box[1]),
-                _point(tracked.box[2], tracked.box[3]),
-                GREY,
-                THIN,
-            )
-    for hand in frame.hands:
+            if tracked.object_id == options.selected_id:
+                selected_box = tracked.box
+            if options.boxes:
+                cv2.rectangle(
+                    image,
+                    _point(tracked.box[0], tracked.box[1]),
+                    _point(tracked.box[2], tracked.box[3]),
+                    GREY,
+                    THIN,
+                )
+    if selected_box is not None:
+        _draw_selected(image, selected_box)
+    for hand in frame.hands if options.hands else ():
         for tip in (hand.thumb_tip, hand.index_tip):
             cv2.circle(
                 image, _point(*tip), HAND_DOT_RADIUS, HAND_DOT, cv2.FILLED, cv2.LINE_AA
@@ -192,6 +247,9 @@ class VideoFeed:
         self._sequence = 0
         self._closed = threading.Event()
         self._failed_once = False
+        # options -> (sequence it was drawn for, JPEG), newest used last.
+        self._variants: OrderedDict[OverlayOptions, tuple[int, bytes]] = OrderedDict()
+        self._variant_lock = threading.Lock()
 
     @property
     def closed(self) -> bool:
@@ -216,6 +274,43 @@ class VideoFeed:
         """Return (sequence number, JPEG); the number goes up with every new picture."""
         with self._lock:
             return self._sequence, self._jpeg
+
+    def sequence(self) -> int:
+        """Return the current picture's sequence number without copying it."""
+        with self._lock:
+            return self._sequence
+
+    def latest_for(self, options: OverlayOptions) -> tuple[int, bytes]:
+        """Return (sequence, JPEG) drawn with options; blocking, so call it off the event loop."""
+        if options.is_default:
+            return self.latest()
+        with self._lock:
+            sequence, frame, snapshot, fallback = (
+                self._sequence,
+                self._frame,
+                self._snapshot,
+                self._jpeg,
+            )
+        if frame is None:
+            return sequence, fallback  # the waiting picture has no overlays to change
+        with self._variant_lock:
+            cached = self._variants.get(options)
+            if cached is not None and cached[0] == sequence:
+                self._variants.move_to_end(options)
+                return cached
+        try:
+            jpeg = _encode(render_frame(frame, snapshot, options))
+        except Exception:
+            if not self._failed_once:
+                LOGGER.exception("Could not draw the camera feed")
+                self._failed_once = True
+            return sequence, fallback
+        with self._variant_lock:
+            self._variants[options] = (sequence, jpeg)
+            self._variants.move_to_end(options)
+            while len(self._variants) > MAX_OPTION_SETS:
+                self._variants.popitem(last=False)
+        return sequence, jpeg
 
     def close(self) -> None:
         """End every open /video stream."""
@@ -249,12 +344,22 @@ def mjpeg_part(jpeg: bytes) -> bytes:
 
 
 async def mjpeg_stream(
-    feed: VideoFeed, poll_seconds: float = POLL_SECONDS
+    feed: VideoFeed,
+    poll_seconds: float = POLL_SECONDS,
+    options: OverlayOptions = DEFAULT_OPTIONS,
 ) -> AsyncIterator[bytes]:
-    """Yield the current picture at once, then each new one, until the feed closes."""
+    """Yield the current picture at once, then each new one, until the feed closes.
+
+    A slow viewer only ever gets the newest picture; older ones are skipped.
+    """
     sent = -1
     while not feed.closed:
-        sequence, jpeg = feed.latest()
+        if options.is_default:
+            sequence, jpeg = feed.latest()
+        elif feed.sequence() != sent:
+            sequence, jpeg = await asyncio.to_thread(feed.latest_for, options)
+        else:
+            sequence, jpeg = sent, b""
         if sequence != sent:
             sent = sequence
             yield mjpeg_part(jpeg)

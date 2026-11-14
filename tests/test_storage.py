@@ -15,7 +15,7 @@ import pytest
 
 from storage import db
 from storage._deps import HazardEvent, LastSeenQuery, SpeakRequest, TouchEvent
-from storage.last_seen import NOT_SEEN, format_answer
+from storage.last_seen import NOT_SEEN, UNAVAILABLE, format_answer
 from storage.writer import QUEUE_MAX_ITEMS, Store
 
 UNREACHABLE_URL = "postgresql://127.0.0.1:1/x"
@@ -141,7 +141,8 @@ def test_unreachable_db_never_blocks_and_warns_once(
     assert "127.0.0.1" not in caplog.text and "postgresql://" not in caplog.text
     answer = published[0]
     assert isinstance(answer, SpeakRequest)
-    assert (answer.text, answer.priority, answer.source) == (NOT_SEEN, "normal", "storage")
+    # Database down: say so, never "I have not seen that."
+    assert (answer.text, answer.priority, answer.source) == (UNAVAILABLE, "normal", "storage")
 
 
 @pytest.fixture
@@ -187,7 +188,7 @@ def test_hung_db_does_not_block_handlers(
     warnings = [r for r in caplog.records if r.name == "storage" and r.levelno == logging.WARNING]
     assert len(warnings) == 1, [r.getMessage() for r in warnings]
     assert "127.0.0.1" not in caplog.text and "postgresql://" not in caplog.text
-    assert published[0].text == NOT_SEEN
+    assert published[0].text == UNAVAILABLE
 
 
 # 3. queue full -----------------------------------------------------------
