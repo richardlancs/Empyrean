@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from config import HAZARD_COOLDOWN_SECONDS
-from contracts import HazardEvent, TouchEvent
+from contracts import FrameResult, HazardEvent, SceneSnapshot, TouchEvent
 from dashboard import DashboardState, create_app, register
 from dashboard.state import EVENT_LOG_SIZE, HAZARD_LABELS
 
@@ -100,7 +100,7 @@ def test_register_and_real_events_are_not_simulated() -> None:
     """Real HazardEvent and touch TouchEvent from the bus are shown without the label."""
     bus = TestBus()
     state = register(bus, serve=False).state
-    assert set(bus.subscribers) == {HazardEvent, TouchEvent}
+    assert set(bus.subscribers) == {HazardEvent, TouchEvent, FrameResult, SceneSnapshot}
 
     bus.publish(HazardEvent(ts=NOW, type="vehicle", source="yolo", confidence=0.91))
     bus.publish(

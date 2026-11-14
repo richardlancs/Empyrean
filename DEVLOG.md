@@ -32,6 +32,8 @@ Problems in someone else's folder go here. The owner removes the line once fixed
   5. **Shutdown.** Keep what each `register` returns and call `stop()` on it at shutdown: `Namer.stop(timeout=...)`, `Store.stop()`, `FakeNamer.stop(timeout=...)`, and `FakeStore.stop()`, which does nothing. `Store.stop()` waits up to 5 s for its worker to finish and close the database connection.
   6. **`--fake namer storage`.** Use the `register` functions in `fakes/namer/fake_namer.py` and `fakes/storage/fake_store.py`. They subscribe to the same message types as the real modules, so the rest of `app/` does not change.
 
+- **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed to your folder at their own request, outside the ownership rule. New `dashboard/video.py`, plus edits to `dashboard/server.py`, `dashboard/__init__.py`, `dashboard/index.html`, `dashboard/requirements.txt` and `tests/test_dashboard.py`, and a new `tests/test_dashboard_video.py`. Details are in the 2026-11-14 Person 2 entry below. Keep it, change it or revert it as you see fit, then remove this line. Nothing in `vision/` or `app/` changed, so Person 1 has nothing to do.
+
 ## Contract changes
 
 Any change to `contracts/`, `config/`, `SPEC.md` or `AGENTS.md`. Needs all four to agree.
@@ -67,6 +69,21 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 2 working in Person 4's `dashboard/`, Claude Code: live camera feed
+**Changed:**
+- **This is outside Person 2's lane.** Person 2 told the agent to make the change anyway and log it here so Person 4 knows (see "Needs attention").
+- New `dashboard/video.py`. `VideoFeed` subscribes to `FrameResult` and `SceneSnapshot`, draws the SPEC.md 4.9 overlays on a copy of the frame, and keeps the newest JPEG. Overlays: thin grey for `new`, white with name or class for `idle`, thick green tagged TOUCHING for `touching`, yellow tagged HELD for `held`, dashed white for `lost`, and a dot on each thumb tip and index fingertip. When no recent snapshot is available (scene not running, or more than `PROCESS_FPS` frames behind), every detection is drawn in the `new` style.
+- `dashboard/server.py`: new `GET /video` route that streams MJPEG (`multipart/x-mixed-replace`). `register(bus)` now also subscribes the feed to `FrameResult` and `SceneSnapshot`. `Dashboard.stop()` closes open streams first so shutdown does not hang on them.
+- `dashboard/index.html`: the camera panel shows `<img src="/video">`. The server sends a "Waiting for camera" picture until the first frame. If the stream errors, the page shows "Camera feed not connected" and retries every 2 s, and it also reloads the stream when the WebSocket reconnects.
+- `dashboard/requirements.txt`: added `opencv-contrib-python==4.11.0.86`, the build already in the project `.venv` (MediaPipe uses it). Do not also install `opencv-python` in the same environment, because the two packages overwrite each other's `cv2`.
+- `tests/test_dashboard.py`: the subscription check now expects the two new message types. New `tests/test_dashboard_video.py` covers state colours, fingertip dots, leaving the bus image untouched (scene crops from it), the no-scene fallback, ignoring stale snapshots, bus-to-JPEG wiring, the stream generator, and `/video` on a real served port.
+
+**Tested:** In the project `.venv` (Python 3.11.18): full `pytest` passed 178, skipped 1, failed 0. `ruff check` and `ruff format` are clean on the changed files. I ran `python -m app --fake vision`, opened http://localhost:8000 and watched the feed: idle boxes labelled "Orange bottle" and "Paper cup", then a green "TOUCHING Orange bottle" with two fingertip dots during the scripted touch. The log showed no errors. Not tried on the real webcam.
+
+**Decisions:** Drawing and JPEG encoding happen on the dashboard's own bus worker. The bus drops stale `FrameResult`s per subscriber, so a slow encode can only make the feed skip frames. It cannot slow vision, scene or hazard. No network or database calls were added. Drawing sizes, colours and JPEG quality are named constants in `dashboard/video.py`, not thresholds in `config/`.
+
+**Teammates need to know:** Person 4: please review, and reinstall with `py -3.11 -m pip install -r dashboard/requirements.txt` if you don't use the shared `.venv`. Not done yet from SPEC.md 4.9: the Objects list (from `SceneSnapshot` over `/ws`), the processed-FPS readout, and the last-touched search box.
 
 ### 2026-11-14, Person 4 (dashboard), Claude Code: page starts inside the app
 **Changed:**

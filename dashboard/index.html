@@ -101,6 +101,14 @@
     color: var(--muted);
     text-align: center;
   }
+  #feed {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 6px;
+  }
+  #feed[hidden], #feed-offline[hidden] { display: none; }
   .side { grid-area: side; display: grid; gap: 16px; align-content: start; }
   .empty { color: var(--muted); margin: 0; }
 
@@ -170,7 +178,8 @@
   </section>
 
   <section class="panel video" aria-label="Camera feed">
-    <p>Camera feed not connected.<br>It appears here once vision runs in the app.</p>
+    <img id="feed" src="/video" alt="Live camera feed with object boxes and fingertip dots">
+    <p id="feed-offline" hidden>Camera feed not connected.<br>Retrying.</p>
   </section>
 
   <div class="side">
@@ -196,7 +205,24 @@
     warningMeta: document.getElementById("warning-meta"),
     events: document.getElementById("events"),
     eventsEmpty: document.getElementById("events-empty"),
+    feed: document.getElementById("feed"),
+    feedOffline: document.getElementById("feed-offline"),
   };
+
+  // The server sends a "Waiting for camera" picture until the first frame, so an
+  // error here means the server itself is unreachable.
+  function reloadFeed() {
+    els.feed.src = "/video?t=" + Date.now();
+  }
+  els.feed.addEventListener("load", () => {
+    els.feed.hidden = false;
+    els.feedOffline.hidden = true;
+  });
+  els.feed.addEventListener("error", () => {
+    els.feed.hidden = true;
+    els.feedOffline.hidden = false;
+    setTimeout(reloadFeed, 2000);
+  });
   let latest = null;
   let activeSeconds = 0;
   let clockOffset = 0;  // server seconds minus browser seconds
@@ -262,10 +288,16 @@
   }
   setInterval(tick, 250);
 
+  let everConnected = false;
   function connect() {
     const scheme = location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${scheme}://${location.host}/ws`);
-    socket.onopen = () => { els.status.textContent = "Live"; els.status.classList.add("live"); };
+    socket.onopen = () => {
+      els.status.textContent = "Live";
+      els.status.classList.add("live");
+      if (everConnected) reloadFeed();  // the old stream died with the server
+      everConnected = true;
+    };
     socket.onmessage = (message) => render(JSON.parse(message.data));
     socket.onclose = () => {
       els.status.textContent = "Reconnecting";
