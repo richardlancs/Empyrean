@@ -13,6 +13,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from typing import Any
 
 from contracts import (
     HazardEvent,
@@ -94,6 +95,18 @@ class FakeStore:
         now = time.time()
         text = last_seen_sentence(self.find_last_seen(msg.text), now)
         self._publish(SpeakRequest(ts=now, text=text, priority="normal", source="storage"))
+
+    def stop(self) -> None:
+        """Do nothing: the fake has no worker. Present so app/ can stop it like Store."""
+
+
+def register(bus: Any) -> FakeStore:
+    """Subscribe a FakeStore to the bus exactly as storage.register does, and return it."""
+    store = FakeStore(bus.publish)
+    bus.subscribe(TouchEvent, store.on_touch_event)
+    bus.subscribe(HazardEvent, store.on_hazard_event)
+    bus.subscribe(LastSeenQuery, store.on_last_seen_query)
+    return store
 
 
 if __name__ == "__main__":
