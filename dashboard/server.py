@@ -1,38 +1,84 @@
-"""FastAPI app: serves the page, the camera feed at /video, state over /ws, and Simulate alert."""
+"""Compose the dashboard: services, bus wiring, routes, static files and the web server.
+
+Layers, outermost first:
+  api/ (routes.py, realtime.py, schemas.py)  HTTP and WebSocket, validation, errors
+  services/ and state.py                     read model, queries, health, heartbeat
+  bus_adapter.py                             the only place that subscribes to the bus
+  video.py, thumbnails.py                    the camera picture pipeline
+The frontend lives in index.html and static/ and only talks to the api layer.
+"""
 
 from __future__ import annotations
 
-import asyncio
-import contextlib
 import logging
+import mimetypes
 import socket
 import threading
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from config import DASHBOARD_PORT
-from contracts import FrameResult, HazardEvent, SceneSnapshot, TouchEvent
+from dashboard import bus_adapter
+from dashboard.api.realtime import ClientHub, build_realtime_router
+from dashboard.api.routes import INDEX_PATH, build_router
+from dashboard.services.container import DashboardServices
+from dashboard.services.heartbeat import Heartbeat
+from dashboard.services.last_seen import LastSeenService
 from dashboard.state import DashboardState
-from dashboard.video import BOUNDARY, VideoFeed, mjpeg_stream
+from dashboard.thumbnails import ThumbnailCache
+from dashboard.video import VideoFeed
 
 LOGGER = logging.getLogger("dashboard")
-INDEX_PATH = Path(__file__).resolve().parent / "index.html"
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 DEFAULT_HOST = "127.0.0.1"
 SERVER_STOP_SECONDS = 3.0  # how long stop() waits for the web server thread
 
+# Native ES modules need a JavaScript MIME type; some OS registries map .js wrongly.
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("text/javascript", ".mjs")
+mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("image/svg+xml", ".svg")
+
+__all__ = ["INDEX_PATH", "STATIC_DIR", "Dashboard", "create_app", "register"]
+
 
 class Dashboard:
-    """The dashboard as app/ runs it: bus-fed state plus the web page on a thread."""
+    """The dashboard as app/ runs it: bus-fed services plus the web page on a thread."""
 
-    def __init__(self, state: DashboardState, video: VideoFeed | None = None) -> None:
-        """Hold state and the camera feed; call serve() to start the web page."""
+    def __init__(
+        self,
+        state: DashboardState,
+        video: VideoFeed | None = None,
+        *,
+        last_seen: LastSeenService | None = None,
+        thumbnails: ThumbnailCache | None = None,
+    ) -> None:
+        """Hold the services; call serve() to start the web page."""
         self.state = state
         self.video = video or VideoFeed()
+        self.thumbnails = thumbnails or ThumbnailCache()
+        self.last_seen = last_seen or LastSeenService(None)
+        self.state.thumbnails = self.thumbnails
+        self.state.last_seen = self.last_seen
+        self.heartbeat = Heartbeat(self.tick)
         self._server: Any = None
         self._thread: threading.Thread | None = None
+
+    @property
+    def services(self) -> DashboardServices:
+        """The services the routes call into."""
+        return DashboardServices(self.state, self.video, self.last_seen, self.thumbnails)
+
+    def tick(self) -> None:
+        """Expire old searches and pictures, then push the state to open pages."""
+        self.last_seen.expire()
+        self.thumbnails.expire()
+        self.state.tick()
 
     def serve(self, host: str = DEFAULT_HOST, port: int = DASHBOARD_PORT) -> bool:
         """Start the web page on a background thread; return False if the port is busy."""
@@ -44,21 +90,20 @@ class Dashboard:
         import uvicorn
 
         config = uvicorn.Config(
-            create_app(self.state, self.video),
-            host=host,
-            port=port,
-            log_level="warning",
+            _build_app(self.services), host=host, port=port, log_level="warning"
         )
         self._server = uvicorn.Server(config)
         self._thread = threading.Thread(
             target=self._server.run, name="dashboard-server", daemon=True
         )
         self._thread.start()
+        self.heartbeat.start()  # only pages need the push; queries expire on read too
         LOGGER.info("Dashboard page at http://localhost:%d", port)
         return True
 
     def stop(self) -> None:
-        """End open video streams, ask the web server to finish, and wait briefly."""
+        """End open video streams, stop the heartbeat and the web server, and wait briefly."""
+        self.heartbeat.stop()
         self.video.close()
         if self._server is not None:
             self._server.should_exit = True
@@ -81,108 +126,61 @@ def register(
 ) -> Dashboard:
     """Feed bus messages to the dashboard and, if serve, start the page.
 
-    FrameResult and SceneSnapshot drive the camera feed, SceneSnapshot also
-    drives the object list, and HazardEvent and TouchEvent drive the warning
-    and event log.
+    The subscriptions are listed in bus_adapter.connect. Last-touch searches are
+    published on this bus for storage/ to answer.
     """
-    dashboard = Dashboard(state or DashboardState())
-    bus.subscribe(HazardEvent, dashboard.state.on_hazard)
-    bus.subscribe(TouchEvent, dashboard.state.on_touch)
-    bus.subscribe(FrameResult, dashboard.video.on_frame)
-    bus.subscribe(SceneSnapshot, dashboard.video.on_scene)
-    bus.subscribe(SceneSnapshot, dashboard.state.on_scene)
+    dashboard = Dashboard(
+        state or DashboardState(), last_seen=LastSeenService(bus.publish)
+    )
+    bus_adapter.connect(bus, dashboard.services)
     if serve:
         dashboard.serve()
     return dashboard
 
 
-def _put_latest(queue: asyncio.Queue[dict[str, Any]], item: dict[str, Any]) -> None:
-    """Replace whatever is waiting in a one-slot queue; stale state is useless."""
-    if queue.full():
-        queue.get_nowait()
-    queue.put_nowait(item)
-
-
 def create_app(
-    state: DashboardState | None = None, video: VideoFeed | None = None
+    state: DashboardState | None = None,
+    video: VideoFeed | None = None,
+    *,
+    last_seen: LastSeenService | None = None,
+    thumbnails: ThumbnailCache | None = None,
 ) -> FastAPI:
-    """Build the dashboard web app around state and a camera feed (new empty ones if not given)."""
+    """Build the dashboard web app (new empty services for anything not given)."""
     state = state or DashboardState()
-    video = video or VideoFeed()
-    app = FastAPI(title="Dashboard")
-    app.state.dashboard = state
-    clients: set[asyncio.Queue[dict[str, Any]]] = set()
-    loop_ref: dict[str, asyncio.AbstractEventLoop] = {}
+    thumbnails = thumbnails or state.thumbnails or ThumbnailCache()
+    last_seen = last_seen or state.last_seen or LastSeenService(None)
+    state.thumbnails, state.last_seen = thumbnails, last_seen
+    return _build_app(DashboardServices(state, video or VideoFeed(), last_seen, thumbnails))
 
-    def push_to_clients() -> None:
-        """Queue the new state for every open page; safe to call from any thread."""
-        loop = loop_ref.get("loop")
-        if loop is None or not clients:
-            return
-        snapshot = state.snapshot()
-        for queue in list(clients):
-            with contextlib.suppress(RuntimeError):  # loop already closed at shutdown
-                loop.call_soon_threadsafe(_put_latest, queue, snapshot)
 
-    state.add_listener(push_to_clients)
+def _build_app(services: DashboardServices) -> FastAPI:
+    """Assemble routes, the WebSocket hub and static files around the services."""
+    app = FastAPI(title="Empyrean dashboard")
+    app.state.dashboard = services.state
+    app.state.services = services
+    hub = ClientHub(services.state.snapshot)
+    services.state.add_listener(hub.push)
+    services.last_seen.add_listener(hub.push)
+    app.include_router(build_router(services))
+    app.include_router(build_realtime_router(hub))
+    if STATIC_DIR.is_dir():
+        app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-    @app.get("/", response_class=HTMLResponse)
-    async def index() -> str:
-        """Serve the single dashboard page."""
-        return INDEX_PATH.read_text(encoding="utf-8")
-
-    @app.get("/video")
-    async def video_stream() -> StreamingResponse:
-        """Stream the camera feed with overlays as MJPEG (SPEC.md 4.9)."""
-        return StreamingResponse(
-            mjpeg_stream(video),
-            media_type=f"multipart/x-mixed-replace; boundary={BOUNDARY}",
-            headers={"Cache-Control": "no-store"},
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_request: Request, exc: RequestValidationError) -> JSONResponse:
+        """Translate validation errors into one plain sentence plus the field list."""
+        fields = [".".join(str(p) for p in e.get("loc", ())[1:]) for e in exc.errors()]
+        named = ", ".join(f for f in fields if f) or "request"
+        return JSONResponse(
+            {"detail": f"Invalid {named}.", "errors": _jsonable_errors(exc)}, status_code=422
         )
-
-    @app.get("/api/state")
-    async def get_state() -> dict[str, Any]:
-        """Return the current page state."""
-        return state.snapshot()
-
-    @app.post("/api/simulate-alert")
-    async def simulate_alert() -> dict[str, Any]:
-        """Add one simulated warning to the page only, and return the new state."""
-        LOGGER.info("Simulated alert added to the dashboard (no bus message, no alarm)")
-        return state.simulate_hazard()
-
-    @app.websocket("/ws")
-    async def websocket_endpoint(websocket: WebSocket) -> None:
-        """Send the state on connect and after every change until the page closes."""
-        await websocket.accept()
-        loop_ref["loop"] = asyncio.get_running_loop()
-        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1)
-        clients.add(queue)
-        receiver = asyncio.create_task(_wait_for_close(websocket))
-        try:
-            await websocket.send_json(state.snapshot())
-            while not receiver.done():
-                getter = asyncio.create_task(queue.get())
-                done, _ = await asyncio.wait(
-                    {getter, receiver}, return_when=asyncio.FIRST_COMPLETED
-                )
-                if getter in done:
-                    await websocket.send_json(getter.result())
-                else:
-                    getter.cancel()
-        except WebSocketDisconnect:
-            pass
-        finally:
-            clients.discard(queue)
-            receiver.cancel()
-            with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect):
-                await receiver
 
     return app
 
 
-async def _wait_for_close(websocket: WebSocket) -> None:
-    """Read and ignore anything the page sends; return when it disconnects."""
-    with contextlib.suppress(WebSocketDisconnect):
-        while True:
-            await websocket.receive_text()
+def _jsonable_errors(exc: RequestValidationError) -> list[dict[str, Any]]:
+    """Return validation errors with only JSON-safe fields."""
+    return [
+        {"loc": [str(p) for p in e.get("loc", ())], "msg": str(e.get("msg", ""))}
+        for e in exc.errors()
+    ]

@@ -10,7 +10,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 from config import HAZARD_COOLDOWN_SECONDS
-from contracts import FrameResult, HazardEvent, SceneSnapshot, TouchEvent
+from contracts import (
+    FrameResult,
+    HazardEvent,
+    LastSeenResult,
+    ModuleStatus,
+    NameRequest,
+    NameResult,
+    SceneSnapshot,
+    SpeechStatus,
+    TouchEvent,
+)
 from dashboard import DashboardState, create_app, register
 from dashboard.state import EVENT_LOG_SIZE, HAZARD_LABELS
 
@@ -100,7 +110,11 @@ def test_register_and_real_events_are_not_simulated() -> None:
     """Real HazardEvent and touch TouchEvent from the bus are shown without the label."""
     bus = TestBus()
     state = register(bus, serve=False).state
-    assert set(bus.subscribers) == {HazardEvent, TouchEvent, FrameResult, SceneSnapshot}
+    # The original four subscriptions stay; the redesign adds exactly these
+    # telemetry and correlation inputs (docs/dashboard-redesign/api.md).
+    original = {HazardEvent, TouchEvent, FrameResult, SceneSnapshot}
+    added = {NameRequest, NameResult, SpeechStatus, ModuleStatus, LastSeenResult}
+    assert set(bus.subscribers) == original | added
 
     bus.publish(HazardEvent(ts=NOW, type="vehicle", source="yolo", confidence=0.91))
     bus.publish(
