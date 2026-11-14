@@ -176,3 +176,18 @@ def test_video_endpoint_streams_mjpeg_from_the_real_server() -> None:
     finally:
         dashboard.stop()
     assert not dashboard._thread.is_alive()
+
+
+def test_label_near_right_edge_stays_inside_the_frame() -> None:
+    """A long label on a box at the right edge is shifted left, not cut off."""
+    frame = _frame()
+    edge_box = (600.0, 100.0, 639.0, 200.0)
+    snapshot = SceneSnapshot(
+        ts=NOW,
+        frame_id=frame.frame_id,
+        objects=[SceneObject(5, "chair", "HON office chair", "idle", edge_box, NOW)],
+    )
+    image = render_frame(frame, snapshot)
+    tag_row = image[90]  # just above the box, where the white tag sits
+    white = [x for x in range(PROCESS_WIDTH) if tag_row[x].min() > 200]
+    assert white and min(white) < 600  # tag starts left of the box

@@ -70,6 +70,31 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 2 working in Person 1's `vision/`, Claude Code: YOLO nano to YOLO small
+**Changed:** `vision/vision.py` now loads `vision/models/yolo11s.pt` instead of `yolo11n.pt`, and its missing-weights message names the new file. Nothing else changed. Person 2 asked for the swap after the real camera missed a held backpack. It is outside Person 2's lane and is a model swap (AGENTS.md rule 7), so it is logged here for Person 1 and the team.
+
+**Tested:** On a frame from the real camera (640 x 360, CPU), `yolo11n` found no backpack even at 0.05 confidence. `yolo11s` found it at 0.51, and raised the couch from 0.31 to 0.46 and the book from 0.11 to 0.39. Speed on this laptop's CPU: 24 ms per frame for nano and 49 ms for small. `python -m app` on the real webcam started every module, and the dashboard listed and named the chairs and the couch. One sampled frame of about 19 went over the 150 ms capture-to-publish target, at 159 ms. Full `pytest`: 180 passed, 1 skipped.
+
+**Decisions:** Kept `DET_MIN_CONFIDENCE` at 0.5. The backpack's 0.51 is just over it, so it may flicker on other angles.
+
+**Teammates need to know:** Weights are git-ignored. Everyone running the real camera must download them once:
+`cd vision/models && python -c "from ultralytics import YOLO; YOLO('yolo11s.pt')"` (18.4 MB, from Ultralytics' GitHub releases). The stack table still says "YOLO nano". Person 1 and the team: keep small, or revert line 25 of `vision/vision.py` to `yolo11n.pt`. If you keep it, update the stack table in SPEC.md, AGENTS.md and CLAUDE.md.
+
+### 2026-11-14, Person 2 working in Person 4's `dashboard/`, Claude Code: object list and why some objects are missing
+**Changed:**
+- Built the Objects panel from SPEC.md 4.9. `DashboardState.on_scene` takes each `SceneSnapshot` and pushes it over `/ws`. Each row shows the name (or the class with "naming…" until Grok answers), the state, and the time since the object was last seen. Touching and held objects are highlighted and sorted to the top, and lost objects are dimmed. `register(bus)` subscribes the state to `SceneSnapshot`.
+- Camera-feed labels near the right edge now slide left to stay inside the frame, instead of being cut off ("HON ch…").
+- New tests: the object list's sorting and fields, and the label staying in the frame.
+
+**Tested:** Full `pytest` in `.venv`: 180 passed, 1 skipped. `ruff` is clean. Ran `python -m app --fake vision` and watched the page: "Orange bottle" and "Paper cup" were listed as idle, and "Orange bottle" moved to the top highlighted as TOUCHING during the scripted touch.
+
+**Decisions:** Nothing in `vision/` changed.
+
+**Teammates need to know:** Found while testing on the real camera. Person 1 should read this; the call isn't Person 2's to make.
+- **Backpack not detected:** `yolo11n.pt` found nothing for the backpack on a real-camera frame, even at 0.05 confidence. Fixed by the switch to `yolo11s` in the entry above.
+- **Sponge not detected:** "sponge" is not one of the 80 COCO classes, so YOLO with COCO weights can never detect it. SPEC.md stretch goal 10.1 ("Unknown objects") covers this: if fingertips rest for 1 second where there is no box, crop around the hand and send it to the namer.
+- **People are never listed:** by design, per SPEC.md ("Drop the `person` class").
+
 ### 2026-11-14, Person 2 working in Person 4's `dashboard/`, Claude Code: live camera feed
 **Changed:**
 - **This is outside Person 2's lane.** Person 2 told the agent to make the change anyway and log it here so Person 4 knows (see "Needs attention").

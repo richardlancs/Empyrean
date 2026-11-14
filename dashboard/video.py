@@ -105,6 +105,8 @@ def _label(image: Any, text: str, x: int, y: int, colour: tuple[int, int, int]) 
     # Hershey fonts are ASCII only.
     text = text.encode("ascii", "replace").decode("ascii")
     (width, height), baseline = cv2.getTextSize(text, FONT, FONT_SCALE, THIN)
+    # Slide the tag left if it would run off the right edge of the frame.
+    x = max(0, min(x, image.shape[1] - width - LABEL_PAD * 2))
     top = y - height - baseline - LABEL_PAD * 2
     if top < 0:  # no room above the box, so put the tag just inside it
         top = y

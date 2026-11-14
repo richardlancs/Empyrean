@@ -1,4 +1,4 @@
-"""What the dashboard page shows: the latest warning and the recent event log.
+"""What the dashboard page shows: objects in view, the latest warning and the event log.
 
 Bus handlers may call in from any thread, so every change happens under a lock.
 Handlers only update memory and return; they never wait on the web page.
@@ -14,9 +14,11 @@ from collections.abc import Callable
 from typing import Any
 
 from config import HAZARD_COOLDOWN_SECONDS
-from contracts import HazardEvent, TouchEvent
+from contracts import HazardEvent, SceneSnapshot, TouchEvent
 
 EVENT_LOG_SIZE = 10  # SPEC.md 4.9: "last 10 touch and hazard events"
+# SPEC.md 4.9: touched objects are sorted to the top of the object list.
+STATE_ORDER = {"touching": 0, "held": 1, "idle": 2, "new": 3, "lost": 4}
 SIMULATED_HAZARD = "stairs_down"  # a HazardEvent.type from SPEC.md section 5
 
 HAZARD_LABELS: dict[str, str] = {
@@ -28,7 +30,7 @@ HAZARD_LABELS: dict[str, str] = {
 
 
 class DashboardState:
-    """Latest warning plus the last EVENT_LOG_SIZE events, newest first."""
+    """Objects in view, latest warning, and the last EVENT_LOG_SIZE events, newest first."""
 
     def __init__(self, clock: Callable[[], float] = time.time) -> None:
         """Start empty; clock returns seconds since the Unix epoch."""
@@ -37,6 +39,7 @@ class DashboardState:
         self._ids = itertools.count(1)
         self._events: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
         self._latest_warning: dict[str, Any] | None = None
+        self._objects: list[dict[str, Any]] = []
         self._listeners: list[Callable[[], None]] = []
 
     def add_listener(self, listener: Callable[[], None]) -> None:
@@ -66,6 +69,24 @@ class DashboardState:
             self._events.appendleft(entry)
         self._notify()
 
+    def on_scene(self, msg: SceneSnapshot) -> None:
+        """Replace the object list with this snapshot's objects, touched ones first."""
+        objects = [
+            {
+                "object_id": obj.object_id,
+                "text": obj.name or obj.class_label,
+                "class_label": obj.class_label,
+                "named": bool(obj.name),
+                "state": obj.state,
+                "last_seen_ts": obj.last_seen_ts,
+            }
+            for obj in msg.objects
+        ]
+        objects.sort(key=lambda o: (STATE_ORDER.get(o["state"], 9), o["object_id"]))
+        with self._lock:
+            self._objects = objects
+        self._notify()
+
     def simulate_hazard(self) -> dict[str, Any]:
         """Add one simulated stairs warning to this page only, and return the new state.
 
@@ -79,11 +100,13 @@ class DashboardState:
         with self._lock:
             latest = dict(self._latest_warning) if self._latest_warning else None
             events = [dict(e) for e in self._events]
+            objects = [dict(o) for o in self._objects]
         return {
             "now": self._clock(),
             "hazard_active_seconds": HAZARD_COOLDOWN_SECONDS,
             "latest_warning": latest,
             "events": events,
+            "objects": objects,
         }
 
     def _add_warning(

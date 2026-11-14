@@ -112,6 +112,34 @@
   .side { grid-area: side; display: grid; gap: 16px; align-content: start; }
   .empty { color: var(--muted); margin: 0; }
 
+  #objects { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  #objects li {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  #objects li.touched { border-color: var(--touch); background: #0f2a17; }
+  #objects li.lost { opacity: .6; }
+  .obj-name { font-weight: 600; overflow-wrap: anywhere; }
+  .obj-name .unnamed { font-weight: 400; color: var(--muted); }
+  .state {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .state.touching { color: #8ee0a1; border-color: var(--touch); }
+  .state.held { color: var(--sim); border-color: var(--sim); }
+  .seen { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; }
+
   #events { list-style: none; margin: 0; padding: 0; }
   #events li {
     display: grid;
@@ -185,7 +213,8 @@
   <div class="side">
     <section class="panel">
       <h2>Objects</h2>
-      <p class="empty">No objects yet.</p>
+      <p id="objects-empty" class="empty">No objects in view.</p>
+      <ul id="objects"></ul>
     </section>
     <section class="panel">
       <h2>Recent events</h2>
@@ -205,6 +234,8 @@
     warningMeta: document.getElementById("warning-meta"),
     events: document.getElementById("events"),
     eventsEmpty: document.getElementById("events-empty"),
+    objects: document.getElementById("objects"),
+    objectsEmpty: document.getElementById("objects-empty"),
     feed: document.getElementById("feed"),
     feedOffline: document.getElementById("feed-offline"),
   };
@@ -271,10 +302,48 @@
     });
     els.events.replaceChildren(...items);
     els.eventsEmpty.hidden = items.length > 0;
+    renderObjects(state.objects || []);
     tick();
   }
 
+  function renderObjects(objects) {
+    const rows = objects.map((obj) => {
+      const li = document.createElement("li");
+      li.className = obj.state;
+      if (obj.state === "touching" || obj.state === "held") li.classList.add("touched");
+      const name = document.createElement("span");
+      name.className = "obj-name";
+      name.textContent = obj.text;
+      if (!obj.named) {
+        const note = document.createElement("span");
+        note.className = "unnamed";
+        note.textContent = " (naming…)";
+        name.appendChild(note);
+      }
+      const state = document.createElement("span");
+      state.className = "state " + obj.state;
+      state.textContent = obj.state;
+      const seen = document.createElement("span");
+      seen.className = "seen";
+      seen.dataset.ts = obj.last_seen_ts;
+      li.append(name, state, seen);
+      return li;
+    });
+    els.objects.replaceChildren(...rows);
+    els.objectsEmpty.hidden = rows.length > 0;
+    updateSeen();
+  }
+
+  function updateSeen() {
+    const now = serverNow();
+    for (const el of els.objects.querySelectorAll(".seen")) {
+      const age = Math.max(0, now - Number(el.dataset.ts));
+      el.textContent = age < 0.5 ? "now" : age.toFixed(1) + " s";
+    }
+  }
+
   function tick() {
+    updateSeen();
     if (!latest) {
       els.warning.classList.remove("active");
       els.warningMeta.textContent = "";

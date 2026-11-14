@@ -81,14 +81,16 @@ def register(
 ) -> Dashboard:
     """Feed bus messages to the dashboard and, if serve, start the page.
 
-    FrameResult and SceneSnapshot drive the camera feed; HazardEvent and
-    TouchEvent drive the warning and event log.
+    FrameResult and SceneSnapshot drive the camera feed, SceneSnapshot also
+    drives the object list, and HazardEvent and TouchEvent drive the warning
+    and event log.
     """
     dashboard = Dashboard(state or DashboardState())
     bus.subscribe(HazardEvent, dashboard.state.on_hazard)
     bus.subscribe(TouchEvent, dashboard.state.on_touch)
     bus.subscribe(FrameResult, dashboard.video.on_frame)
     bus.subscribe(SceneSnapshot, dashboard.video.on_scene)
+    bus.subscribe(SceneSnapshot, dashboard.state.on_scene)
     if serve:
         dashboard.serve()
     return dashboard
