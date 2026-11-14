@@ -66,6 +66,30 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 3 Richard Lan (namer, storage, fakes), Claude Code: shared-class checks
+**Changed:** These are tests only; no production code changed. They guard the shim migration, which is described in the Person 3 entry titled "(namer, storage, fakes), Claude Code" further down, the one that deletes the four `_pending.py` shims. Revised after Person 2's review of PR #6.
+
+- `tests/test_p3_shared_classes.py` has 28 checks:
+  - None of the four `_pending` modules can be imported.
+  - No Person 3 module (`namer/`, `storage/`, `fakes/namer/`, `fakes/storage/`) defines its own message class, `Box` or `Point`, or assigns a `config` threshold name at the top level. This scans the source, so a local `PROCESS_WIDTH = 640` fails even when the value matches `config`.
+  - The message names in `namer`, `namer.namer`, `storage._deps`, `storage.writer` and both fakes are the `contracts` classes themselves, compared with `is`.
+- `tests/test_namer.py`: new `test_publishes_the_contracts_name_result_class`. The real `Namer`, with Grok mocked, publishes `contracts.NameResult` itself.
+- The routed bus tests were removed from this file. `tests/test_register.py` (PR #5) already checks them through `register(bus)`, with exact-type subscriptions and `contracts` classes on the publish side. That avoids keeping a second test bus.
+
+**Tested:**
+
+- `tests/test_p3_shared_classes.py`: 28 passed.
+- Against `main` at `d78eb09`, which still has the shims: 15 failed. The failures are the shim-import checks and one source check per `_pending.py` copy.
+- With a local `PROCESS_WIDTH = 640` added to `storage/_deps.py` in a scratch worktree, the `storage/_deps.py` source check fails.
+- Full `pytest`: 112 passed, 1 skipped (the live DB test). With `.env` loaded: 113 passed.
+- `ruff check .` is clean.
+- `python -m app --fake vision` is not run, because `app/` does not exist yet.
+- Follow-up before merge (Claude Code, on Windows): the source scan read files with the platform default encoding, so on Windows (cp1252) it failed on the curly quotes in `namer/namer.py`. It now reads with `encoding="utf-8"`. On Windows the file then gave 28 passed.
+
+**Decisions:** Class identity and source checks live here, and bus wiring lives in `tests/test_register.py`, so each behaviour is tested once.
+
+**Teammates need to know:** Person 1: `tests/test_register.py` assumes the bus API `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, which is still unconfirmed.
+
 ### 2026-11-14, Person 3 Richard Lan (storage, fakes), Claude Code
 **Changed:**
 
