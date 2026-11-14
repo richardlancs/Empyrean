@@ -74,6 +74,26 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
   contrastToggle.addEventListener("click", onToggle);
   cleanups.push(() => contrastToggle.removeEventListener("click", onToggle));
 
+  // Optional welcome guidance: a small waving Pip and the three steps, closed by default.
+  const welcome = h(doc, "details", { className: "app-welcome" }, [
+    h(doc, "summary", { className: "ui-button ui-button--quiet" }, "How it works"),
+    h(doc, "div", { className: "app-welcome__panel" }, [
+      h(doc, "img", {
+        className: "pip pip-wave",
+        src: "/static/assets/pip/pip-wave.png",
+        alt: "",
+        "aria-hidden": "true",
+        width: "84",
+        height: "80",
+      }),
+      h(doc, "ol", { className: "app-welcome__steps" }, [
+        h(doc, "li", {}, "The glasses camera sees objects and hands."),
+        h(doc, "li", {}, "When a fingertip lands on an object, the speaker says its name."),
+        h(doc, "li", {}, "This page mirrors that. The wearer never needs to use it."),
+      ]),
+    ]),
+  ]);
+
   const header = h(doc, "header", { className: "app-header" }, [
     h(doc, "div", { className: "app-container app-header__inner" }, [
       h(doc, "div", { className: "app-brand" }, [
@@ -83,14 +103,11 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
       ]),
       h(doc, "div", { className: "app-header__purpose" }, [
         h(doc, "p", { className: "app-header__tagline" }, "Touch an object. Hear its name."),
-        h(
-          doc,
-          "p",
-          { className: "app-header__explainer" },
-          "This page mirrors what the glasses see, which object is being touched, and what the speaker says.",
-        ),
       ]),
-      h(doc, "div", { className: "app-header__tools", role: "group", "aria-label": "Display options" }, [contrastToggle]),
+      h(doc, "div", { className: "app-header__tools", role: "group", "aria-label": "Display options" }, [
+        welcome,
+        contrastToggle,
+      ]),
     ]),
   ]);
 
@@ -113,29 +130,8 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
     h(doc, "div", { className: "app-container app-layout" }, slots),
   ]);
 
-  // Bauhaus redesign: a compact camera -> touch -> speech strip. The picture is
-  // decorative; the three steps are real text.
-  const howItWorks = h(doc, "figure", { className: "app-how" }, [
-    h(doc, "img", {
-      className: "app-how__art",
-      src: "/static/assets/illustrations/how-it-works.svg",
-      alt: "",
-      "aria-hidden": "true",
-      width: "600",
-      height: "120",
-    }),
-    h(doc, "figcaption", { className: "app-how__steps" }, [
-      h(doc, "ol", {}, [
-        h(doc, "li", {}, "The camera sees objects and hands."),
-        h(doc, "li", {}, "A fingertip lands on an object."),
-        h(doc, "li", {}, "The speaker says its name."),
-      ]),
-    ]),
-  ]);
-
   const footer = h(doc, "footer", { className: "app-footer" }, [
     h(doc, "div", { className: "app-container app-footer__inner" }, [
-      howItWorks,
       h(
         doc,
         "p",

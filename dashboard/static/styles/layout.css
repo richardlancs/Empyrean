@@ -1,11 +1,12 @@
 /*
- * Page frame: header rail, the eight mount slots and their responsive order.
+ * Page frame: header, the eight mount slots and their responsive order.
  *
- * Bauhaus composition (design/bauhaus-polish, direction B "instrument panel"
- * with A's typographic touch band; see docs/dashboard-redesign/bauhaus/README.md):
- * a black identity rail, then modules separated by structural rules rather than
- * floating cards. The rules are the grid's gap showing the rule colour behind
- * the slots, so every module edge lines up on one grid.
+ * Friendly clarity (design/friendly-clarity, layout A "touch beside camera";
+ * see docs/dashboard-redesign/friendly/README.md): a slim header, one compact
+ * status line, a compact warning line, then the current touch with its speech
+ * beside the camera so both are on the first screen. No page-wide cage: slots
+ * are transparent, features draw light surfaces, and every row is as tall as
+ * its content (align-items: start, no stretched compartments).
  *
  * DOM order (and therefore reading and tab order) is the mobile order:
  *   health, warning, touch, camera, objects, find, events, demo.
@@ -20,34 +21,33 @@
   padding-inline: var(--gutter);
 }
 
-/* ---- Header: the identity rail ---- */
+/* ---- Header: slim, on the page colour ---- */
 
 .app-header {
-  background: var(--color-text);
-  color: var(--color-page);
+  background: var(--color-page);
+  border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .app-header__inner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1) var(--space-4);
-  padding-block: var(--space-2);
+  gap: var(--space-1) var(--space-3);
+  padding-block: 12px;
 }
 
 .app-brand {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1) 12px;
+  gap: var(--space-1) 10px;
 }
 
-/* One blue square: the shape vocabulary in miniature (decorative). */
 .app-brand__mark {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
   background: var(--color-accent);
-  box-shadow: 0 0 0 2px var(--color-page);
 }
 
 /* Deliberately modest: the touched object's name is the largest text on the page. */
@@ -57,51 +57,85 @@
   letter-spacing: var(--tracking-tight);
 }
 
-.app-header .ui-chip {
-  --chip-bg: transparent;
-  --chip-fg: var(--color-page);
-  --chip-border: var(--color-page);
-}
-
 .app-header__purpose {
-  flex: 1 1 18rem;
+  flex: 1 1 14rem;
   min-width: 0;
-  border-left: var(--rule-width) solid var(--color-page);
-  padding-left: var(--space-2);
 }
 
 .app-header__tagline {
   font-size: var(--text-body);
-  font-weight: var(--weight-bold);
-}
-
-.app-header__explainer {
-  font-size: var(--text-small);
-  color: var(--color-surface-sunken);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
 }
 
 .app-header__tools {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: var(--space-1);
   margin-inline-start: auto;
 }
 
-.app-header .ui-button--secondary {
-  background: transparent;
-  color: var(--color-page);
-  border-color: var(--color-page);
+/* Optional welcome guidance: closed by default, a small panel when opened. */
+.app-welcome {
+  position: relative;
 }
 
-.app-header .ui-button--secondary:hover {
-  background: var(--color-page);
-  color: var(--color-text);
+.app-welcome > summary {
+  list-style: none;
+  cursor: pointer;
 }
 
-/* ---- Main grid: modules on one ruled grid ---- */
+.app-welcome > summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-welcome__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-1));
+  z-index: 30;
+  width: min(26rem, 90vw);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sticky);
+}
+
+.app-welcome__panel::before {
+  /* A pastel wash behind Pip only. */
+  content: "";
+  grid-row: 1;
+  grid-column: 1;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: var(--color-pastel-lavender);
+}
+
+.app-welcome__panel .pip {
+  grid-row: 1;
+  grid-column: 1;
+  margin: 6px 4px;
+}
+
+.app-welcome__steps {
+  margin: 0;
+  padding-left: 1.25em;
+  display: grid;
+  gap: 6px;
+  font-size: var(--text-small);
+}
+
+/* ---- Main grid ---- */
 
 .app-main {
-  padding-block: var(--space-3) var(--space-6);
+  padding-block: var(--space-2) var(--space-6);
 }
 
 .app-main:focus {
@@ -120,36 +154,18 @@
     "find"
     "events"
     "demo";
-  gap: var(--rule-width);
-  background: var(--color-rule);
-  border: var(--rule-width) solid var(--color-rule);
-}
-
-/* The grid is also the page container: its side padding would show the rule
-   colour as black bands, so it is inset by margins instead. */
-.app-layout.app-container {
-  padding-inline: 0;
-  width: auto;
-  max-width: calc(var(--content-max) - 2 * var(--gutter));
-  margin-inline: max(var(--gutter), (100% - var(--content-max)) / 2 + var(--gutter));
+  gap: var(--space-2);
+  align-items: start;
 }
 
 .app-slot {
   min-width: 0;          /* lets long names wrap inside grid tracks */
   scroll-margin-top: var(--space-2);
-  background: var(--color-surface);
-  padding: var(--space-3) var(--gutter);
-}
-
-.app-slot--health,
-.app-slot--demo {
-  background: var(--color-page);
-  padding-block: var(--space-2);
 }
 
 .app-slot--health  { grid-area: health; }
 .app-slot--warning { grid-area: warning; }
-.app-slot--touch   { grid-area: touch; padding: 0; }
+.app-slot--touch   { grid-area: touch; }
 .app-slot--camera  { grid-area: camera; }
 .app-slot--objects { grid-area: objects; }
 .app-slot--find    { grid-area: find; }
@@ -175,15 +191,20 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--color-danger-soft);
+  background: var(--color-page);
+  padding-block: var(--space-1);
+}
+
+.app-slot--warning[data-emphasis="urgent"] > * {
   box-shadow: var(--shadow-sticky);
 }
 
-.app-slot--warning[data-emphasis="simulated"] {
-  background: var(--color-sim-soft);
+/* During an active real hazard Pip steps aside: nothing cheerful beside a warning. */
+:root:has(.app-slot--warning[data-emphasis="urgent"]) .pip {
+  display: none;
 }
 
-/* Medium: objects and last-touch search share a row under the camera. */
+/* Medium: touch above a full-width camera; objects and search share a row. */
 @media (min-width: 45em) {
   .app-layout {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -195,25 +216,25 @@
       "objects find"
       "events  events"
       "demo    demo";
+    gap: var(--space-2) var(--space-3);
   }
 }
 
 /*
- * Wide: the touch band runs the full width as the page's headline; under it a
- * substantial camera instrument on the left and a 360-420px column on the
- * right (objects, then search). Activity sits under the camera beside demo tools.
+ * Wide: the current touch and its speech on the left, the camera beside it, so
+ * the object and a useful picture are both on the first screen. Objects follow
+ * the touch on the left; search and activity sit below.
  */
 @media (min-width: 64em) {
   .app-layout {
-    grid-template-columns: minmax(0, 1fr) var(--info-column);
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
     grid-template-areas:
       "health  health"
       "warning warning"
-      "touch   touch"
-      "camera  objects"
-      "camera  find"
-      "events  demo";
-    grid-template-rows: auto auto auto auto 1fr auto;
+      "touch   camera"
+      "objects camera"
+      "find    events"
+      "demo    events";
   }
   /* The camera is deliberately not sticky: sticky grid items are bounded by the
      whole grid, not their area, so it would slide over the activity panel. */
@@ -222,56 +243,19 @@
 /* ---- Footer ---- */
 
 .app-footer {
-  padding-block: var(--space-4);
+  padding-block: var(--space-3);
   color: var(--color-text-secondary);
   font-size: var(--text-small);
 }
 
-.app-footer__inner {
-  display: grid;
-  gap: var(--space-3);
-}
-
-/* Secondary: a small explanatory strip, never a second headline. */
-.app-how {
-  margin: 0;
-  display: grid;
-  gap: var(--space-1);
-  max-width: 30rem;
-}
-
-.app-how__art {
-  width: min(100%, 300px);
-  height: auto;
-}
-
-.app-how__steps ol {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
-  counter-reset: step;
-  color: var(--color-text);
-}
-
-.app-how__steps li {
-  counter-increment: step;
-}
-
-.app-how__steps li::before {
-  content: counter(step) " ";
-  font-weight: var(--weight-black);
-}
-
-@media (max-width: 30em) {
-  .app-how__steps ol {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 .app-footer__note {
-  border-top: var(--rule-width) solid var(--color-rule);
+  border-top: var(--border-width) solid var(--color-border);
   padding-top: var(--space-2);
+}
+
+/* Narrow screens: the touch card already says "Touch an object", so the header
+   keeps only the brand and its two controls. */
+@media (max-width: 30em) {
+  .app-header__purpose { display: none; }
+  .app-header__inner { padding-block: var(--space-1); }
 }

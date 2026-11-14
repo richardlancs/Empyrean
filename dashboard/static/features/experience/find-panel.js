@@ -48,7 +48,7 @@ export function createFindPanel(root, { onSearch, onRetry }) {
   const help = el("p", {
     id: helpId,
     class: "experience-muted",
-    text: "Searches the record of objects the wearer has touched. The answer is shown here and may also be spoken through the speaker.",
+    text: "Searches what the wearer has touched. The answer may also be spoken.",
   });
   const disabledNote = el("p", { class: "experience-notice" });
 

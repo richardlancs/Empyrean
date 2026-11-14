@@ -8,7 +8,10 @@ const TONE_ICON = { ok: "ok", caution: "caution", error: "error", unknown: "unkn
 /** Build the status strip inside root; returns { update(model), destroy() }. */
 export function createStatusStrip(root) {
   const headingId = uid("status-heading");
-  const heading = el("h2", { className: "operations-heading", text: "System status", attrs: { id: headingId } });
+  // Friendly clarity: one compact line (connection, mode, summary); everything else is in
+  // "System details". The heading stays for screen-reader navigation but is not drawn.
+  const heading = el("h2", { className: "operations-heading operations-sr-only", text: "System status", attrs: { id: headingId } });
+  const mode = el("span", { className: "operations-mode", text: "Demo mode", attrs: { hidden: "" } });
 
   const connection = el("p", { className: "operations-connection" });
   const connectionText = el("span", { className: "operations-connection-text" });
@@ -20,20 +23,21 @@ export function createStatusStrip(root) {
   const summary = el("p", { className: "operations-status-summary" });
 
   const details = el("details", { className: "operations-disclosure operations-status-details" });
-  const detailsSummary = el("summary", { className: "operations-disclosure-summary", text: "Status details" });
+  const detailsSummary = el("summary", { className: "operations-disclosure-summary", text: "System details" });
   const list = el("dl", { className: "operations-status-list" });
   const connDetail = el("p", { className: "operations-status-note" });
   const caveat = el("p", {
     className: "operations-status-note",
     text: "A working connection only means this page is receiving updates. It does not show that the wearer heard anything.",
   });
-  details.append(detailsSummary, connDetail, list, caveat);
+  details.append(detailsSummary, connDetail, chips, list, caveat);
   const detailNodes = new Map();
 
+  const line = el("div", { className: "operations-status-line", children: [connection, mode, summary, details] });
   const section = el("section", {
     className: "operations-status",
     attrs: { "aria-labelledby": headingId },
-    children: [heading, connection, chips, summary, details],
+    children: [heading, line],
   });
   root.replaceChildren(section);
 
@@ -89,6 +93,9 @@ export function createStatusStrip(root) {
       }
       setText(summary, model.summary);
       section.dataset.attention = String(model.attention);
+      const demo = model.modules.some((m) => m.fake);
+      if (demo) mode.removeAttribute("hidden");
+      else mode.setAttribute("hidden", "");
     },
     destroy() {
       root.replaceChildren();

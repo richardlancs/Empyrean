@@ -582,3 +582,110 @@ details[open] > .operations-disclosure-summary::before { transform: rotate(45deg
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
 }
+
+/* ===================================================================
+   Friendly clarity (design/friendly-clarity). Overrides everything above.
+   Status is one compact line with a "System details" disclosure; an
+   inactive warning is one quiet line; active real warnings expand.
+   =================================================================== */
+
+/* ---- Status line ---- */
+.operations-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--op-s2);
+  min-height: 44px;
+}
+.operations-status-line .operations-connection,
+.operations-status-line .operations-status-summary { margin: 0; }
+.operations-status-line .operations-status-summary { color: var(--op-text-2); font-size: var(--text-small); }
+.operations-mode {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--op-demo);
+  background: var(--op-demo-soft);
+  color: var(--op-demo);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.operations-mode[hidden] { display: none; }
+.operations-status-line .operations-status-details { margin: 0 0 0 auto; }
+.operations-status-details[open] {
+  flex-basis: 100%;
+  margin-left: 0;
+  padding: var(--op-s2);
+  border: 1px solid var(--op-border);
+  border-radius: var(--radius);
+  background: var(--op-surface);
+}
+.operations-status[data-attention="true"] .operations-status-summary { color: var(--op-text); font-weight: 700; }
+
+/* Chips only appear inside System details: a tidy grid of light cells. */
+.operations-chips { border: 0; gap: 6px; margin: var(--op-s1) 0; }
+.operations-chip {
+  border: 1px solid var(--op-border);
+  border-radius: var(--radius-sm);
+  background: var(--op-surface);
+}
+.operations-chip[data-tone="unknown"] { border-style: dashed; background: var(--op-surface); }
+
+/* ---- Warnings ---- */
+.operations-heading {
+  border-bottom: 0;
+  padding-bottom: 0;
+  margin-bottom: var(--op-s1);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--op-text-2);
+}
+.operations-heading::before { content: none; }
+/* Nothing active: a single quiet line, heading inline. */
+.operations-warning:not(:has(.operations-warning-card)) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--op-s2);
+}
+.operations-warning:not(:has(.operations-warning-card)) .operations-heading { margin: 0; }
+.operations-warning:not(:has(.operations-warning-card)) > * { margin-block: 0; }
+.operations-warning-card { border-radius: var(--radius); }
+.operations-warning-real { border-width: 2px; border-left-width: 8px; }
+.operations-warning-real .operations-warning-title { font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem); }
+/* A simulation stays visibly separate and smaller than an active real warning. */
+.operations-warning-sim { border-width: 2px; border-style: dashed; }
+
+/* ---- Activity ---- */
+.operations-history {
+  background: var(--op-surface);
+  border: 1px solid var(--op-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+}
+.operations-filter { border-radius: 0; }
+.operations-filter:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.operations-filter:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.operations-filters::after { background: var(--op-primary); height: 3px; border-radius: 2px; }
+.operations-button-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--op-primary);
+  font-weight: 600;
+  padding-left: 12px;
+}
+.operations-history .operations-button-quiet::after { content: none; }
+.operations-history .operations-button-quiet:hover { background: var(--op-primary-soft); }
+.operations-history .operations-button-quiet[aria-pressed="true"] {
+  background: var(--op-caution-soft);
+  border-color: var(--op-text);
+  color: var(--op-text);
+}
+.operations-scope { font-size: var(--text-small); }
+.operations-empty-art { width: 68px; }
+.operations-empty { gap: var(--op-s2); }
+.operations-event { border-radius: var(--radius-sm); }
+
+/* ---- Demo tools: secondary ---- */
+.operations-demo-section { padding: 0 4px; }

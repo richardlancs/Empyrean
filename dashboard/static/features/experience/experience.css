@@ -368,13 +368,6 @@
   overflow-wrap: anywhere;
 }
 .experience-touch-explain { max-width: 46ch; }
-.experience-touch-art {
-  display: block;
-  width: min(100%, 300px);
-  height: auto;
-  align-self: center;
-}
-.experience-touch-art[hidden] { display: none; }
 
 /* Speech: a ruled column with the signal (circles and arcs) beside the status. */
 .experience-speech {
@@ -388,14 +381,7 @@
   background: transparent;
   padding: var(--x-s2) 0 0;
 }
-.experience-speech > :not(.experience-speech-signal) { grid-column: 2; }
-.experience-speech-signal { grid-column: 1; grid-row: 1 / span 6; }
 .experience-speech[data-status="speaking"] { background: transparent; border-top-color: var(--x-primary); }
-.speech-signal { width: 88px; height: 88px; position: relative; }
-.speech-signal__still,
-.speech-signal__canvas { display: block; width: 100%; height: 100%; }
-.speech-signal__still[hidden],
-.speech-signal__canvas[hidden] { display: none; }
 .experience-speech .experience-subheading {
   font-size: 0.9375rem;
   font-weight: 800;
@@ -406,7 +392,6 @@
 @media (min-width: 45em) {
   .experience-touch { grid-template-columns: minmax(0, 1.7fr) minmax(17rem, 1fr); column-gap: var(--x-s4, 32px); }
   .experience-touch-main { grid-column: 1; grid-row: 1; }
-  .experience-touch-art { grid-column: 1; grid-row: 2; }
   .experience-speech {
     grid-column: 2;
     grid-row: 1 / span 2;
@@ -529,7 +514,172 @@
 
 @media (max-width: 44.99em) {
   .experience-speech { grid-template-columns: 56px minmax(0, 1fr); column-gap: var(--x-s2); }
-  .speech-signal { width: 56px; height: 56px; }
 }
 /* Keep the status symbol on the same line as its words at any width. */
 .experience-speech-line:has(.experience-speech-icon) { flex-wrap: nowrap; }
+
+/* ===================================================================
+   Friendly clarity (design/friendly-clarity). Overrides everything above.
+   Light surfaces with a restrained divider, quiet labels, the object name
+   as the focal point, speech that leads with "no sound" when that is true,
+   quiet camera controls, and a compact search.
+   =================================================================== */
+
+.experience-card {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+}
+.experience-heading {
+  border-bottom: 0;
+  padding-bottom: 0;
+  margin-bottom: var(--x-s1);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-secondary);
+}
+.experience-heading::before { content: none; }
+
+/* ---- Current touch ---- */
+.experience-touch,
+.experience-touch[data-touch="touching"],
+.experience-touch[data-touch="held"] {
+  display: block;
+  padding: 20px 24px;
+  border-left: var(--border-width) solid var(--color-border);
+  box-shadow: none;
+}
+.experience-touch[data-touch="touching"] { box-shadow: inset 4px 0 0 var(--x-primary); }
+.experience-touch[data-touch="held"] { box-shadow: inset 4px 0 0 var(--color-caution-fill); }
+.experience-touch-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--x-s2);
+  margin: 2px 0 4px;
+  min-width: 0;
+}
+.experience-touch-thumb {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-surface-sunken);
+}
+.experience-touch-thumb[hidden] { display: none; }
+.experience-touch-name {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-display);
+  font-weight: 800;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+}
+.experience-touch[data-touch="none"] .experience-touch-name,
+.experience-touch[data-touch="loading"] .experience-touch-name {
+  font-size: var(--text-xl);
+  font-weight: 650;
+  color: var(--color-text);
+}
+.pip-point { width: 84px; }
+.experience-touch-since { margin: 0; font-size: var(--text-small); }
+.experience-last {
+  margin: var(--x-s1) 0 0;
+  padding: 0;
+  border: 0;
+  font-size: var(--text-small);
+}
+.experience-last-text { font-weight: 600; }
+.experience-touch-help { margin-top: var(--x-s2); }
+
+/* ---- Speech: what the audio system did ---- */
+.experience-speech,
+.experience-speech[data-status="speaking"],
+.experience-speech[data-status="failed"] {
+  display: block;
+  margin-top: var(--x-s2);
+  padding: var(--x-s2) 0 0;
+  border: 0;
+  border-top: var(--border-width) solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+}
+.experience-speech > * { grid-column: auto; }
+.experience-speech .experience-subheading {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-secondary);
+}
+/* When no sound can have played, that fact leads, on a pastel wash. */
+.experience-speech-lead {
+  margin: 0 0 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-pastel-lavender);
+  color: var(--color-text);
+  font-size: var(--text-body);
+  font-weight: 700;
+}
+.experience-speech-lead[hidden] { display: none; }
+.experience-speech[data-sound="none"] .experience-speech-line { font-size: var(--text-small); color: var(--color-text-secondary); }
+.experience-speech[data-sound="none"] .experience-speech-title { font-weight: 600; color: inherit; }
+.experience-speech[data-sound="reported"] .experience-speech-title { font-size: var(--text-large); font-weight: 700; }
+.experience-speech[data-sound="reported"][data-status="speaking"] .experience-speech-title { color: var(--x-primary); }
+.experience-speech[data-sound="reported"][data-status="failed"] .experience-speech-title { color: var(--x-danger); }
+.experience-speech-detail { margin: 2px 0 0; font-size: var(--text-small); }
+
+/* ---- Disclosures: quiet, keyboard-friendly ---- */
+.experience-details > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--x-primary);
+  font-weight: 600;
+}
+
+/* ---- Buttons: one primary per area; everything else quiet ---- */
+.experience-button { border-radius: var(--radius-sm); }
+.experience-button-quiet,
+.experience-button-quiet:not(.experience-button-primary) {
+  border-color: transparent;
+  background: transparent;
+  color: var(--x-primary);
+  font-weight: 600;
+  padding-left: 12px;
+}
+.experience-button-quiet::before { content: none !important; }
+.experience-button-quiet:hover,
+.experience-button-quiet:not(:disabled):hover { background: var(--x-primary-soft); }
+.experience-button[aria-pressed="true"].experience-button-quiet { background: var(--x-primary-soft); border-color: var(--x-primary); }
+
+/* ---- Camera ---- */
+.experience-camera-top { display: flex; align-items: center; justify-content: space-between; gap: var(--x-s1); flex-wrap: wrap; }
+.experience-camera-top .experience-heading { margin-bottom: 0; }
+.experience-camera-top .experience-controls { margin-top: 0; }
+.experience-camera-frame { border-radius: var(--radius-sm); outline: 0; background: #1F1F1F; }
+.experience-camera-footer { margin-top: var(--x-s1); font-size: var(--text-small); }
+.experience-camera-options { margin-top: 4px; }
+.experience-fieldset { border-radius: var(--radius-sm); border-color: var(--color-border); }
+.experience-camera-stale-mark { border-radius: var(--radius-sm); }
+
+/* ---- Objects ---- */
+.experience-object-row { border-bottom: var(--border-width) solid var(--color-border); }
+.experience-object-row[data-state="touching"] { box-shadow: inset 4px 0 0 var(--x-primary); }
+.experience-object-row[data-state="held"] { box-shadow: inset 4px 0 0 var(--color-caution-fill); }
+.experience-thumb { border-radius: var(--radius-sm); border-color: var(--color-border); }
+
+/* ---- Search: compact, Search is the area's one primary action ---- */
+.experience-find .experience-button-primary { border-radius: var(--radius-sm); }
+.experience-find-result { border-radius: var(--radius-sm); border-left-width: 4px; }
+.experience-badge { border-radius: var(--radius-sm); }
+/* Only the left accent marks touching or holding; the card edge stays light. */
+.experience-touch[data-touch="touching"],
+.experience-touch[data-touch="held"] { border-color: var(--color-border); }

@@ -24,12 +24,19 @@ export const OBJECT_STATE_LABELS = Object.freeze({
   lost: "Temporarily lost",
 });
 
+// Friendly clarity: short, plain status words. "Completed" never claims anyone heard it.
 export const SPEECH_STATUS_LABELS = Object.freeze({
-  queued: "Speech queued",
-  speaking: "Speaking now",
-  completed: "Last speech completed",
-  interrupted: "Speech interrupted",
-  failed: "Speech failed",
+  queued: "Queued",
+  speaking: "Speaking",
+  completed: "Completed",
+  interrupted: "Interrupted",
+  failed: "Failed",
+});
+
+/** Lead sentence when no sound can have played, shown before any status word. */
+export const SPEECH_NO_SOUND_LEAD = Object.freeze({
+  fake: "Demo audio — no sound.",
+  unavailable: "No sound — the speech engine is unavailable, so phrases are only logged.",
 });
 
 /** Return the server's idea of "now", advanced by browser time since receipt. */
@@ -155,8 +162,8 @@ export function selectCamera(snapshot, stream, browserNowMs) {
     detail = cam.status === "degraded" ? cam.detail || "Camera reports reduced performance." : "";
     // Integration (Agent 4): a recorded clip is current, but it is not a camera.
     if (cam.mode === "fake") {
+      // Friendly clarity: the title already says it; the alt text gives the long form.
       title = "Live (recorded clip, not a camera)";
-      detail = detail || "This run uses a recorded test clip instead of the glasses camera.";
     }
   }
   return {
@@ -166,7 +173,28 @@ export function selectCamera(snapshot, stream, browserNowMs) {
     isCurrent: kind === "live",
     footer,
     overlaysSupported: state?.capabilities?.overlays === true,
+    altText: cameraAltText(kind, cam, frameAge),
   };
+}
+
+/**
+ * Friendly clarity: alternative text that says what the picture really is now:
+ * a live camera, a recorded demo clip, an out-of-date frame, or nothing usable.
+ */
+export function cameraAltText(kind, cam, frameAge) {
+  if (kind === "live") {
+    return cam?.mode === "fake"
+      ? "Recorded demo clip, not a live camera, with object boxes and fingertip markers drawn by the laptop."
+      : "Live camera view from the glasses, with object boxes and fingertip markers drawn by the laptop.";
+  }
+  if (kind === "stale") {
+    const age = typeof frameAge === "number" ? ` for ${Math.round(frameAge)} seconds` : "";
+    return `Out-of-date camera picture: no new frame${age}. This is the last frame received.`;
+  }
+  if (kind === "disconnected") return "Camera video unavailable: the video stream disconnected.";
+  if (kind === "offline") return "Camera unavailable: the camera is offline.";
+  if (kind === "waiting" || kind === "starting") return "Camera picture not available yet: waiting for the first frame.";
+  return "Camera picture of unknown freshness: the laptop does not report frame times.";
 }
 
 /**
@@ -231,12 +259,13 @@ export function selectSpeech(state, now) {
       phrase: "",
       time: "",
       modeNote: "",
+      lead: "",
     };
   }
   const status = SPEECH_STATUS_LABELS[speech.status] ? speech.status : "unknown";
-  let modeNote = "";
-  if (speech.mode === "fake") modeNote = "Log-only audio: no sound is played.";
-  else if (speech.mode === "unavailable") modeNote = "Speaker unavailable on the laptop.";
+  // Demo or log-only audio: the absence of sound leads; the status word follows quietly.
+  const lead = SPEECH_NO_SOUND_LEAD[speech.mode] || "";
+  const modeNote = lead;
   let detail = "";
   if (status === "interrupted") {
     const warning = state.latest_real_warning;
@@ -259,7 +288,15 @@ export function selectSpeech(state, now) {
     phrase: speech.text || "",
     time: typeof speech.ts === "number" ? `${clockTime(speech.ts)} · ${humanAgo(age)}` : "",
     modeNote,
+    lead,
   };
+}
+
+/** The current object's recent crop, if the server offers one (never invented). */
+function currentThumbnail(state, objectId) {
+  if (state?.capabilities?.thumbnails !== true || objectId === null) return null;
+  const obj = (state.objects || []).find((o) => o.object_id === objectId);
+  return obj?.thumbnail_url || null;
 }
 
 /** Everything the touch card needs. */
@@ -279,6 +316,7 @@ export function selectTouchCard(snapshot, browserNowMs) {
           stateLabel: touchStateLabel(current.state),
           stateKey: current.state === "held" ? "held" : "touching",
           since: current.ts !== null ? `Since ${clockTime(current.ts)}` : "",
+          thumbnailUrl: currentThumbnail(state, current.objectId),
         }
       : null,
     lastTouched:

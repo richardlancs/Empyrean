@@ -86,12 +86,12 @@ export function createEventHistory(root, { onFilter, onTogglePause, onClear, onR
   }
 
   const pauseButton = el("button", {
-    className: "operations-button",
+    className: "operations-button operations-button-quiet",
     attrs: { type: "button", "aria-pressed": "false", "data-focus-key": "pause" },
   });
   pauseButton.addEventListener("click", () => onTogglePause());
   const clearButton = el("button", {
-    className: "operations-button",
+    className: "operations-button operations-button-quiet",
     text: "Clear this view",
     attrs: { type: "button", "data-focus-key": "clear" },
   });
@@ -129,14 +129,14 @@ export function createEventHistory(root, { onFilter, onTogglePause, onClear, onR
 
   const scope = el("p", {
     className: "operations-muted operations-scope",
-    text: "These controls change this browser view only. Detection, speech, alarms and saved history keep running.",
+    text: "Pause and clear change only this view; detection, alarms and saved history keep running.",
   });
 
   const emptyText = el("p", { className: "operations-empty-text" });
-  // Bauhaus redesign: a decorative still of an empty record; the sentence carries the meaning.
+  // Friendly clarity: a small seated Pip beside the empty-history sentence (decorative).
   const emptyArt = el("img", {
-    className: "operations-empty-art",
-    attrs: { src: "/static/assets/illustrations/history-empty.svg", alt: "", "aria-hidden": "true", width: "320", height: "160" },
+    className: "pip pip-sit operations-empty-art",
+    attrs: { src: "/static/assets/pip/pip-sit.png", alt: "", "aria-hidden": "true", width: "68", height: "64" },
   });
   const empty = el("div", { className: "operations-empty", children: [emptyArt, emptyText] });
   const listId = uid("events-list");

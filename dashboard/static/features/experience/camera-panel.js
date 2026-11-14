@@ -31,19 +31,22 @@ export function createCameraPanel(root, { onStream, onOption }) {
   const stateTitle = el("span", { class: "experience-camera-state-title" });
   const stateDetail = el("span", { class: "experience-muted" });
   const stateLine = el("p", { class: "experience-camera-state", role: "status" }, stateTitle, " ", stateDetail);
+  const heading = el("h2", { id: headingId, class: "experience-heading", text: "Camera" });
 
+  // The alternative text is set from the camera state on every update (live, demo clip,
+  // out of date or unavailable); this initial text is replaced on the first update.
   const img = el("img", {
     class: "experience-camera-img",
-    alt: "Live camera view from the glasses, with object boxes and fingertip markers drawn by the laptop.",
+    alt: "Camera picture not available yet: waiting for the first frame.",
     decoding: "async",
   });
   const staleMark = el("div", { class: "experience-camera-stale-mark", "aria-hidden": "true" });
   const frame = el("div", { class: "experience-camera-frame" }, img, staleMark);
 
-  const fitButton = el("button", { type: "button", class: "experience-button", "aria-pressed": "false" });
-  const fsButton = el("button", { type: "button", class: "experience-button" });
+  const fitButton = el("button", { type: "button", class: "experience-button experience-button-quiet", "aria-pressed": "false" });
+  const fsButton = el("button", { type: "button", class: "experience-button experience-button-quiet" });
   const fsFallback = el("a", {
-    class: "experience-button",
+    class: "experience-button experience-button-quiet",
     href: "/video",
     target: "_blank",
     rel: "noopener",
@@ -92,16 +95,24 @@ export function createCameraPanel(root, { onStream, onOption }) {
     el("div", {}, el("dt", { text: "Frame size" }), size),
   );
 
+  // Friendly clarity: the picture and its state first; full screen stays one quiet
+  // click away; size, overlays and the legend live in "View options".
+  const options = el(
+    "details",
+    { class: "experience-details experience-camera-options" },
+    el("summary", { text: "View options" }),
+    el("div", { class: "experience-controls" }, fitButton),
+    overlayGroup,
+    legend,
+  );
   const card = el(
     "section",
     { class: "experience-card experience-camera", "aria-labelledby": headingId },
-    el("h2", { id: headingId, class: "experience-heading", text: "Camera" }),
+    el("div", { class: "experience-camera-top" }, heading, el("div", { class: "experience-controls" }, fsButton, fsFallback)),
     stateLine,
     frame,
-    el("div", { class: "experience-controls" }, fitButton, fsButton, fsFallback),
-    overlayGroup,
-    legend,
     footer,
+    options,
   );
   root.replaceChildren(card);
 
@@ -134,6 +145,7 @@ export function createCameraPanel(root, { onStream, onOption }) {
   /** Update from the camera view model plus local options. */
   function update(vm, options, src) {
     card.dataset.camera = vm.kind;
+    if (img.alt !== vm.altText) img.alt = vm.altText;
     setText(stateTitle, vm.title);
     setText(stateDetail, vm.detail);
     frame.classList.toggle("experience-is-stale", !vm.isCurrent);

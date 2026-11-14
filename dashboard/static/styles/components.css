@@ -459,3 +459,51 @@
 @keyframes ui-shimmer {
   to { transform: translateX(100%); }
 }
+
+/* ---- Pip, the mascot (friendly clarity) ----
+   Decorative only: every use has alt="" and the words beside it carry the meaning.
+   Small in ordinary panels (64-96px); hidden during an active real hazard (layout.css). */
+.pip {
+  display: block;
+  flex: none;
+  height: auto;
+  user-select: none;
+  pointer-events: none;
+}
+.pip[hidden] { display: none; }
+
+/* Contextual help: Pip peeks over a sign whose words are real HTML, so the sign grows with its text. */
+.pip-sign {
+  margin: var(--space-1) 0 0;
+  width: min(100%, 13.5rem);   /* keeps Pip under 96px tall */
+}
+.pip-sign__art {
+  width: 100%;
+  margin-bottom: -1px; /* sits exactly on the sign's top edge */
+}
+.pip-sign__text {
+  padding: 10px 14px 12px;
+  border: 2px solid #5D4946;            /* the artwork's outline colour */
+  border-radius: 16px;                 /* the sign's rounded corners */
+  background: #FDF4EB;                  /* the artwork's sign colour; text on it 15:1 */
+  color: var(--color-text);
+  font-size: var(--text-small);
+  line-height: 1.4;
+}
+:root[data-theme="high-contrast"] .pip-sign__text {
+  border-color: #000000;
+  background: #FFFFFF;
+}
+
+/* Visually hidden but read by screen readers (keeps headings for navigation). */
+.operations-sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
