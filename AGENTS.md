@@ -27,7 +27,7 @@ Use exactly this. The full table with the folder each item belongs to is in `SPE
 | Speech | `pyttsx3`, offline |
 | Alarm sound | `pygame` mixer, pre-made WAV |
 | Web server | FastAPI on Uvicorn |
-| Dashboard page | One HTML file, plain JavaScript and CSS, MJPEG video, one WebSocket |
+| Dashboard page | Minimal `index.html` plus native ES modules and plain CSS under `dashboard/static/` (no build step, no framework). MJPEG video, one WebSocket |
 | Message bus | In-process publish and subscribe in `app/` |
 | Settings and secrets | `python-dotenv`, `.env` |
 | Tests and formatting | `pytest`, `ruff` |

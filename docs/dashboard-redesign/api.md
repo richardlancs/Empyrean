@@ -44,6 +44,11 @@ find panel → ctx.request → POST /api/last-seen → LastSeenService.submit
 | `api/routes.py` | HTTP | JSON, MJPEG, JPEG | validation errors → 422 `{detail, errors}` |
 | `api/realtime.py` | `/ws` | page state JSON | one-slot queue per page: slow pages skip stale states |
 
+app/ registers the dashboard first (it only subscribes), so status messages
+that modules send while registering are not lost; vision still starts last.
+`Dashboard.serve` probes the port with `SO_REUSEADDR` (not on Windows), matching
+uvicorn, so a restart with a page still open is not refused.
+
 Route handlers never touch the database, a model, or the speaker. The camera
 publishing path is untouched: drawing, thumbnails and health each run on their
 own bus worker, and the bus keeps only the newest FrameResult per subscriber.
@@ -124,7 +129,7 @@ also carry `source` (`yolo`, `grok` or `simulation`) and `confidence` (0 to 1,
     "hazard":  {...}   // always "unknown" unless not started: hazard checks report no health
   },
   "capabilities": {
-    "last_seen": true,      // an engine bus is attached
+    "last_seen": true,      // a bus is attached and storage runs in this launch
     "thumbnails": true,     // frames are arriving to crop from
     "overlays": true,       // /video honours the overlay parameters
     "speech_status": true   // audio has reported speech or its status

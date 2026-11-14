@@ -53,7 +53,7 @@ This is the whole stack. Do not substitute or add to it without all four people 
 | Speech | `pyttsx3`, offline text to speech | `audio/` |
 | Alarm sound | `pygame` mixer playing a pre-made WAV file | `audio/` |
 | Web server | FastAPI on Uvicorn | `dashboard/` |
-| Dashboard page | One HTML file with plain JavaScript and CSS. MJPEG for video, one WebSocket for data. No front-end framework | `dashboard/` |
+| Dashboard page | Minimal `index.html` loading native ES modules and plain CSS from `dashboard/static/`, layered as described in `docs/dashboard-redesign/`. MJPEG for video, one WebSocket for data. No front-end framework or build step | `dashboard/` |
 | Message bus | In-process publish and subscribe, written by us in `app/`. No external broker | Everything |
 | Settings and secrets | `python-dotenv` reading `.env` | Everything |
 | Tests and formatting | `pytest`, `ruff` | Everything |
@@ -210,7 +210,7 @@ Rules:
 
 ### 4.9 Dashboard
 
-One web page served from the laptop on port 8000.
+One web page served from the laptop on port 8000. Since the 2026-11-14 light redesign it is layered: `dashboard/api/` (routes, WebSocket), `dashboard/services/` and `dashboard/state.py` (read model), `dashboard/bus_adapter.py` (engine wiring), and the browser modules under `dashboard/static/`. Layout and wording are in `docs/dashboard-redesign/`; the table below lists what the page must show, not where.
 
 | Area | Content |
 |---|---|
