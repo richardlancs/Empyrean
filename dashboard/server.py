@@ -60,9 +60,10 @@ class Dashboard:
     ) -> None:
         """Hold the services; call serve() to start the web page."""
         self.state = state
-        self.video = video or VideoFeed()
-        self.thumbnails = thumbnails or ThumbnailCache()
-        self.last_seen = last_seen or LastSeenService(None)
+        # "is None", not "or": an empty ThumbnailCache has len 0 and is falsy.
+        self.video = video if video is not None else VideoFeed()
+        self.thumbnails = thumbnails if thumbnails is not None else ThumbnailCache()
+        self.last_seen = last_seen if last_seen is not None else LastSeenService(None)
         self.state.thumbnails = self.thumbnails
         self.state.last_seen = self.last_seen
         self.heartbeat = Heartbeat(self.tick)
@@ -146,11 +147,19 @@ def create_app(
     thumbnails: ThumbnailCache | None = None,
 ) -> FastAPI:
     """Build the dashboard web app (new empty services for anything not given)."""
-    state = state or DashboardState()
-    thumbnails = thumbnails or state.thumbnails or ThumbnailCache()
-    last_seen = last_seen or state.last_seen or LastSeenService(None)
+    state = state if state is not None else DashboardState()
+    thumbnails = _first(thumbnails, state.thumbnails, ThumbnailCache)
+    last_seen = _first(last_seen, state.last_seen, lambda: LastSeenService(None))
     state.thumbnails, state.last_seen = thumbnails, last_seen
-    return _build_app(DashboardServices(state, video or VideoFeed(), last_seen, thumbnails))
+    video = video if video is not None else VideoFeed()
+    return _build_app(DashboardServices(state, video, last_seen, thumbnails))
+
+
+def _first(given: Any, attached: Any, make: Any) -> Any:
+    """Return given, else attached, else make(); tested with "is None" (an empty cache is falsy)."""
+    if given is not None:
+        return given
+    return attached if attached is not None else make()
 
 
 def _build_app(services: DashboardServices) -> FastAPI:
