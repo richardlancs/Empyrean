@@ -21,7 +21,8 @@ Copy this template. Keep it short. Never include keys or connection strings.
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
 - **Repo root:** there is no requirements file yet (AGENTS.md rule 8). Whoever builds `app/` should add one with the stack pinned, tested on Python 3.11. Versions installed and tested for Person 3's and Person 2's code (Python 3.11.18, uv venv, macOS arm64, 2026-11-14): `opencv-python==5.0.0.93`, `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. That venv does not have `ultralytics`, `mediapipe`, `pyttsx3`, `pygame`, `fastapi` or `uvicorn`, so their versions must come from whoever installs them.
-- **Person 4 (`dashboard/`):** audio is now on the agreed stack (`pyttsx3`, `pygame`) on branch `p4-output` and replaces the Piper test in PR #4. No dashboard code exists yet. Updated by Person 4, 2026-11-14.
+- **Person 4 (`dashboard/`):** dashboard code now exists on `voice-dashboard` (PR #4). Under `python -m app`, `dashboard.register(bus)` subscribes but does not yet start the web server, so the page only appears with `python -m dashboard`. Updated by Person 4, 2026-11-14.
+- **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` fails on Person 4's Windows laptop, on a clean copy of `main` as well. Run directly, `python -m app --fake vision` starts fine, but audio startup (pyttsx3 and pygame) takes longer than the test's 1.4 s wait before vision publishes its first frame. Wait for the expected output line instead of a fixed sleep. Found by Person 4, 2026-11-14.
 - **Persons 1 and 2 (delivering `NameResult` to scene):** `SceneDatabase.handle_name` and `handle_frame` change the same track state without a lock. `NameResult` is published on the namer's worker thread. If the bus calls `handle_name` inline on that thread, it can run while the frame thread is inside `handle_frame`. Example: `_publish_name_requests` sets `requests_sent = 1` just after a failure set it to 2, which allows a third Grok call. Either queue `NameResult` and hand it to scene on the frame thread (`fakes/namer/demo_check.py` does this), or Person 2 adds a lock in scene.
 - **Person 1 (`app/` bus):** Person 3's modules are ready to be registered. Requests for `app/`:
   1. **Bus shape.** `namer.register(bus)`, `storage.register(bus)`, `fakes.namer.fake_namer.register(bus)` and `fakes.storage.fake_store.register(bus)` call only `bus.publish(msg)` and `bus.subscribe(MessageType, handler)`, keyed on the `contracts` class. If the bus uses a different shape, tell Person 3 before building against it.
@@ -67,6 +68,20 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 4 (audio, dashboard), Claude Code: rebase onto PR #10
+**Changed:**
+
+- Rebased `voice-dashboard` onto `main` after PR #10 (Anshi's audio manager, `app/` bus, vision and hazard). Where both added the same file, `main`'s version is kept: `audio/__init__.py`, `audio/requirements.txt`, `fakes/audio/__init__.py`, `fakes/audio/fake_audio.py` and `tests/test_audio.py`. This branch's `fakes/audio/__main__.py` was dropped because it used the replaced fake.
+- The `audio/speak_test.py` tests moved to a new `tests/test_speak_test.py`, because `main`'s `tests/test_audio.py` does not cover it.
+- PR #4 now adds only `audio/speak_test.py`, `audio/.gitignore`, `dashboard/`, `tests/test_speak_test.py`, `tests/test_dashboard.py` and these notes. Reworded the second commit to match.
+- A local backup of the branch before this rebase is kept as `backup/voice-dashboard-before-main-audio` (not pushed).
+
+**Tested:** Python 3.11.9 venv with `pygame==2.6.1` added. Full `pytest` from the repo root with the Grok and Tiger Data variables unset: 169 passed, 1 skipped, 1 failed. The failure is `tests/test_app_p1.py::test_cli_fake_vision_starts`, which also fails 3 of 3 times on a clean copy of `main` on this laptop (see "Needs attention"). `python -m app --fake vision` with `SDL_AUDIODRIVER=dummy` logged "Started dashboard" along with the other modules, and fake frames flowed. `ruff check` is clean on `tests/test_speak_test.py`. Nothing was played aloud.
+
+**Decisions:** Anshi's audio manager replaces this branch's fake and audio tests, as Person 4 decided.
+
+**Teammates need to know:** Install audio with `py -3.11 -m pip install -r audio/requirements.txt`, then `py -3.11 -m audio` plays the scripted demo, including the stairs alarm.
+
 ### 2026-11-14, Person 4 (dashboard), Claude Code
 **Changed:**
 
@@ -83,6 +98,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 **Teammates need to know:** Install with `py -3.11 -m pip install -r dashboard/requirements.txt`. Person 1: `dashboard.register(bus)` returns the `DashboardState`. `app/` then serves `dashboard.create_app(state)` with Uvicorn on `DASHBOARD_PORT`. All: please confirm or replace the banner-duration choice above.
 
 ### 2026-11-14, Person 4 (audio), Claude Code
+**Update (later):** The `fakes/audio/` fake and `tests/test_audio.py` described below were replaced by PR #10's versions on `main`; the speak_test tests now live in `tests/test_speak_test.py`. See the rebase entry above.
 **Changed:**
 
 - Rebased `voice-dashboard` onto `origin/main`. The only conflict was this file; both the Person 4 entries and the team's entries are kept.
