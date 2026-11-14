@@ -1,8 +1,9 @@
 # Empyrean dashboard design system
 
-> **Superseded palette (design/bauhaus-polish, 2026-11-14).** The token *names*, layering, mount
+> **Superseded palette (design/friendly-clarity, 2026-11-14).** The token *names*, layering, mount
 > contract and announcement policy below still apply. The colours, geometry and composition were
-> replaced by the Bauhaus system: see [bauhaus/README.md](bauhaus/README.md) and `styles/tokens.css`.
+> replaced, first by the Bauhaus system ([bauhaus/README.md](bauhaus/README.md)) and then by the
+> softened friendly-clarity system ([friendly/README.md](friendly/README.md)); see `styles/tokens.css`.
 
 
 Owner: Agent 1 (`design/light-foundation`). Agent 4 reconciles this document with the integrated API.

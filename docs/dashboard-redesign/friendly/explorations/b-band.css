@@ -1,0 +1,21 @@
+/* Alternative B: a compact full-width touch band (name left, speech right), then the
+   camera with objects and search beside it. Injected for comparison only. */
+@media (min-width: 64em) {
+  .app-layout {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr) !important;
+    grid-template-areas:
+      "health  health"
+      "warning warning"
+      "touch   touch"
+      "camera  objects"
+      "camera  find"
+      "events  demo" !important;
+  }
+  .experience-touch {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 1fr);
+    column-gap: 32px;
+  }
+  .experience-touch > :not(.experience-speech) { grid-column: 1; }
+  .experience-touch > .experience-speech { grid-column: 2; grid-row: 1 / span 6; border-top: 0 !important; margin-top: 0 !important; padding-top: 0 !important; border-left: 1px solid var(--color-border); padding-left: 24px !important; }
+}
