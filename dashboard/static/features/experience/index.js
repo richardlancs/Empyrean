@@ -11,6 +11,7 @@ import { createFindPanel } from "./find-panel.js";
 import { createLastSeenController } from "./last-seen.js";
 import { createObjectList } from "./object-list.js";
 import { createTouchCard } from "./touch-card.js";
+import { createSpeechSignal, signalShouldMove } from "../../components/speech-signal.js";
 import {
   selectCamera,
   selectCurrentTouch,
@@ -78,6 +79,8 @@ export function mountExperience(ctx) {
   let findGeneration = 0;
 
   const touchCard = roots.touch ? createTouchCard(roots.touch) : null;
+  // Moves only while telemetry says a real engine is speaking (never for fake or log-only audio).
+  const signal = touchCard?.signalRoot ? createSpeechSignal(touchCard.signalRoot) : null;
   const cameraPanel = roots.camera
     ? createCameraPanel(roots.camera, {
         onStream(status) {
@@ -170,6 +173,7 @@ export function mountExperience(ctx) {
     const cam = selectCamera(snapshot, streamStatus, nowMs);
 
     touchCard?.update(selectTouchCard(snapshot, nowMs));
+    signal?.update({ active: snapshot.connection === "connected" && signalShouldMove(snapshot.state?.speech) });
     cameraPanel?.update(
       cam,
       camera,
@@ -210,6 +214,7 @@ export function mountExperience(ctx) {
     clearInterval(ticker);
     if (streamRetryTimer !== null) clearTimeout(streamRetryTimer);
     lastSeen.dispose();
+    signal?.destroy();
     touchCard?.destroy();
     cameraPanel?.destroy();
     objectList?.destroy();

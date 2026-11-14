@@ -28,7 +28,12 @@ export function createFindPanel(root, { onSearch, onRetry }) {
     placeholder: "For example: ketchup",
     "aria-describedby": helpId,
   });
-  const submit = el("button", { type: "submit", class: "experience-button experience-button-primary", text: "Search" });
+  // The label sits in its own span so the hover nudge (21st.dev "sliding") moves only the text.
+  const submit = el(
+    "button",
+    { type: "submit", class: "experience-button experience-button-primary" },
+    el("span", { class: "experience-button-label", text: "Search" }),
+  );
   const form = el(
     "form",
     { class: "experience-find-form", role: "search" },
@@ -75,6 +80,7 @@ export function createFindPanel(root, { onSearch, onRetry }) {
     const busy = view.status === "loading";
     input.disabled = !availability.enabled;
     submit.disabled = !availability.enabled || busy;
+    submit.toggleAttribute("data-loading", busy);
     card.setAttribute("aria-busy", busy ? "true" : "false");
     setText(disabledNote, availability.enabled ? "" : availability.reason);
     setHidden(disabledNote, availability.enabled);

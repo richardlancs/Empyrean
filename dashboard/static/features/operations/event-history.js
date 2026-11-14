@@ -132,7 +132,13 @@ export function createEventHistory(root, { onFilter, onTogglePause, onClear, onR
     text: "These controls change this browser view only. Detection, speech, alarms and saved history keep running.",
   });
 
-  const empty = el("p", { className: "operations-empty" });
+  const emptyText = el("p", { className: "operations-empty-text" });
+  // Bauhaus redesign: a decorative still of an empty record; the sentence carries the meaning.
+  const emptyArt = el("img", {
+    className: "operations-empty-art",
+    attrs: { src: "/static/assets/illustrations/history-empty.svg", alt: "", "aria-hidden": "true", width: "320", height: "160" },
+  });
+  const empty = el("div", { className: "operations-empty", children: [emptyArt, emptyText] });
   const listId = uid("events-list");
   const list = el("ol", { className: "operations-events", attrs: { id: listId, "aria-labelledby": headingId } });
 
@@ -181,7 +187,7 @@ export function createEventHistory(root, { onFilter, onTogglePause, onClear, onR
         clearButton.setAttribute("aria-disabled", String(!model.canClear));
         reconcile(model.groups);
         empty.hidden = model.groups.length > 0;
-        setText(empty, model.emptyText);
+        setText(emptyText, model.emptyText);
         list.hidden = model.groups.length === 0;
       });
     },

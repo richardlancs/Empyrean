@@ -77,6 +77,7 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
   const header = h(doc, "header", { className: "app-header" }, [
     h(doc, "div", { className: "app-container app-header__inner" }, [
       h(doc, "div", { className: "app-brand" }, [
+        h(doc, "span", { className: "app-brand__mark", "aria-hidden": "true" }),
         h(doc, "h1", { className: "app-brand__name" }, "Empyrean"),
         h(doc, "span", { className: "ui-chip ui-chip--outline" }, "Prototype"),
       ]),
@@ -112,12 +113,33 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
     h(doc, "div", { className: "app-container app-layout" }, slots),
   ]);
 
+  // Bauhaus redesign: a compact camera -> touch -> speech strip. The picture is
+  // decorative; the three steps are real text.
+  const howItWorks = h(doc, "figure", { className: "app-how" }, [
+    h(doc, "img", {
+      className: "app-how__art",
+      src: "/static/assets/illustrations/how-it-works.svg",
+      alt: "",
+      "aria-hidden": "true",
+      width: "600",
+      height: "120",
+    }),
+    h(doc, "figcaption", { className: "app-how__steps" }, [
+      h(doc, "ol", {}, [
+        h(doc, "li", {}, "The camera sees objects and hands."),
+        h(doc, "li", {}, "A fingertip lands on an object."),
+        h(doc, "li", {}, "The speaker says its name."),
+      ]),
+    ]),
+  ]);
+
   const footer = h(doc, "footer", { className: "app-footer" }, [
-    h(doc, "div", { className: "app-container" }, [
+    h(doc, "div", { className: "app-container app-footer__inner" }, [
+      howItWorks,
       h(
         doc,
         "p",
-        {},
+        { className: "app-footer__note" },
         "Research prototype. Names and warnings can be missed or wrong, so a quiet page does not mean the way ahead is clear.",
       ),
     ]),

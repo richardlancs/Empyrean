@@ -20,6 +20,18 @@ export function createTouchCard(root) {
   const lastWhen = el("span", { class: "experience-muted" });
   const last = el("p", { class: "experience-last" }, lastLabel, " ", lastText, " ", lastWhen);
 
+  // Bauhaus redesign: a geometric still while nothing is touched (decorative; the
+  // sentence above says the same), and a mount for the Rive speech signal.
+  const art = el("img", {
+    class: "experience-touch-art",
+    src: "/static/assets/illustrations/touch-idle.svg",
+    alt: "",
+    "aria-hidden": "true",
+    width: "480",
+    height: "200",
+  });
+  const signalRoot = el("div", { class: "experience-speech-signal speech-signal", "aria-hidden": "true" });
+
   const speechHeading = el("h3", { class: "experience-subheading", text: "Speech" });
   const speechIcon = el("span", { class: "experience-speech-icon", "aria-hidden": "true" });
   const speechTitle = el("span", { class: "experience-speech-title" });
@@ -30,6 +42,7 @@ export function createTouchCard(root) {
   const speech = el(
     "div",
     { class: "experience-speech" },
+    signalRoot,
     speechHeading,
     el("p", { class: "experience-speech-line" }, speechIcon, speechTitle),
     el("p", { class: "experience-speech-line" }, speechPhrase, " ", speechTime),
@@ -40,12 +53,17 @@ export function createTouchCard(root) {
   const card = el(
     "section",
     { class: "experience-card experience-touch", "aria-labelledby": headingId },
-    el("div", { class: "experience-touch-top" }, heading, stateBadge),
-    name,
-    since,
-    freshness,
-    last,
-    explain,
+    el(
+      "div",
+      { class: "experience-touch-main" },
+      el("div", { class: "experience-touch-top" }, heading, stateBadge),
+      name,
+      since,
+      freshness,
+      last,
+      explain,
+    ),
+    art,
     speech,
   );
   root.replaceChildren(card);
@@ -61,6 +79,7 @@ export function createTouchCard(root) {
       setText(name, "Touch an object to hear its name");
     }
     setText(heading, vm.current ? "Touching now" : "Current touch");
+    setHidden(art, Boolean(vm.current) || Boolean(vm.loading));
     setHidden(stateBadge, !vm.current);
     if (vm.current) {
       setText(stateBadge, vm.current.stateLabel);
@@ -95,6 +114,7 @@ export function createTouchCard(root) {
 
   return {
     update,
+    signalRoot,
     destroy() {
       root.replaceChildren();
     },

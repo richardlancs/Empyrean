@@ -102,7 +102,7 @@
   gap: 4px;
   font-size: 0.875rem; /* 14px, above the 13px badge minimum */
   font-weight: 700;
-  border-radius: 999px;
+  border-radius: var(--radius-sm, 0);
   padding: 2px 10px;
   border: 1px solid currentColor;
 }
@@ -122,7 +122,7 @@
   font-weight: 600;
   font-size: 1rem;
   color: var(--op-text);
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 0);
 }
 /* inline-flex drops the native marker, so draw an explicit open/closed chevron. */
 .operations-disclosure-summary { list-style: none; }
@@ -156,7 +156,7 @@ details[open] > .operations-disclosure-summary::before { transform: rotate(45deg
   min-height: 32px;
   padding: 2px 6px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 0);
   background: transparent;
   color: var(--op-text-2);
   font-size: 0.9375rem;
@@ -209,7 +209,7 @@ details[open] > .operations-disclosure-summary::before { transform: rotate(45deg
   min-height: 36px;
   padding: 4px 12px 4px 8px;
   border: var(--op-border-w) solid var(--op-border);
-  border-radius: 999px;
+  border-radius: var(--radius-sm, 0);
   background: var(--op-surface);
   font-size: 0.9375rem;
 }
@@ -385,7 +385,7 @@ details[open] > .operations-disclosure-summary::before { transform: rotate(45deg
   align-items: center;
   gap: 4px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm, 0);
   font-size: 0.875rem;
   font-weight: 700;
 }
@@ -398,7 +398,7 @@ details[open] > .operations-disclosure-summary::before { transform: rotate(45deg
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   padding: 0 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 0);
   border: 1px solid var(--op-border-strong);
   font-size: 0.875rem;
 }
@@ -451,4 +451,134 @@ details[open] > .operations-disclosure-summary::before { transform: rotate(45deg
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* ===================================================================
+   Bauhaus redesign (design/bauhaus-polish). Overrides above this line.
+   Flat modules on the shell's ruled grid, ruled label bars, square tags
+   (status dots stay circles because they carry meaning), a red block for a
+   real warning, a dashed violet one for a simulation, and the adapted
+   21st.dev segmented control (see docs/dashboard-redesign/bauhaus/README.md).
+   =================================================================== */
+
+.operations-status,
+.operations-warning,
+.operations-history,
+.operations-demo-section {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.operations-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  letter-spacing: var(--tracking-label, 0.04em);
+  border-bottom: 1px solid var(--color-rule, #171717);
+  padding-bottom: 6px;
+  margin-bottom: var(--op-s2);
+}
+.operations-heading::before {
+  content: "";
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--color-rule, #171717);
+}
+
+/* Status rail: chips become ruled cells; the dot keeps its circle. */
+.operations-chips { gap: 0; border-top: 1px solid var(--color-rule, #171717); border-left: 1px solid var(--color-rule, #171717); }
+.operations-chip {
+  border: 0;
+  border-right: 1px solid var(--color-rule, #171717);
+  border-bottom: 1px solid var(--color-rule, #171717);
+  border-radius: 0;
+  background: var(--op-surface);
+  min-height: 44px;
+  padding: 6px 14px 6px 10px;
+}
+.operations-chip[data-tone="unknown"] { border-style: solid; border-color: var(--color-rule, #171717); background: repeating-linear-gradient(135deg, transparent 0 6px, var(--color-surface-sunken, #EAE4D6) 6px 8px); }
+
+/* Warnings: a red block with a heavy left rail; simulation stays dashed violet. */
+.operations-warning-card { border-radius: 0; }
+.operations-warning-real { border-width: 2px; border-left-width: 14px; }
+.operations-warning-real .operations-warning-title { font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem); font-weight: 800; letter-spacing: var(--tracking-tight, -0.02em); }
+.operations-warning-sim { border-width: 2px; }
+
+/* Empty activity: a still of an empty record beside the sentence. */
+.operations-empty { display: flex; align-items: center; gap: var(--op-s2); flex-wrap: wrap; }
+.operations-empty[hidden] { display: none; }
+.operations-empty-art { width: 160px; height: auto; flex: none; }
+.operations-empty-text { margin: 0; color: var(--op-text-2); max-width: 36ch; }
+
+/*
+ * Adapted from 21st.dev "segmented" (alexisroe, MIT): equal square segments in
+ * one ruled rail with the selected segment filled. Added here: a short black
+ * bar under the rail slides to the selected segment, so the change of filter
+ * is also shown by movement. The fill and label change at once (no
+ * half-covered text); only the bar moves. Pure CSS, using :has().
+ */
+.operations-filters {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(5.5rem, 1fr));
+  position: relative;
+  padding-bottom: 6px;
+}
+.operations-filter { margin-left: 0; border-radius: 0; }
+.operations-filter + .operations-filter { border-left-width: 0; }
+.operations-filter:first-child,
+.operations-filter:last-child { border-radius: 0; }
+.operations-filters::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: calc(100% / 3);
+  height: 4px;
+  background: var(--color-rule, #171717);
+  transition: transform var(--duration, 180ms) var(--easing, ease);
+}
+.operations-filters:has(.operations-filter:nth-child(2)[aria-pressed="true"])::after { transform: translateX(100%); }
+.operations-filters:has(.operations-filter:nth-child(3)[aria-pressed="true"])::after { transform: translateX(200%); }
+
+/* Secondary buttons share the experience feature's circle fill (Magic UI adaptation). */
+.operations-history .operations-button,
+.operations-status .operations-button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding-left: 30px;
+}
+.operations-history .operations-button::after,
+.operations-status .operations-button::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 13px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--op-primary);
+  transition: transform var(--duration, 180ms) var(--easing, ease), background-color var(--duration, 180ms) var(--easing, ease);
+}
+.operations-history .operations-button:not([aria-disabled="true"]):hover::after,
+.operations-history .operations-button:not([aria-disabled="true"]):focus-visible::after,
+.operations-status .operations-button:not([aria-disabled="true"]):hover::after,
+.operations-status .operations-button:not([aria-disabled="true"]):focus-visible::after {
+  transform: scale(60);
+  background: var(--op-primary-soft);
+}
+.operations-history .operations-button:hover,
+.operations-status .operations-button:hover { background: var(--op-surface); }
+
+/* ---- Bauhaus pass 2: aligned status cells on every width ---- */
+.operations-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
 }

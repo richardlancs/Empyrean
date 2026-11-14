@@ -1,60 +1,65 @@
 /*
- * Empyrean design tokens. The only place colours, spacing, type and radii are defined.
- * Feature styles (experience.css, operations.css) use these custom properties and never
- * declare their own palette. Contrast for every text/background pair is checked by
- * tests/ui/agent1/test_agent1_foundation.py. See docs/dashboard-redesign/design-system.md.
+ * Design tokens: the single source of colour, space, type, geometry and motion.
+ * Every other stylesheet (shell and features) reads these names.
+ *
+ * Bauhaus redesign (design/bauhaus-polish): warm ivory paper, near-black ink,
+ * one primary blue for action and touch, red only for hazards and errors,
+ * yellow only as a fill with near-black text and outline, violet with a dashed
+ * line only for simulations. Square corners; circles are reserved for
+ * meaningful indicators. Flat surfaces, crisp rules, no shadows.
+ * Every text pair was measured (docs/dashboard-redesign/bauhaus/README.md).
  */
 
 :root,
 :root[data-theme="light"] {
   color-scheme: light;
 
-  /* Surfaces and text */
-  --color-page: #F5F7FA;
-  --color-surface: #FFFFFF;
-  --color-surface-sunken: #EEF2F6;
-  --color-text: #172B4D;
-  --color-text-secondary: #526176;
-  --color-border: #D8E1EB;            /* decorative: card edges, dividers */
-  --color-border-control: #68788D;    /* meaningful: inputs, outlined buttons */
+  /* Paper and ink */
+  --color-page: #F4F0E7;              /* warm ivory page */
+  --color-surface: #FFFCF5;           /* panels */
+  --color-surface-sunken: #EAE4D6;    /* wells, camera frame edge */
+  --color-text: #171717;              /* 15.8:1 on page */
+  --color-text-secondary: #4F4B44;    /* 7.6:1 on page, 6.8:1 on sunken */
+  --color-border: #B9AF9C;            /* decorative rules */
+  --color-border-control: #171717;    /* meaningful edges: inputs, buttons, yellow fills */
+  --color-rule: #171717;              /* strong structural rules (rails, dividers) */
   --border-width: 1px;
-  --border-width-control: 1px;
+  --border-width-control: 2px;
+  --rule-width: 2px;
 
-  /* Touch / primary action */
-  --color-accent: #0F766E;
-  --color-accent-hover: #0B5F58;
+  /* Action and touch: deep blue */
+  --color-accent: #1947B8;            /* 7.0:1 on page; white on it 8.0:1 */
+  --color-accent-hover: #123A99;
   --color-on-accent: #FFFFFF;
-  --color-accent-soft: #E6F4F1;
-  --color-accent-text: #0F766E;       /* accent used as text on surface or soft */
+  --color-accent-soft: #E4EAF8;       /* blue text on it 6.6:1 */
+  --color-accent-text: #1947B8;
 
-  /* Caution / held */
-  --color-caution: #92400E;
-  --color-caution-soft: #FFF4D6;
+  /* Caution / held: yellow fill, near-black text and outline (never yellow text) */
+  --color-caution: #171717;
+  --color-caution-soft: #F2C94C;      /* near-black on it 11.3:1 */
+  --color-caution-fill: #F2C94C;
 
-  /* Hazard / error: reserved for urgent warnings and failures */
-  --color-danger: #B42318;
+  /* Hazard and error only */
+  --color-danger: #B42318;            /* 6.4:1 on surface */
   --color-danger-hover: #912018;
-  --color-on-danger: #FFFFFF;
-  --color-danger-soft: #FEF3F2;
+  --color-on-danger: #FFFFFF;         /* 6.6:1 */
+  --color-danger-soft: #FCEBE7;       /* red text on it 5.7:1 */
 
-  /* Simulation / demo-only */
-  --color-sim: #6D28D9;
-  --color-sim-soft: #F3EEFF;
+  /* Simulation: violet, always with a dashed line and a "Simulated" label */
+  --color-sim: #6D28D9;               /* 6.9:1 on surface */
+  --color-sim-soft: #F1EAFE;          /* 6.1:1 */
 
-  /* Neutral information chips */
-  --color-neutral: #526176;
-  --color-neutral-soft: #EEF2F6;
+  --color-neutral: #4F4B44;
+  --color-neutral-soft: #EAE4D6;
 
-  /* Keyboard focus */
-  --color-focus: #1D4ED8;
+  --color-focus: #1947B8;
   --focus-width: 3px;
   --focus-offset: 2px;
 
-  /* Elevation: kept faint; borders carry the structure */
-  --shadow-raised: 0 1px 2px rgb(23 43 77 / 0.06), 0 2px 8px rgb(23 43 77 / 0.05);
-  --shadow-sticky: 0 4px 16px rgb(23 43 77 / 0.12);
+  --shadow-raised: none;
+  --shadow-sticky: 0 0 0 var(--rule-width) var(--color-rule);
 
-  /* Spacing: 8px scale, with one half step for tight inline gaps */
+  /* 8px spacing scale */
   --space-half: 4px;
   --space-1: 8px;
   --space-2: 16px;
@@ -64,26 +69,30 @@
   --space-6: 48px;
   --space-8: 64px;
 
-  /* Radii */
-  --radius-sm: 8px;
-  --radius: 12px;
-  --radius-pill: 999px;
+  /* Geometry: square by default; circles only for indicators */
+  --radius-sm: 0;
+  --radius: 0;
+  --radius-pill: 0;                   /* chips become square tags */
+  --radius-circle: 50%;               /* status dots, the speech signal, fingertips */
 
   /* Type. rem-based so the browser's text size setting and zoom are respected. */
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --text-badge: 0.8125rem;   /* 13px: smallest text allowed anywhere */
   --text-small: 0.9375rem;   /* 15px: metadata, hints */
   --text-body: 1.0625rem;    /* 17px: body text */
   --text-large: 1.25rem;     /* 20px: section titles */
   --text-xl: 1.5rem;         /* 24px: emphasised values, warning text */
-  --text-display: clamp(2rem, 1.5rem + 2vw, 2.75rem); /* the touched object's name */
+  --text-display: clamp(2.25rem, 1.4rem + 3.2vw, 3.75rem); /* the touched object's name */
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
-  --leading-tight: 1.2;
+  --weight-black: 800;
+  --leading-tight: 1.1;
   --leading-body: 1.5;
+  --tracking-tight: -0.02em;
+  --tracking-label: 0.04em;
 
   /* Sizing */
   --target-min: 44px;        /* minimum hit target for controls */
@@ -91,52 +100,55 @@
   --info-column: clamp(360px, 30vw, 420px);
   --gutter: clamp(16px, 3vw, 32px);
 
-  /* Motion. Reduced-motion users get none (base.css). */
+  /* Motion. Short, interruptible, none under reduced motion (base.css). */
   --duration-fast: 120ms;
-  --duration: 200ms;
+  --duration: 180ms;
   --easing: cubic-bezier(0.2, 0, 0, 1);
 }
 
 /*
- * Higher-contrast light. Same hues, darker values: every text pair reaches 7:1 and
- * decorative borders become visible boundaries. Not a dark mode.
+ * Higher-contrast light. White paper, pure black ink, darker blue, red and
+ * violet: every text pair reaches 7:1, every rule is solid black. Not a dark mode.
  */
 :root[data-theme="high-contrast"] {
   color-scheme: light;
 
   --color-page: #FFFFFF;
   --color-surface: #FFFFFF;
-  --color-surface-sunken: #F1F4F8;
-  --color-text: #0B1A33;
-  --color-text-secondary: #2E3B50;
-  --color-border: #68788D;
-  --color-border-control: #172B4D;
-  --border-width: 1px;
-  --border-width-control: 2px;
+  --color-surface-sunken: #F2F2F2;
+  --color-text: #000000;
+  --color-text-secondary: #262626;
+  --color-border: #000000;
+  --color-border-control: #000000;
+  --color-rule: #000000;
+  --border-width: 2px;
+  --border-width-control: 3px;
+  --rule-width: 3px;
 
-  --color-accent: #0B5D56;
-  --color-accent-hover: #084A44;
+  --color-accent: #0F3591;            /* 10.8:1 */
+  --color-accent-hover: #0A2766;
   --color-on-accent: #FFFFFF;
-  --color-accent-soft: #EEF8F6;
-  --color-accent-text: #0B5D56;
+  --color-accent-soft: #E4EAF8;       /* blue on it 9.0:1 */
+  --color-accent-text: #0F3591;
 
-  --color-caution: #7A3306;
-  --color-caution-soft: #FFF4D6;
+  --color-caution: #000000;
+  --color-caution-soft: #F2C94C;      /* black on it 13.2:1 */
+  --color-caution-fill: #F2C94C;
 
-  --color-danger: #9A1B12;
-  --color-danger-hover: #7A140D;
+  --color-danger: #8F1A10;            /* 9.0:1 */
+  --color-danger-hover: #6E140C;
   --color-on-danger: #FFFFFF;
-  --color-danger-soft: #FEF3F2;
+  --color-danger-soft: #FCEBE7;       /* 7.8:1 */
 
-  --color-sim: #5B21B6;
-  --color-sim-soft: #F3EEFF;
+  --color-sim: #4C1D95;               /* 11.0:1 */
+  --color-sim-soft: #F1EAFE;
 
-  --color-neutral: #2E3B50;
-  --color-neutral-soft: #F1F4F8;
+  --color-neutral: #262626;
+  --color-neutral-soft: #F2F2F2;
 
-  --color-focus: #1D4ED8;
+  --color-focus: #0F3591;
   --focus-width: 4px;
 
   --shadow-raised: none;
-  --shadow-sticky: 0 0 0 2px #0B1A33;
+  --shadow-sticky: 0 0 0 var(--rule-width) #000000;
 }
