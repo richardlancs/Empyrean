@@ -18,6 +18,9 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 ## Needs attention
 
+- **Person 1 (`vision/`, class-changing track IDs):** live camera history on 2026-11-14 confirmed object ID 140 first touched as `bottle` / `water bottle`, then later touched as `laptop` / `water bottle`. Scene and namer cache names by ID, so a detector class change can carry an old name to another object. Keep object identity distinct when tracker IDs change class; coordinate any scene held-merge changes with Person 2. The target-focused naming fix below addresses overlapping crops, not this cached-identity problem.
+
+
 - **IN PROGRESS — Person 4: missed tabletop objects in video (assigned by user, 2026-11-14).** Person 4 leads this investigation now. Coordinate with Person 1 for vision changes and Person 2 for camera footage and scene changes. See the handoff entry below; coordinate with Person 4 before duplicating work. First evidence (Person 4 trace entry below): a small, far bottle is seen by YOLO in every frame but dropped by the 2% area filter, and by the 0.5 confidence gate before ByteTrack. A large black bottle with a handle is not recognised as a bottle at all. Fix agreed by all four and merged in PR #19: `DET_MIN_AREA_FRACTION = 0.002` and `DET_MIN_CONFIDENCE = 0.3`. Still to do: rehearse the demo objects at arm's length on the glasses camera (see the demo readiness entry), then close this item. Unrecognised objects remain a model limit.
 
 Problems in someone else's folder go here. The owner removes the line once fixed.
@@ -78,6 +81,20 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 2 (adjacent-object naming fix in Person 3's namer), Codex
+**Changed:** User explicitly approved the cross-folder change and app restart in chat. `namer/grok_client.py` now directs Grok to name the object matching the target detector label, rather than another foreground or overlapping object in the same crop. If that target is obscured, return its plain detector label. No message, model, threshold, shared file, or speech behavior changed.
+**Tested:** Reproduced on saved Logitech crops: `1122-1.jpg` is labelled laptop by the detector but includes a prominent foreground bottle. Current prompt returned water bottle in 2/2 calls; candidate returned laptop in 2/2. A second laptop crop and a bottle crop were each run twice with both prompts; targeted outputs were laptop and water bottle respectively. After applying the actual code, three fresh calls returned laptop, laptop, water bottle. This is a three-image check, not a general accuracy claim. Full pytest: 188 passed, 1 skipped (live database); Ruff on the edited module clean. Comparison results are local at `scratch/adjacent-object-review/results.json`.
+**Decisions:** Restarted the owned camera process to load the prompt and clear old cached names. Live MJPEG feed and advancing frames verified at localhost:8000, actual mode. Camera logs are `scratch/camera-live-20261114/naming-fix-stderr.log` and `naming-fix-stdout.log`; process ID is in `app.pid`. App remains running for the user's side-by-side retest.
+**Teammates need to know:** Person 3: review the target-focused prompt. Person 1: see the new class-changing-ID item under Needs attention; the original live history proves stale names can survive a tracker class change. No vision or scene code was changed in this fix. Naming queues under heavy tracking churn also remain to investigate.
+
+
+### 2026-11-14, Person 2 (first live camera result), Codex
+**Changed:** No application code. Recorded the wearer-confirmed result of the actual-mode localhost rehearsal.
+**Tested:** User reports object detection and audible naming succeeded. Dashboard event history contains two water-bottle touches plus laptop and cell-phone touches; audio logs confirm those five phrases were sent to speech at a logged 0 ms after each event. This verifies touch-to-speech in this run, not yet a controlled same-ID release/retouch test. Previous full suite remains 188 passed, 1 skipped; no code changed afterward.
+**Decisions:** Next controlled test: hold contact for five seconds (one announcement), clear fingertips for at least one second, then retouch the same stationary object (one new announcement).
+**Teammates need to know:** Naming logs also show requests waiting 20-46 seconds in the queue despite Grok calls usually completing in under a second. Tracker IDs reached 1000+ during the moving camera session. Investigate ID stability and stale naming work after the controlled stationary test; these observations alone do not prove the cause. Live frame-latency warnings included 280 ms and 332 ms. Camera and app remain running for the wearer.
+
 
 ### 2026-11-14, Person 2 (local main update and camera rehearsal), Codex
 **Changed:** Merged `origin/main` at `2c87254` into local `p2-demo-mode` at the user's request. Resolved config/spec conflicts with the approved confidence 0.3 and minimum area 0.002 while retaining the demo threshold 0.25, YOLO small documentation, and YOLOE demo mode. Kept both branches' development entries and removed the two Needs attention items fixed by PR #17. Backup branch: `codex/p2-demo-before-main-20261114`. Nothing pushed.

@@ -52,7 +52,14 @@ def _require_env(name: str) -> str:
 def build_payload(model: str, jpeg: bytes, class_label: str) -> dict[str, Any]:
     """Build the Responses API request body for one crop."""
     data_url = "data:image/jpeg;base64," + base64.b64encode(jpeg).decode("ascii")
-    hint = f"Hint: an object detector labelled this as '{class_label}'."
+    hint = (
+        "Several objects may be visible in this crop. Your target is the object described "
+        "by the detector label below, not another object overlapping it or standing in "
+        "front of it. Name only that target. Do not name a nearby foreground object "
+        "instead. If the target is too obscured to identify confidently, return only "
+        "the detector label. "
+        f"Target detector label: {class_label}."
+    )
     return {
         "model": model,
         "store": False,
