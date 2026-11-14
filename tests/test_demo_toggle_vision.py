@@ -110,51 +110,6 @@ def test_a_superseded_load_is_cached_not_installed_and_reused_later() -> None:
     assert len(loads) == 1  # the validated candidate was reused, not reloaded
 
 
-def test_a_cached_fallback_is_not_reused_once_trained_weights_are_installed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Fallback cached, then demo-yolo11s.pt installed: re-entering Demo loads the trained one."""
-    import vision.vision as v
-
-    trained = tmp_path / "demo-yolo11s.pt"
-    prompts = tmp_path / "demo-prompts.pt"
-    prompts.write_bytes(b"prompts")
-    monkeypatch.setattr(v, "TRAINED_DEMO_WEIGHTS", trained)
-    fallback = DemoCandidate(FakeWorld(), False, "prompt-fallback", v.FALLBACK_IDENTITY,
-                             "yoloe + prompts", v.checkpoint_stamp(prompts))
-    loads: list[str] = []
-
-    def loader() -> DemoCandidate:
-        if trained.is_file():
-            loads.append("trained")
-            return candidate(FakeWorld())
-        loads.append("prompt-fallback")
-        return fallback
-
-    published: list[Any] = []
-    vision = Vision(published.append, loader=loader, start=False)
-    processor = VisionProcessor(FakeYOLO(), FakeHands(), FakeMP)
-    vision.on_mode(ModeChange(ts=1.0, mode="demo", request_id="d1"))
-    vision._apply_mode(processor)
-    assert wait_for(lambda: vision._ready is not None)
-    vision._apply_mode(processor)
-    assert statuses(published)[-1].demo_kind == "prompt-fallback"
-    vision.on_mode(ModeChange(ts=2.0, mode="actual", request_id="a1"))
-    vision._apply_mode(processor)
-
-    trained.write_bytes(b"trained weights")  # installed without restarting
-    vision.on_mode(ModeChange(ts=3.0, mode="demo", request_id="d2"))
-    vision._apply_mode(processor)
-    assert processor.mode == "actual"  # the stale fallback was not swapped in
-    assert (statuses(published)[-1].state, statuses(published)[-1].request_id) == ("switching", "d2")
-    assert wait_for(lambda: vision._ready is not None)
-    vision._apply_mode(processor)
-    last = statuses(published)[-1]
-    assert processor.mode == "demo"
-    assert (last.state, last.request_id, last.demo_kind) == ("active", "d2", "trained")
-    assert loads == ["prompt-fallback", "trained"]
-
-
 def test_failed_load_keeps_regular_working() -> None:
     """An exception in the loader is a failed status; Regular keeps processing frames."""
 

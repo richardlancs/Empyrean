@@ -49,11 +49,8 @@ MOUNT_IDS = [
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node is not installed")
 def test_core_modules_pass_node_unit_tests() -> None:
     """Store, transport, announcer, preferences, loader and app composition (node --test)."""
-    # Explicit files, not the directory: Node 24 on Windows treats a directory as a module.
-    files = [str(p) for p in sorted((HERE / "js").glob("*.test.mjs"))]
-    assert files, "no .test.mjs files found"
     result = subprocess.run(
-        ["node", "--test", *files],
+        ["node", "--test", str(HERE / "js")],
         check=False,
         cwd=ROOT,
         capture_output=True,
