@@ -35,7 +35,7 @@ class FakeYOLO:
         boxes = SimpleNamespace(
             xyxy=Array([[10, 20, 110, 170], [200, 30, 330, 200],
                         [20, 20, 180, 180], [50, 50, 60, 60]]),
-            conf=Array([0.9, 0.3, 0.96, 0.93]),
+            conf=Array([0.9, 0.2, 0.96, 0.93]),
             cls=Array([0, 0, 1, 0]),
             id=Array([7, 8, 9, 10]),
         )

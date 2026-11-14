@@ -18,11 +18,11 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 ## Needs attention
 
+- **IN PROGRESS — Person 4: missed tabletop objects in video (assigned by user, 2026-11-14).** Person 4 leads this investigation now. Coordinate with Person 1 for vision changes and Person 2 for camera footage and scene changes. See the handoff entry below; coordinate with Person 4 before duplicating work. First evidence (Person 4 trace entry below): a small, far bottle is seen by YOLO in every frame but dropped by the 2% area filter, and by the 0.5 confidence gate before ByteTrack. A large black bottle with a handle is not recognised as a bottle at all. Fix agreed by all four and merged in PR #19: `DET_MIN_AREA_FRACTION = 0.002` and `DET_MIN_CONFIDENCE = 0.3`. Still to do: rehearse the demo objects at arm's length on the glasses camera (see the demo readiness entry), then close this item. Unrecognised objects remain a model limit.
+
 Problems in someone else's folder go here. The owner removes the line once fixed.
 
 - **Repo root:** there is still no root requirements file (AGENTS.md rule 8). Pins are split across `audio/requirements.txt` (`pyttsx3==2.99`, `pygame==2.6.1`) and `dashboard/requirements.txt` (`fastapi==0.162.7`, `uvicorn[standard]==0.54.0`, `opencv-contrib-python==4.11.0.86`). `ultralytics`, `mediapipe`, `httpx`, `psycopg`, `python-dotenv`, `numpy`, `pytest` and `ruff` are pinned nowhere. Earlier tested versions for some: `numpy==2.4.6`, `httpx==0.28.1`, `psycopg==3.3.9`, `psycopg-binary==3.3.9`, `python-dotenv==1.2.4`, `pytest==9.2.0`, `ruff==0.17.5`. Whoever sets up the demo laptop should write one root file from that machine's working environment. Install `opencv-contrib-python` only, never alongside `opencv-python`.
-- **Person 1 (`fakes/hazard/fake_hazard.py`, start order):** still open. `FakeHazard` starts its thread in its constructor and `hazard` is first in `app`'s `MODULES`, so with `--fake hazard` the first `HazardEvent` (vehicle, yolo) is published before audio and dashboard subscribe. Start the thread after all modules are registered, as `_FakeScenePlayback` does. Found by Person 4, 2026-11-14.
-- **Person 1 (`tests/test_app_p1.py`):** `test_cli_fake_vision_starts` still uses a fixed `time.sleep(1.4)`. It passes on Person 2's laptop (2026-11-14) but failed on Person 4's, where audio startup is slower. Wait for the expected output line instead.
 - **Person 1 (`vision/`, please review):** Person 2 added demo mode to your folder: `vision/vision.py` (second detector, `set_mode`, `ModeChange` handling) and the new `vision/build_demo_weights.py` and `vision/capture_demo_refs.py`. See the "demo mode built" and "demo detector changed to YOLOE" entries. Keep, change or revert, then remove this line. Reference pictures of the eight demo objects still have to be taken on the Logitech camera.
 - **Person 4 (`dashboard/`, please review):** Person 2 added the Demo mode button, `POST /api/mode` and the `mode` field in the page state (`server.py`, `state.py`, `index.html`). Keep, change or revert, then remove this line.
 - **Persons 1, 3 and 4 (shared files):** Person 2 added `ModeChange` to `contracts/` and `DEMO_DET_MIN_CONFIDENCE` to `config/`, with matching rows in `SPEC.md` sections 5 and 9, before the other three confirmed. Say yes or ask for it to be reverted.
@@ -35,8 +35,11 @@ Problems in someone else's folder go here. The owner removes the line once fixed
 - **Person 3 (naming on real crops):** accuracy on Logitech camera crops of the demo objects is still unmeasured. `fakes.namer.crop_recorder` and `eval_batch --manifest` are ready for it.
 - **Persons 1 and 4:** add your names to the Team table at the bottom. Person 1: an early entry lists the tool as "ChatGPT GPT-6", which is not in the stack table's coding agents. Confirm or correct it for the SpaceXSI write-up.
 - **All:** `SPEC.md` section 12 still has open questions (SpaceXSI prize rules, HackUMass category count, submission deadline, which laptop runs the demo). A full run on the Logitech webcam and the JBL together is not recorded in this log yet.
+- **Person 1 (`vision/`, setup):** on a fresh Python 3.11, the first `detector.track()` call made Ultralytics run `pip install lap` itself, from inside the running app, because ByteTrack needs `lap` and nothing pins it. That is a network call on the frame path (AGENTS.md rule 4) and would stall or fail on a laptop with no internet. Pin `lap` (0.5.14 worked) with the vision requirements, and consider setting Ultralytics' `YOLO_AUTOINSTALL=False` so it never installs at run time. Found by Person 4, 2026-11-14.
 
 Closed on 2026-11-14 (checked against the code on `main` at `64f878b`): the scene/namer threading race (`app/__main__.py` wraps `handle_frame` and `handle_name` in one lock), and all six of Person 3's `app/` bus requests (bus shape, `load_dotenv()` before registering, thread-safe `publish`, scene adapter, `stop()` at shutdown, fake paths).
+
+Closed during the Person 2 local update on 2026-11-14: fake-hazard playback now starts after subscribers register, and the CLI smoke test waits for a frame log instead of a fixed sleep (merged PR #17).
 
 ## Contract changes
 
@@ -75,6 +78,120 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 2 (local main update and camera rehearsal), Codex
+**Changed:** Merged `origin/main` at `2c87254` into local `p2-demo-mode` at the user's request. Resolved config/spec conflicts with the approved confidence 0.3 and minimum area 0.002 while retaining the demo threshold 0.25, YOLO small documentation, and YOLOE demo mode. Kept both branches' development entries and removed the two Needs attention items fixed by PR #17. Backup branch: `codex/p2-demo-before-main-20261114`. Nothing pushed.
+**Tested:** Windows, existing Python 3.11.18 venv: full pytest 188 passed, 1 skipped (live database); Ruff on app, fake hazard, app/vision tests and config clean; staged diff whitespace check clean. Started the real app with `--record-crops`, `CAMERA_INDEX=1` from the existing environment and `YOLO_AUTOINSTALL=False` for this process. All seven modules started, MJPEG video is visible at localhost:8000, and Grok calls returned HTTP 200. One capture-to-publish warning at 159 ms, above the 150 ms target.
+**Decisions:** Begin the interactive camera test in actual mode, then compare demo mode. No microphone feature or new dependency installed. Startup logs and process ID are local under `scratch/camera-live-20261114/`; naming crops for this run are under `scratch/camera_crops/session-h9_j2of2/`.
+**Teammates need to know:** Live video is verified; tabletop object detection, touch/release/retouch and audible output still require the wearer to position an object and perform the test. Initial view faced the ceiling and produced no scene objects. Automated passing tests do not establish live demo accuracy.
+
+
+### 2026-11-14, Person 4 (demo readiness from the trace), Claude Code
+**Changed:** Notes only. What the tabletop trace below means for the demo.
+
+**Tested:** Nothing new; this reads the existing trace.
+
+**Decisions:**
+
+- **The clip was for verification, not calibration.** Nothing was tuned or trained on it. It tested the suggested thresholds (area 0.002, confidence 0.3) on fixed frames, so every setting saw the same input.
+- **The touch demo is mostly unaffected by the far-object problem.** A touched object is at arm's length and normally fills well over 2% of the frame, so the area filter kept it even at the old 2%. The far-object fix matters for the Objects list and things across the table. It is now live: PR #19 set confidence 0.3 and area 0.002, agreed by all four.
+- **The demo risk is objects YOLO does not recognise.** The large black bottle with a handle was never labelled a bottle, even up close (raw: "suitcase", 0.07). An unrecognised object cannot be touched or named, whatever the thresholds. This is a model limit; changing models needs team approval (AGENTS.md rule 7).
+- **Demo objects:** use ones the COCO model knows well and check each on the real camera, for example a plain plastic water bottle, a cup or mug, a phone, a banana or apple, a book, scissors. Avoid unusual shapes, handles, and dark or reflective bottles.
+
+**Teammates need to know:**
+
+- **Person 2:** before the demo, rehearse with the glasses camera at arm's length with the exact demo objects. Each one should appear in the dashboard's Objects list and be named on touch. This also settles whether the glasses-camera clip is still needed. The laptop clip already answers the threshold question; only the distance and angle differ.
+- **All:** the threshold proposal was agreed and merged in PR #19. Re-check for false detections on the real camera in a busy scene.
+
+### 2026-11-14, Person 2 (shared `config/` and `SPEC.md`, agreed by all four), Claude Code
+**Changed:**
+- `config/thresholds.py`: `DET_MIN_CONFIDENCE` 0.5 to 0.3 and `DET_MIN_AREA_FRACTION` 0.02 to 0.002. These are the values Person 4 proposed in the tabletop detection trace entry below.
+- `SPEC.md` sections 4.2 and 9 now state the same two values. No code in `vision/`, no contracts, no model.
+- `tests/test_vision_p1.py` (Person 1's test): the fake detector's "low-confidence" box was hard-coded at 0.3, which is no longer below the threshold, so the test failed. It is now 0.2. The test still checks the same thing.
+
+**Tested:** On `main` at `d973e3a` plus this change, Windows, Python 3.11.18. Full `pytest`: 184 passed, 1 skipped (live database). `python -m app --fake vision audio` started every module and published frames. Ruff on `config/` and the edited test is clean. Not run on the real camera with the new values, and not checked against a glasses-camera clip.
+
+**Decisions:** Person 2's human confirmed that all four teammates accepted the new defaults (AGENTS.md rules 1 and 6). The change was made before Person 4's trace was run on a glasses-camera clip; Person 2 is sending that clip to Person 4.
+
+**Teammates need to know:**
+- **All:** pull `main` after this merges. Smaller and less certain objects now reach `FrameResult`, so expect more objects in the scene and possibly false detections in busy views. Say so here if you see them.
+- **Person 1:** more boxes reach ByteTrack. Latency was already over the 150 ms target on two Windows laptops (156 to 252 ms), so please measure it again.
+- **Person 4:** the "IN PROGRESS" item under Needs attention is yours to remove once the glasses-camera clip confirms the fix. The large black bottle that YOLO does not recognise is not helped by this.
+
+### 2026-11-14, Person 1 (app, fake hazard, tests), Codex
+**Changed:**
+- Fake hazard registration can defer playback; app starts it after all selected modules subscribe. The first vehicle event is no longer lost during startup. Direct fake users retain automatic startup by default; stopping an unstarted fake is safe.
+- CLI smoke test waits for a published-frame log with a bounded 15-second timeout instead of sleeping 1.4 seconds. It runs scene plus fake vision without loading audio, and cleans up the child process and output reader.
+- Added `python -m app --record-crops [DIRECTORY]`. Registers Person 3's existing background crop recorder before producers and stops it at shutdown. Each run gets a fresh `session-*` directory under `scratch/camera_crops` (or the selected directory), avoiding cross-run file collisions. The path is logged at startup.
+- Regression tests cover first fake-hazard delivery to a later subscriber, crop persistence across two sessions, and recorder shutdown. No audio files, shared contracts, thresholds, model choices, or other owners' modules changed.
+
+**Tested:**
+- Non-audio suite: `python -m pytest -q --ignore=tests/test_audio.py --ignore=tests/test_audio_pyttsx3.py --ignore=tests/test_speak_test.py`: 159 passed, 1 skipped (live database), one existing FastAPI/httpx deprecation warning.
+- After final cleanup, Person 1 app/hazard/vision tests: 15 passed. Ruff on app, fake hazard and app tests is clean; `git diff --check` is clean.
+- Tested on macOS with Python 3.14.10 in a new local `.venv`; Python 3.11 is not installed here. No real camera, Grok call, database credentials, or audio hardware used. Initial sandbox TCP failures disappeared with local port access enabled.
+
+**Decisions:**
+- Scope is Person 1's non-audio work. Existing module dependencies installed for tests only; no new runtime dependency added. Root dependency pinning remains pending Python 3.11 verification.
+- Voice input/transcription and spoken answers are outside this non-audio pass. New voice contracts and dependencies still need the agreement described in AGENTS.md and the voice-plan branch.
+
+**Teammates need to know:**
+- Run `python -m app --record-crops` on the demo laptop. Use the logged session's `manifest.csv`, fill `expected_brand` and `expected_product`, then run `python -m fakes.namer.eval_batch --manifest <session>/manifest.csv --results <session>/results.csv`.
+- Collect 5–10 real demo objects alone, with small labels, partly covered, and in groups. Real crop accuracy remains unmeasured here.
+- Still required: Python 3.11/Windows validation, Logitech camera tests, and real stairs/doorway/wall checks of the narrowed hazard prompt. Unit tests cannot establish the prompt's real-world detection accuracy.
+- Changes are local on `p1-vision`; not pushed or merged.
+
+### 2026-11-14, Person 4 (tabletop detection trace), Claude Code
+**Changed:** No code or config. Wrote a diagnostic script outside the repo that runs the same frames through each vision stage, separately from the app (never on the frame path). It covers raw `yolo11s` predictions at confidence 0.05, ByteTrack IDs with the app's settings, and `vision.tracked_objects()` itself for the app's filter. It repeats the tracker and filter stages for the experimental settings on separate tracker instances.
+
+**Tested:** One 14 s clip (70 frames at 5 fps) from the laptop's built-in webcam: a table with a chair, a small bottle about 3 m back, and a large black bottle with a handle up close. Same clip for every setting:
+
+| Setting | Small bottle reaches `FrameResult` | Bottle track IDs | Other objects kept |
+|---|---|---|---|
+| App now (conf 0.5, area 0.02) | 0 / 70 | none | chair 70 |
+| Area 0.002 only | 36 / 70 | one (stable) | chair 70 |
+| Conf 0.3 only | 0 / 70 | none | chair 70 |
+| Conf 0.3 + area 0.002 | 70 / 70 | one (stable) | chair 70 |
+
+- Raw YOLO saw the small bottle in 70 / 70 frames, at confidence 0.36–0.63 (median 0.51). Its box was 0.30–0.41% of the frame.
+- The two filters both bite. Every box is under the 2% area cut. About half the frames are also under 0.5, and `detector.track(conf=DET_MIN_CONFIDENCE)` drops those before ByteTrack sees them.
+- With both lowered, the bottle keeps one stable track ID for the whole clip, and no extra objects appeared in this scene.
+- The large black bottle up close was never labelled a bottle. Raw YOLO called it "suitcase" at 0.07. Thresholds cannot fix that; it is a model limit, and a model swap needs the team's say-so (AGENTS.md rule 7).
+- An earlier run aimed at the user's face saw no bottle at all and is not evidence.
+
+**Decisions:** Root cause for small and far objects: the area filter first, then the 0.5 confidence gate passed to the tracker. Neither setting alone recovers the bottle reliably. Proposed defaults, needing all four to agree: `DET_MIN_AREA_FRACTION = 0.002`, `DET_MIN_CONFIDENCE = 0.3`. Nothing in `config/` was changed.
+
+**Teammates need to know:**
+- **Person 2:** please send a short clip from the glasses camera of the failing table, so the same trace can be run on it before the defaults change. The trace script can be shared.
+- **Person 1:** the confidence passed to `detector.track()` is what gates ByteTrack. Lower defaults add a little per-frame work (more boxes to track); measure latency before and after.
+- **All:** lower thresholds may add false detections in busier scenes. This clip was a sparse table, so check the glasses-camera clip before agreeing.
+- The clip itself stays on Person 4's laptop and is not committed.
+
+### 2026-11-14, Person 4 (setup and real-camera check), Claude Code
+**Changed:** No code. On the Windows laptop, installed the vision stack into Python 3.11 (`opencv-contrib-python==4.11.0.86`, `ultralytics==8.4.212`, `torch==2.15.0+cpu`, `mediapipe==1.2.3`, `httpx==0.28.1`, `psycopg[binary]==3.3.9`). Removed the `opencv-python` that Ultralytics pulls in, as Person 2's note asks. Downloaded `vision/models/yolo11s.pt` (19.3 MB, Ultralytics GitHub releases v8.3.0) and `vision/models/hand_landmarker.task` (7.8 MB, MediaPipe storage); both are git-ignored.
+
+**Tested:** On `main` at `a5ea3af` (includes PRs #11–#15). `python -m app --fake vision audio`: the page loaded, the feed showed the fake frames with bottle and cup boxes, the Objects panel listed both, and Simulate alert added one entry. Full `pytest`: 181 passed, 1 skipped, 1 failed (`test_cli_fake_vision_starts`, the known timing failure). `python -m app` on the real webcam with no `.env`: every module started, the dashboard was Live with a 640 x 360 feed, and Grok hazard checks were disabled as expected. Vision logged capture-to-publish latency of 156–248 ms, over the 150 ms target, with `yolo11s` on CPU. No objects were listed during the run; the scene in view was not set up for the investigation yet.
+
+**Decisions:** The `lap` auto-install is logged for Person 1 under "Needs attention" rather than fixed here, because `vision/` is theirs.
+
+**Teammates need to know:** Person 1: the latency numbers above are from `yolo11s` on this laptop's CPU, worth weighing against the accuracy gain from PR #13. Person 4 starts the tabletop investigation next.
+
+### 2026-11-14, coordination (Person 4 assignment), Codex
+**Changed:** Recorded the user's assignment of the missed tabletop-object investigation to Person 4, working on it now. Documentation only; no runtime code, thresholds, contracts, or folder ownership changed.
+
+**Tested:** Inspected `vision/vision.py`, `config/thresholds.py`, and dashboard drawing paths. The pipeline supports multiple objects. Current code uses `yolo11s.pt`, 640 x 360 processed frames, ByteTrack, confidence 0.5, and a 2% minimum bounding-box area. Boxes without tracking IDs and the person class are excluded. No camera validation or runtime tests performed for this documentation-only update.
+
+**Decisions:**
+- Person 4 leads diagnosis and coordinates implementation with folder owners. The size filter is a suspect, not a confirmed cause: a 30 x 100 pixel bottle box falls below the 4,608 pixel minimum.
+- Compare the same recorded frames through raw YOLO boxes/confidence, tracking IDs, filtered `FrameResult.objects`, `SceneSnapshot`, and dashboard overlays. Identify where objects disappear.
+- First local experiment: `DET_MIN_AREA_FRACTION = 0.002` instead of `0.02`. Separately, if needed, try `DET_MIN_CONFIDENCE = 0.3` instead of `0.5`. Compare recovered objects, false detections, and tracking stability. These are experiments, not approved shared defaults.
+
+**Teammates need to know:**
+- **Person 2:** provide a short representative recording of the failing table scene, including the water bottle at different distances; assist with scene stabilization/touch issues. Recorded footage permits reproduction on this laptop without a live camera.
+- **Person 1:** coordinate diagnostics and fixes in `vision/`; preserve frame-loop and hazard performance.
+- **Person 4:** inspect dashboard rendering in your folder; gather before/after evidence from the same clip. Coordinate other-folder edits with their owners; this assignment does not transfer ownership.
+- **All four:** agree before committing shared configuration defaults. No model swap or training is authorized by this handoff.
+- **Completion:** run relevant regression tests and full `pytest`, document results and remaining camera limitations, and remove the Needs attention item once fixed.
+
 
 ### 2026-11-14, Person 2 working in `vision/`, Claude Code: demo detector changed to YOLOE with reference pictures
 **Changed:** Demo mode detected nothing on the real camera, so the demo detector was replaced. The button, `ModeChange`, the threshold and the dashboard are as in the entry below.

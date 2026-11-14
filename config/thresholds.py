@@ -7,8 +7,8 @@ spec's "Used by" column.
 PROCESS_FPS = 5  # vision
 PROCESS_WIDTH = 640  # vision
 PROCESS_HEIGHT = 360  # vision
-DET_MIN_CONFIDENCE = 0.5  # vision
-DET_MIN_AREA_FRACTION = 0.02  # vision
+DET_MIN_CONFIDENCE = 0.3  # vision
+DET_MIN_AREA_FRACTION = 0.002  # vision
 DEMO_DET_MIN_CONFIDENCE = 0.25  # vision
 STABLE_FRAMES = 5  # scene
 LOST_KEEP_SECONDS = 2.0  # scene
