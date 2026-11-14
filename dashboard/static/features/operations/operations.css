@@ -1,52 +1,43 @@
 /* Operations feature: status strip, warnings, recent activity, demo tools.
-   Every selector is scoped with "operations-". Colours come from the shared tokens defined by
-   the foundation (styles/tokens.css); the fallbacks are the agreed light-mode values so this
-   file still renders correctly if a token name differs. */
+   Every selector is scoped with "operations-". Colours come from the shell's tokens
+   (styles/tokens.css), so the light and high-contrast themes (:root[data-theme]) apply here
+   too; the shell alone decides the theme. Fallbacks are the light-mode values.
+   Integration (Agent 4): names aligned with tokens.css. */
 
 .operations-status,
 .operations-warning,
 .operations-history,
 .operations-demo-section {
-  --op-bg: var(--color-bg, #f5f7fa);
+  --op-bg: var(--color-page, #f5f7fa);
   --op-surface: var(--color-surface, #ffffff);
   --op-text: var(--color-text, #172b4d);
   --op-text-2: var(--color-text-secondary, #526176);
   --op-border: var(--color-border, #d8e1eb);
-  --op-border-strong: var(--color-border-strong, #68788d);
-  --op-primary: var(--color-primary, #0f766e);
-  --op-primary-soft: var(--color-primary-soft, #e6f4f1);
+  --op-border-strong: var(--color-border-control, #68788d);
+  --op-primary: var(--color-accent, #0f766e);
+  --op-on-primary: var(--color-on-accent, #ffffff);
+  --op-primary-soft: var(--color-accent-soft, #e6f4f1);
   --op-caution: var(--color-caution, #92400e);
   --op-caution-soft: var(--color-caution-soft, #fff4d6);
   --op-danger: var(--color-danger, #b42318);
   --op-danger-soft: var(--color-danger-soft, #fef3f2);
-  --op-demo: var(--color-demo, #6d28d9);
-  --op-demo-soft: var(--color-demo-soft, #f3eeff);
+  --op-demo: var(--color-sim, #6d28d9);
+  --op-demo-soft: var(--color-sim-soft, #f3eeff);
   --op-focus: var(--color-focus, #1d4ed8);
   --op-radius: var(--radius, 12px);
   --op-radius-sm: var(--radius-sm, 8px);
   --op-s1: var(--space-1, 8px);
   --op-s2: var(--space-2, 16px);
   --op-s3: var(--space-3, 24px);
-  --op-border-w: 1px;
-  --op-control-border-w: 1px;
+  --op-border-w: var(--border-width, 1px);
+  --op-control-border-w: var(--border-width-control, 1px);
   color: var(--op-text);
-  font-size: var(--font-size-body, 17px);
+  font-size: var(--text-body, 17px);
   line-height: 1.5;
 }
 
-@media (prefers-contrast: more) {
-  .operations-status,
-  .operations-warning,
-  .operations-history,
-  .operations-demo-section {
-    --op-border: var(--color-border-strong, #68788d);
-    --op-control-border-w: 2px;
-    --op-text-2: var(--color-text, #172b4d);
-  }
-}
-:root[data-contrast="high"] :is(.operations-status, .operations-warning, .operations-history, .operations-demo-section) {
-  --op-border: var(--color-border-strong, #68788d);
-  --op-control-border-w: 2px;
+:root[data-theme="high-contrast"] :is(.operations-status, .operations-warning, .operations-history, .operations-demo-section) {
+  --op-border: var(--color-border-control, #172b4d);
 }
 
 /* ---------- shared bits */
@@ -342,7 +333,7 @@ details[open] > .operations-disclosure-summary::before { transform: rotate(45deg
 .operations-filter[aria-pressed="true"] {
   background: var(--op-primary);
   border-color: var(--op-primary);
-  color: #ffffff;
+  color: var(--op-on-primary);
 }
 .operations-filter[aria-pressed="true"]::before { content: "✓ "; }
 .operations-history-actions { display: flex; flex-wrap: wrap; gap: var(--op-s1); }

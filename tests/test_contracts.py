@@ -188,5 +188,5 @@ def test_old_last_seen_query_constructor_still_works() -> None:
     """LastSeenQuery(ts, text) from before the redesign builds with no request_id."""
     query = LastSeenQuery(TS, "keys")
     assert query.request_id is None
-    result = LastSeenResult(TS, "r1", "unavailable", "")
+    result = LastSeenResult(TS, "r1", "unavailable", "Touch history is unavailable right now.")
     assert result.matched_at is None and result.neighbours == [] and result.label == ""

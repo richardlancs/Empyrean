@@ -33,6 +33,17 @@ def _free_port() -> int:
 @pytest.fixture
 def running(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Any, int]]:
     """Start the whole app with fakes; the dashboard is served on a free port."""
+    yield from _run_app(monkeypatch, FAKES)
+
+
+@pytest.fixture
+def running_real_storage(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Any, int]]:
+    """Same, but with the real storage module and no TIGER_DATABASE_URL."""
+    yield from _run_app(monkeypatch, [name for name in FAKES if name != "storage"])
+
+
+def _run_app(monkeypatch: pytest.MonkeyPatch, fakes: list[str]) -> Iterator[tuple[Any, int]]:
+    """Start app/ with these fakes and serve the dashboard on a free port."""
     port = _free_port()
     original = dashboard_server.Dashboard.serve
 
@@ -42,7 +53,7 @@ def running(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Any, int]]:
     monkeypatch.setattr(dashboard_server.Dashboard, "serve", serve_on_free_port)
     monkeypatch.delenv("TIGER_DATABASE_URL", raising=False)
     monkeypatch.delenv("GROK_API_KEY", raising=False)
-    started = app_main.start(fakes=FAKES)
+    started = app_main.start(fakes=fakes)
     try:
         _wait(lambda: _get(port, "/api/state") is not None, 10)
         yield started, port
@@ -187,3 +198,28 @@ def test_modules_own_status_reaches_the_dashboard(running: tuple[Any, int]) -> N
     assert "nothing is saved to Tiger Data" in diagnostics["storage"]["detail"]
     assert diagnostics["audio"]["status"] == "active"
     assert "printed, not played" in diagnostics["audio"]["detail"]
+
+
+def test_unavailable_history_is_spoken_and_shown_the_same(
+    running_real_storage: tuple[Any, int],
+) -> None:
+    """Real storage with no database: the page and the speaker both say unavailable."""
+    _, port = running_real_storage
+    base = f"http://127.0.0.1:{port}"
+    request_id = httpx.post(f"{base}/api/last-seen", json={"query": "bottle"}).json()["request_id"]
+
+    def finished() -> dict[str, Any] | None:
+        body = _get(port, f"/api/last-seen/{request_id}")
+        return body if body and body["status"] != "pending" else None
+
+    shown = _wait(finished, 5)
+    assert shown["status"] == "unavailable"
+    assert shown["answer"] == "Touch history is unavailable right now."
+
+    def spoken() -> dict[str, Any] | None:
+        speech = (_get(port, "/api/state") or {}).get("speech")
+        return speech if speech and speech["kind"] == "answer" else None
+
+    speech = _wait(spoken, 5)
+    assert speech["text"] == shown["answer"]
+    assert "I have not seen that" not in speech["text"]

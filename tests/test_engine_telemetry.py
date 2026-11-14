@@ -22,7 +22,7 @@ from contracts import (
 )
 from fakes.storage.fake_store import FakeStore
 from storage import db
-from storage.last_seen import NOT_SEEN
+from storage.last_seen import NOT_SEEN, UNAVAILABLE
 from storage.writer import Store
 
 BOX = (100.0, 80.0, 200.0, 240.0)
@@ -287,6 +287,7 @@ def test_store_correlates_found_and_not_found(monkeypatch: pytest.MonkeyPatch) -
     # The spoken answers are unchanged and still go out first.
     spoken = [m.text for m in published if isinstance(m, SpeakRequest)]
     assert spoken == [results["a"].answer, NOT_SEEN]
+    assert results["b"].answer == NOT_SEEN  # spoken and shown agree for a real miss
     status = [m for m in published if isinstance(m, ModuleStatus)]
     assert status[-1].status == "active"
 
@@ -300,7 +301,10 @@ def test_store_error_is_unavailable_never_not_found(monkeypatch: pytest.MonkeyPa
     finally:
         store.stop()
     result = _results(published)["x"]
-    assert result.status == "unavailable" and result.answer == "" and result.matched_at is None
+    assert result.status == "unavailable" and result.matched_at is None
+    spoken = [m.text for m in published if isinstance(m, SpeakRequest)]
+    # What the wearer hears and what the page shows are the same sentence.
+    assert spoken == [UNAVAILABLE] and result.answer == UNAVAILABLE
 
 
 def test_store_without_url_is_unavailable_and_reports_offline() -> None:
@@ -313,6 +317,8 @@ def test_store_without_url_is_unavailable_and_reports_offline() -> None:
     finally:
         store.stop()
     assert _results(published)["y"].status == "unavailable"
+    assert [m.text for m in published if isinstance(m, SpeakRequest)] == [UNAVAILABLE]
+    assert _results(published)["y"].answer == UNAVAILABLE
     status = next(m for m in published if isinstance(m, ModuleStatus))
     assert status.status == "offline" and "TIGER_DATABASE_URL" in status.detail
     assert "postgresql" not in status.detail

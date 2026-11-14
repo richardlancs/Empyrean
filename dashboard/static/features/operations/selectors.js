@@ -107,6 +107,17 @@ function newest(candidates) {
  * latest_warning, the event log and what this view already remembered, so an older server that
  * only keeps one latest_warning cannot let a simulation hide a still-active real warning.
  */
+/**
+ * Integration (Agent 4): the shell's warning emphasis hook (design-system.md section 2).
+ * "urgent" while a real warning is active (even if a simulation came later),
+ * "simulated" while only a simulation is active, null otherwise.
+ */
+export function warningEmphasis(selected) {
+  if (selected?.real?.active) return "urgent";
+  if (selected?.sim?.active) return "simulated";
+  return null;
+}
+
 export function selectWarnings({ state, remembered = {}, localSim = null, nowSeconds }) {
   const activeSeconds = Number.isFinite(state?.hazard_active_seconds)
     ? state.hazard_active_seconds

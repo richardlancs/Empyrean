@@ -123,7 +123,7 @@ class LastSeenResult:
     ts: float  # when answered
     request_id: str  # copied from the LastSeenQuery
     status: Literal["found", "not_found", "unavailable"]
-    answer: str  # the sentence published as a SpeakRequest, or empty if unavailable
+    answer: str  # exactly the sentence published as the SpeakRequest
     matched_at: float | None = None  # ts of the matching touch, None unless found
     label: str = ""  # name or class label of the match, empty unless found
     neighbours: list[str] = field(default_factory=list)  # recorded with the match

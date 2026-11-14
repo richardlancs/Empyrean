@@ -116,15 +116,16 @@ def test_last_seen_found_through_the_bus() -> None:
 
 
 def test_last_seen_not_found_and_unavailable_stay_distinct() -> None:
-    """not_found keeps the spoken sentence; unavailable has no answer and says why."""
+    """Each outcome shows exactly the sentence that was spoken, and says why."""
     client, bus, _ = _client_with_bus()
     a = client.post("/api/last-seen", json={"query": "zebra"}).json()["request_id"]
     b = client.post("/api/last-seen", json={"query": "keys"}).json()["request_id"]
     bus.publish(LastSeenResult(NOW, a, "not_found", "I have not seen that."))
-    bus.publish(LastSeenResult(NOW, b, "unavailable", ""))
+    bus.publish(LastSeenResult(NOW, b, "unavailable", "Touch history is unavailable right now."))
     first, second = (client.get(f"/api/last-seen/{i}").json() for i in (a, b))
     assert first["status"] == "not_found" and first["answer"] == "I have not seen that."
-    assert second["status"] == "unavailable" and second["answer"] is None
+    assert second["status"] == "unavailable"
+    assert second["answer"] == "Touch history is unavailable right now."
     assert "not a 'not found'" in second["detail"]
 
 

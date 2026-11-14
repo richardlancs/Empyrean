@@ -27,7 +27,7 @@ from fakes.storage import fake_store
 from namer import Namer
 from namer import register as namer_register
 from storage import db
-from storage.last_seen import NOT_SEEN, format_answer
+from storage.last_seen import UNAVAILABLE, format_answer
 from storage.writer import Store
 
 FAKE_URL = "postgresql://user@fake-host/fake-db"
@@ -236,7 +236,8 @@ def test_storage_register_reads_url_once_at_registration(
         bus.publish(_touch())
         bus.publish(LastSeenQuery(ts=NOW, text="ketchup"))
         assert _wait_for(lambda: len(bus.of_type(SpeakRequest)) == 1)
-        assert bus.of_type(SpeakRequest)[0].text == NOT_SEEN
+        # No URL means history is unavailable, which is not the same as no match.
+        assert bus.of_type(SpeakRequest)[0].text == UNAVAILABLE
         assert _wait_for(lambda: store.dropped == 1)
         assert fake_db.connect_urls == []
     finally:

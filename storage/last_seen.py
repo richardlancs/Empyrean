@@ -5,7 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-NOT_SEEN = "I have not seen that."
+NOT_SEEN = "I have not seen that."  # only for a query that ran and matched nothing
+UNAVAILABLE = "Touch history is unavailable right now."  # database down or query failed
 
 _MINUTE = 60.0
 _HOUR = 3600.0

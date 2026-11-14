@@ -262,7 +262,7 @@ Two time-series tables.
 | `source` | text | `yolo` or `grok` |
 | `confidence` | real | 0 to 1 |
 
-Last-seen query: given some text, find the most recent `touch_events` row whose `name` or `class_label` contains it, ignoring case. The answer is one sentence, for example "Heinz ketchup, 4 minutes ago, next to mug and cereal box." If nothing matches: "I have not seen that."
+Last-seen query: given some text, find the most recent `touch_events` row whose `name` or `class_label` contains it, ignoring case. The answer is one sentence, for example "Heinz ketchup, 4 minutes ago, next to mug and cereal box." If the query ran and nothing matches: "I have not seen that." If the database is unreachable or the query fails: "Touch history is unavailable right now."
 
 Writes to Tiger Data must never block the frame loop. If the database is unreachable, keep running and drop the writes.
 
@@ -339,14 +339,14 @@ These are the contract between modules. Field names, types and units are fixed.
 
 ### `LastSeenResult` (storage to dashboard)
 
-Added for the dashboard redesign. Published only for a `LastSeenQuery` that has a `request_id`; the spoken `SpeakRequest` answer is unchanged.
+Added for the dashboard redesign. Published only for a `LastSeenQuery` that has a `request_id`, after the spoken `SpeakRequest`.
 
 | Field | Type | Meaning |
 |---|---|---|
 | `ts` | number | When answered |
 | `request_id` | text | Copied from the `LastSeenQuery` |
 | `status` | text | `found`, `not_found` or `unavailable`. A database error or outage is `unavailable`, never `not_found` |
-| `answer` | text | The spoken sentence, or empty when `unavailable` |
+| `answer` | text | Exactly the sentence that was spoken for this query |
 | `matched_at` | number or empty | `ts` of the matching touch row, only when `found` |
 | `label` | text | Name or class label of the match, empty unless `found` |
 | `neighbours` | list of text | Neighbours recorded with the match |

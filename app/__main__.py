@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import inspect
 import logging
 import os
 import threading
@@ -105,6 +106,31 @@ class _FakeScenePlayback:
             self._thread.join(timeout=1.0)
 
 
+class _Deferred:
+    """A fake publisher created unstarted; start() runs after all registrations."""
+
+    def __init__(self, publisher: Any) -> None:
+        self.publisher = publisher
+
+    def start(self) -> None:
+        """Start publishing."""
+        self.publisher.start()
+
+    def stop(self) -> None:
+        """Stop publishing."""
+        stop = getattr(self.publisher, "stop", None)
+        if callable(stop):
+            stop()
+
+
+def _accepts_start(register: Any) -> bool:
+    """True when register(bus, start=False) is supported."""
+    try:
+        return "start" in inspect.signature(register).parameters
+    except (TypeError, ValueError):
+        return False
+
+
 def _register(name: str, fake: bool, bus: Bus) -> Any:
     """Load one module entry point, allowing not-yet-written folders."""
     dotted = FAKE_PATHS.get(name, f"fakes.{name}") if fake else name
@@ -122,6 +148,10 @@ def _register(name: str, fake: bool, bus: Bus) -> Any:
 
     register = getattr(module, "register", None)
     if callable(register):
+        if fake and _accepts_start(register):
+            # Scripted publishers wait until every consumer has subscribed;
+            # start() is called by start() below, like _FakeScenePlayback.
+            return _Deferred(register(bus, start=False))
         return register(bus)
     if name == "scene":
         return _FakeScenePlayback(bus) if fake else _scene_adapter(bus)
@@ -177,8 +207,10 @@ def start(only: str | None = None, fakes: Sequence[str] = ()) -> RunningApp:
     for message in lifecycle:
         if message.module != "dashboard":
             bus.publish(message)
+    # Scripted fakes publish only now, so their first message reaches every
+    # consumer (for example the first fake hazard reaches audio).
     for instance in instances:
-        if isinstance(instance, _FakeScenePlayback):
+        if isinstance(instance, _FakeScenePlayback | _Deferred):
             instance.start()
     return RunningApp(bus, instances)
 

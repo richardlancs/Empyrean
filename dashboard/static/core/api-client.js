@@ -51,6 +51,15 @@ async function readBody(response, path) {
   }
 }
 
+/** A promise that rejects when signal aborts (fetch bodies may ignore the signal). */
+function aborted(signal) {
+  return new Promise((_, reject) => {
+    const fail = () => reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+    if (signal.aborted) fail();
+    else signal.addEventListener("abort", fail, { once: true });
+  });
+}
+
 /**
  * Create the API client.
  * @param {object} [options]
@@ -94,21 +103,38 @@ export function createApiClient({
     }
     init.signal = controller.signal;
 
+    // Integration (Agent 4): the timeout and the caller's signal stay armed until
+    // the body has been read, so a response whose body never finishes still ends.
     let response;
+    let payload;
     try {
-      response = await fetchImpl(path, init);
-    } catch (error) {
-      if (timedOut) {
-        throw new ApiError("The dashboard server did not answer in time", { kind: "timeout", path, cause: error });
+      try {
+        response = await fetchImpl(path, init);
+      } catch (error) {
+        if (timedOut) {
+          throw new ApiError("The dashboard server did not answer in time", { kind: "timeout", path, cause: error });
+        }
+        if (signal?.aborted) throw error; // caller cancelled: pass the AbortError through
+        throw new ApiError("Could not reach the dashboard server", { kind: "network", path, cause: error });
       }
-      if (signal?.aborted) throw error; // caller cancelled: pass the AbortError through
-      throw new ApiError("Could not reach the dashboard server", { kind: "network", path, cause: error });
+      try {
+        payload = await Promise.race([readBody(response, path), aborted(controller.signal)]);
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        if (timedOut) {
+          throw new ApiError("The dashboard server did not finish its answer in time", {
+            kind: "timeout",
+            path,
+            cause: error,
+          });
+        }
+        if (signal?.aborted) throw error;
+        throw new ApiError("The connection dropped while reading the answer", { kind: "network", path, cause: error });
+      }
     } finally {
       clearTimer(timer);
       signal?.removeEventListener("abort", forwardAbort);
     }
-
-    const payload = await readBody(response, path);
     if (!response.ok) {
       const message = errorMessageFrom(payload) || `The dashboard server refused the request (HTTP ${response.status})`;
       throw new ApiError(message, { kind: "http", status: response.status, path, payload });

@@ -191,7 +191,7 @@ def test_each_frame_publishes_one_snapshot() -> None:
 
 
 def test_fake_publishes_snapshot_name_request_and_touch() -> None:
-    messages = scripted_messages()
+    messages = scripted_messages(start_ts=1763000000.0)  # fixed time: compared below
     topics = {topic for topic, _message in messages}
     assert topics == {"SceneSnapshot", "NameRequest", "TouchEvent"}
     kinds = [
@@ -212,7 +212,7 @@ def test_fake_publishes_snapshot_name_request_and_touch() -> None:
     assert "touching" in states
     assert "lost" in states
     published: list[tuple[str, object]] = []
-    publish_script(lambda topic, message: published.append((topic, message)))
+    publish_script(lambda topic, message: published.append((topic, message)), 1763000000.0)
     assert published == messages
 
 

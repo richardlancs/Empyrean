@@ -41,3 +41,17 @@ test("a fake camera clip is never titled plain Live", () => {
   assert.equal(view("fake").title, "Live (recorded clip, not a camera)");
   assert.equal(view("fake").kind, "live");
 });
+
+import { selectWarnings, warningEmphasis } from "../../../dashboard/static/features/operations/selectors.js";
+
+test("warning emphasis: urgent for an active real warning, simulated only alone, none otherwise", () => {
+  const real = { id: 1, ts: 100, kind: "hazard", type: "vehicle", text: "Vehicle", simulated: false };
+  const sim = { id: 2, ts: 101, kind: "hazard", type: "stairs_down", text: "Stairs", simulated: true };
+  const pick = (state, now) => warningEmphasis(selectWarnings({ state, nowSeconds: now }));
+  const base = { now: 101, hazard_active_seconds: 3 };
+  assert.equal(pick({ ...base, latest_real_warning: real, latest_simulated_warning: sim }, 101), "urgent");
+  assert.equal(pick({ ...base, latest_real_warning: null, latest_simulated_warning: sim }, 101), "simulated");
+  assert.equal(pick({ ...base, latest_real_warning: real, latest_simulated_warning: null }, 110), null);
+  assert.equal(pick({ ...base, latest_real_warning: null, latest_simulated_warning: null }, 101), null);
+  assert.equal(warningEmphasis(null), null);
+});

@@ -19,7 +19,7 @@ from storage._deps import (
     SpeakRequest,
     TouchEvent,
 )
-from storage.last_seen import NOT_SEEN, format_answer
+from storage.last_seen import NOT_SEEN, UNAVAILABLE, format_answer
 
 log = logging.getLogger("storage")
 
@@ -230,11 +230,12 @@ class Store:
             self._written += 1
 
     def _answer(self, payload: tuple[str, str | None] | str) -> None:
-        """Run a last-seen query and publish the spoken answer (fallback if the DB is down).
+        """Run a last-seen query and publish the spoken answer.
 
-        The spoken answer is unchanged from before the redesign. When the query
-        had a request_id, a LastSeenResult follows that keeps an outage
-        ("unavailable") apart from a real miss ("not_found").
+        "I have not seen that." is said only when the query ran and matched
+        nothing. A database outage or failed query says "Touch history is
+        unavailable right now." When the query had a request_id, a
+        LastSeenResult follows carrying the same sentence the wearer heard.
         """
         text, request_id = payload if isinstance(payload, tuple) else (payload, None)
         answer = NOT_SEEN
@@ -244,6 +245,7 @@ class Store:
         conn = self._connection() if text else None
         if text and conn is None:
             status = "unavailable"
+            answer = UNAVAILABLE
         if conn is not None:
             try:
                 row = db.last_seen(conn, text)
@@ -251,7 +253,7 @@ class Store:
                 status = "found" if answer != NOT_SEEN else "not_found"
             except Exception as exc:  # noqa: BLE001
                 self._on_db_error(exc)
-                answer = NOT_SEEN
+                answer = UNAVAILABLE
                 status = "unavailable"
                 row = None
         try:
@@ -272,7 +274,7 @@ class Store:
                     ts=time.time(),
                     request_id=request_id,
                     status=status,  # type: ignore[arg-type]
-                    answer="" if status == "unavailable" else answer,
+                    answer=answer,  # exactly what was spoken
                     matched_at=float(row["ts"]) if found else None,
                     label=label,
                     neighbours=[str(n) for n in (row.get("neighbours") or [])] if found else [],

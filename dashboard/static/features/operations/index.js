@@ -18,6 +18,7 @@ import {
   pendingText,
   selectHealth,
   selectWarnings,
+  warningEmphasis,
   warningDetails,
 } from "./selectors.js";
 
@@ -45,7 +46,6 @@ export function mountOperations(ctx) {
   let localSim = null;
   let filter = "all";
   let demo = { status: "idle", message: "" };
-  let lastConnection = null;
   let counter = 0;
   let destroyed = false;
 
@@ -114,15 +114,21 @@ export function mountOperations(ctx) {
     }
   }
 
-  function announceConnection(connection) {
-    if (lastConnection === "connected" && connection === "reconnecting") {
-      counter += 1;
-      announce("Dashboard connection lost. Reconnecting.", "polite", `connection-lost-${counter}`);
-    } else if (lastConnection === "reconnecting" && connection === "connected") {
-      counter += 1;
-      announce("Dashboard reconnected.", "polite", `connection-back-${counter}`);
+  // Connection changes are announced by the shell (app.js) only. This feature
+  // shows the connection visibly in the status strip and never announces it.
+
+  /** Set or clear the shell's warning emphasis hook on the warning mount. */
+  function applyEmphasis(now) {
+    const slot = roots.warning;
+    if (!slot || !slot.dataset) return;
+    const emphasis = warningEmphasis(
+      selectWarnings({ state: snap.state, remembered, localSim, nowSeconds: now }),
+    );
+    if (emphasis) {
+      if (slot.dataset.emphasis !== emphasis) slot.dataset.emphasis = emphasis;
+    } else if ("emphasis" in slot.dataset) {
+      delete slot.dataset.emphasis;
     }
-    lastConnection = connection;
   }
 
   /** Fold one state snapshot (from the socket or an HTTP result) into this view. */
@@ -229,6 +235,7 @@ export function mountOperations(ctx) {
     const now = nowSeconds();
     strip?.update(selectHealth({ state: snap.state, connection: snap.connection, nowSeconds: now }));
     warnings?.update(warningModel(now));
+    applyEmphasis(now);
     events?.update(historyModel(now));
     demoTools?.update(demo);
   }
@@ -265,7 +272,6 @@ export function mountOperations(ctx) {
 
   const unsubscribe = ctx.subscribe(({ state, connection, receivedAt }) => {
     snap = { state: state ?? null, connection: connection || "connecting", receivedAt: receivedAt ?? null };
-    announceConnection(snap.connection);
     ingest(snap.state, snap.receivedAt ?? Date.now());
     render();
   });
@@ -275,6 +281,7 @@ export function mountOperations(ctx) {
   return function cleanup() {
     destroyed = true;
     clearInterval(timer);
+    if (roots.warning?.dataset) delete roots.warning.dataset.emphasis;
     if (typeof unsubscribe === "function") unsubscribe();
     strip?.destroy();
     warnings?.destroy();

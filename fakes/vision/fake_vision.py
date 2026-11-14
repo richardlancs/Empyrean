@@ -45,11 +45,17 @@ def scripted_frame(frame_id: int, ts: float) -> FrameResult:
 class FakeVision:
     """Publish scripted FrameResults on a stoppable timer."""
 
-    def __init__(self, publish: Publish) -> None:
+    def __init__(self, publish: Publish, *, start: bool = True) -> None:
         self._publish = publish
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, name="fake-vision", daemon=True)
-        self._thread.start()
+        if start:
+            self.start()
+
+    def start(self) -> None:
+        """Begin publishing; app/ calls this once every consumer has subscribed."""
+        if not self._thread.is_alive() and not self._stop.is_set():
+            self._thread.start()
 
     def _run(self) -> None:
         interval = 1.0 / PROCESS_FPS
@@ -67,9 +73,10 @@ class FakeVision:
     def stop(self) -> None:
         """Request the worker to exit without waiting a full frame period."""
         self._stop.set()
-        self._thread.join(timeout=2.0)
+        if self._thread.is_alive():
+            self._thread.join(timeout=2.0)
 
 
-def register(bus: Any) -> FakeVision:
-    """Start a fake FrameResult publisher through bus.publish."""
-    return FakeVision(bus.publish)
+def register(bus: Any, *, start: bool = True) -> FakeVision:
+    """Create a fake FrameResult publisher on bus.publish; start=False defers start()."""
+    return FakeVision(bus.publish, start=start)

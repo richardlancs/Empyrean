@@ -186,11 +186,18 @@ for (const [name, fn] of Object.entries(ACTIONS)) {
 
 document.getElementById("fixture-connection").addEventListener("change", (e) => emit({ connection: e.target.value }));
 document.getElementById("fixture-contrast").addEventListener("change", (e) => {
-  if (e.target.checked) document.documentElement.dataset.contrast = "high";
-  else delete document.documentElement.dataset.contrast;
+  document.documentElement.dataset.theme = e.target.checked ? "high-contrast" : "light";
 });
 
 window.__fixture = { load, ACTIONS, emit, get store() { return store; }, get server() { return server; } };
 window.__cleanup = mountOperations(ctx);
 const initial = new URLSearchParams(location.search).get("scenario");
 load(initial && SCENARIOS[initial] ? initial : "Quiet, all active");
+
+// Mirror the shell's theme-boot: prefers-contrast: more starts in high contrast.
+if (window.matchMedia && window.matchMedia("(prefers-contrast: more)").matches) {
+  document.documentElement.dataset.theme = "high-contrast";
+  document.getElementById("fixture-contrast").checked = true;
+} else {
+  document.documentElement.dataset.theme = "light";
+}

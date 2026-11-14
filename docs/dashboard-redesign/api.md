@@ -64,9 +64,11 @@ All additive. Old constructor calls still work.
 | `SpeechStatus(ts, speech_id, text, status, mode, kind, object_id=None, source="", detail="")` | audio → dashboard | `status`: queued, speaking, completed, interrupted, failed. `mode`: real (pyttsx3), fake (`--fake audio` prints), unavailable (TTS could not start; logged only — such phrases end as `failed`, never `completed`). `kind`: touch, answer, hazard |
 | `ModuleStatus(ts, module, status, mode="unknown", detail="")` | any → dashboard | app/ sends `starting`/`offline` per module at startup with mode real/fake; audio and storage send their own availability changes |
 
-Spoken behaviour is unchanged: the last-seen `SpeakRequest` still says
-"I have not seen that." when the database is down (existing behaviour kept on
-purpose; the page shows the truthful `unavailable`).
+Spoken answers agree with the page: "I have not seen that." only when the
+query ran and matched nothing (`not_found`); "Touch history is unavailable right
+now." when the database is unreachable or the query failed (`unavailable`). The
+`LastSeenResult.answer` is exactly the spoken sentence. If storage never answers,
+the dashboard reports `unavailable` after 8 s and nothing was spoken.
 
 ## 3. HTTP endpoints
 

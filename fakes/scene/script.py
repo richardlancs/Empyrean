@@ -1,5 +1,6 @@
 """Scripted SceneSnapshot, NameRequest, and TouchEvent messages."""
 
+import time
 from collections.abc import Callable
 
 from contracts.messages import (
@@ -15,13 +16,13 @@ Publish = Callable[[str, object], None]
 _CROP_JPEG = b"\xff\xd8\xff\xd9"
 
 
-def scripted_messages() -> list[tuple[str, object]]:
-    """Return a short realistic scene sequence.
+def scripted_messages(start_ts: float | None = None) -> list[tuple[str, object]]:
+    """Return a short realistic scene sequence starting now (or at start_ts).
 
     A bottle and a cup appear, become idle, are sent for naming, and the
     bottle is touched and then lost while the hand covers it.
     """
-    ts = 1763000000.0
+    ts = time.time() if start_ts is None else start_ts
     bottle_box = (100, 80, 220, 300)
     cup_box = (260, 140, 360, 280)
     messages: list[object] = [
@@ -91,7 +92,7 @@ def scripted_messages() -> list[tuple[str, object]]:
     return [(type(message).__name__, message) for message in messages]
 
 
-def publish_script(publish: Publish) -> None:
+def publish_script(publish: Publish, start_ts: float | None = None) -> None:
     """Publish scripted_messages in order."""
-    for topic, message in scripted_messages():
+    for topic, message in scripted_messages(start_ts):
         publish(topic, message)
