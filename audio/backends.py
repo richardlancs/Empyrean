@@ -52,6 +52,8 @@ class Pyttsx3Speaker:
     broken engine comes back.
     """
 
+    mode = "real"  # drives a real speech engine; still does not prove anyone heard it
+
     def __init__(self) -> None:
         """Check on the current thread that a pyttsx3 engine can start."""
         _init_com_for_thread()
@@ -74,6 +76,8 @@ class Pyttsx3Speaker:
 class LogSpeaker:
     """Stand-in used when text to speech cannot start: logs instead of speaking."""
 
+    mode = "unavailable"
+
     def say(self, text: str, should_stop: Callable[[], bool]) -> None:
         """Log the text that would have been spoken."""
         log.info("Would say: %s", text)
@@ -81,6 +85,8 @@ class LogSpeaker:
 
 class PygameAlarm:
     """Plays the pre-made alarm WAV through the pygame mixer without blocking."""
+
+    mode = "real"
 
     def __init__(self, path: Path = ALARM_WAV) -> None:
         """Open the mixer and load the alarm file."""
@@ -106,6 +112,7 @@ class SilentAlarm:
     """Stand-in used when the mixer cannot start: hazards are still spoken."""
 
     duration = 0.0
+    mode = "unavailable"
 
     def play(self) -> None:
         """Log that the beeps were skipped."""

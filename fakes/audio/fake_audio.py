@@ -3,8 +3,9 @@
 Used by `python -m app --fake audio`. It subscribes to the same messages as
 audio/ (HazardEvent, TouchEvent, NameResult, SpeakRequest) and prints what would
 be heard, with timing, so teammates can check touch-to-speech and alarm order on
-a machine with no speaker, pyttsx3 or pygame. audio/ publishes nothing, so this
-fake publishes nothing either.
+a machine with no speaker, pyttsx3 or pygame. Like audio/, it
+publishes only SpeechStatus and ModuleStatus telemetry, always with
+mode "fake" so the dashboard never shows printed speech as real playback.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ ALARM_SECONDS = 0.61  # length of audio/sounds/alarm.wav
 class PrintSpeaker:
     """Prints each phrase and takes about as long as speaking it would."""
 
+    mode = "fake"
+
     def say(self, text: str, should_stop: Callable[[], bool]) -> None:
         """Print text, then wait its spoken length unless cut off."""
         print(f"[fake audio] say: {text}", flush=True)
@@ -38,6 +41,7 @@ class PrintAlarm:
     """Prints the beeps instead of playing them."""
 
     duration = ALARM_SECONDS
+    mode = "fake"
 
     def play(self) -> None:
         """Print the alarm."""
@@ -49,7 +53,7 @@ class PrintAlarm:
 
 def register(bus: Any) -> AudioManager:
     """Subscribe a printing audio manager to the bus and return it for shutdown."""
-    manager = AudioManager(PrintSpeaker, PrintAlarm())
+    manager = AudioManager(PrintSpeaker, PrintAlarm(), publish=bus.publish)
     bus.subscribe(HazardEvent, manager.on_hazard)
     bus.subscribe(TouchEvent, manager.on_touch)
     bus.subscribe(NameResult, manager.on_name)
