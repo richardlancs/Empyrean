@@ -15,6 +15,7 @@ import random
 import threading
 import time
 from collections.abc import Callable
+from typing import Any
 
 from config import NAME_MAX_CHARS
 from contracts import NameRequest, NameResult
@@ -84,6 +85,13 @@ class FakeNamer:
             name = FAKE_NAMES.get(msg.class_label, msg.class_label)[:NAME_MAX_CHARS]
             self._cache[msg.object_id] = name
         return NameResult(ts=time.time(), object_id=msg.object_id, name=name, ok=True)
+
+
+def register(bus: Any) -> FakeNamer:
+    """Subscribe a FakeNamer to the bus exactly as namer.register does, and return it."""
+    namer = FakeNamer(bus.publish)
+    bus.subscribe(NameRequest, namer.on_name_request)
+    return namer
 
 
 if __name__ == "__main__":
