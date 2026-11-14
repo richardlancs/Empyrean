@@ -80,6 +80,8 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 **Teammates need to know:** Person 1: `dashboard.register(bus)` now starts the page itself; nothing else is needed in `app/`. The returned object has `stop()`.
 
+**Later, by hand (Person 4):** Ran `py -3.11 -m dashboard` on Windows and clicked Simulate alert once: one "Stairs SIMULATED" warning and one Recent events entry, no sound, as intended. Ran the audio on the JBL Go 3 speaker and it played.
+
 ### 2026-11-14, Person 4 (audio, dashboard), Claude Code: rebase onto PR #10
 **Changed:**
 
