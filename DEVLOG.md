@@ -84,6 +84,30 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 4 (second clip: teammate's table video), Claude Code
+**Changed:** Notes only. Ran the same stage-by-stage trace on the table video a teammate sent (`IMG_3646.mov`: 8.6 s, 3840 x 2160, 24 fps, sampled to 42 frames at 5 fps). The clip was not committed.
+
+**Tested:** Same frames for the old settings (conf 0.5, area 0.02) and the new ones from PR #19 (conf 0.3, area 0.002):
+
+| | Old settings | New settings |
+|---|---|---|
+| Bottle reaches `FrameResult` | 0 / 42 | 0 / 42 |
+| Objects kept in total | 16 | 26 |
+
+- **The scene:** the camera looks straight down at a table and moves fast, so many frames are blurred. On the table are a dark metal tumbler (partly lying down), a phone in a case, headphones, keys, a toothpaste tube, an electric toothbrush, a charger and a carabiner.
+- **The bottle is big but not recognised.** Raw YOLO labelled the tumbler "bottle" in only 10 of 42 frames, at confidence 0.05–0.38 (median 0.14). It reached 0.3 in only 2 frames, and was never tracked. Its box was 4–18% of the frame, so the area filter was never the problem here. Unlike the laptop clip, this is a recognition limit, not a filter.
+- **Most objects are outside COCO's 80 classes,** so YOLO mislabels them: toothpaste as "toothbrush", the phone as "remote" or "mouse", headphones as "mouse". Headphones, keys, toothpaste, chargers and carabiners have no COCO class.
+- **False detections:** one box covering most of the frame was labelled "remote" at 0.53 and passes both settings. The new settings add true detections ("cup", "cell phone") and wrong ones ("sink", "refrigerator").
+
+**Decisions:** PR #19 still helps small, far objects (laptop clip). It does not fix this clip, because the bottleneck is what the model recognises, plus camera angle and motion blur. No threshold change is proposed from this clip.
+
+**Teammates need to know:**
+
+- **Demo objects:** use COCO objects that look typical, such as a plain plastic water bottle, cup or mug, phone, banana, apple, book or scissors. Avoid metal tumblers, headphones, keys and toiletries.
+- **Camera:** hold it the way the glasses will be worn, looking forward and down at the table at about arm's length rather than straight down, and keep it steady. Re-check the demo objects that way.
+- **Person 3:** spoken names come from Grok's crop when naming succeeds, which can correct a wrong YOLO class. A whole-frame false box gives a useless crop.
+- **All:** if the demo must handle objects outside COCO, that needs a model change, which needs the team's approval (AGENTS.md rule 7).
+
 ### 2026-11-14, Person 2 (team demo-training handoff and publication), Codex
 **Changed:** User explicitly authorized fine-tuning, vision integration, then publishing current work and dependencies to main for all four people. Added `demotraining.md` with two owned items per person, the complete class map, capture/label rules, separate evaluation sessions, executable training/evaluation commands and signoff requirements. Added per-person capture selection, a frozen 71-train/10-validation-image bootstrap (82 training boxes, 13 validation objects), dataset extension with hash-leakage protection, and candidate evaluation. Added tested Python 3.11 dependency pins, a two-step installer avoiding competing OpenCV wheels, and setup-only model downloads. No secrets or weight files are committed.
 **Training/results:** Three CPU runs used pretrained YOLO11s: frozen-backbone adaptation, unfrozen refinement, then additional manually labelled tabletop data. Fourteen new labelled frames came from two user-directed capture sequences; the first two tabletop snapshots stayed validation-only. Selected the third run's epoch-9 checkpoint by its fresh-table result (3/5 versus old visual prompts 0/5), rather than the aggregate-best final checkpoint (2/5 fresh). Old reference score was 5/8; all eight items are not solved. Latest user live report: toothpaste fine; watch frequently labelled charger; actual charger missed. Telemetry confirms the detector can call watch charger and Grok later correct its name; this is not purely a speech bug.
