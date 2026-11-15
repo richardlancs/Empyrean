@@ -18,7 +18,9 @@ import numpy as np
 import pytest
 
 from audio import backends, voices
+from audio.audio import AudioManager
 from config import SPEECH_RATE_WPM
+from contracts import HazardEvent, SpeechStatus, VoiceChange, VoiceStatus
 
 SAMANTHA = ("com.apple.voice.compact.en-US.Samantha", "Samantha")
 SAMPLES = 100  # samples per fake sentence at 22050 Hz
@@ -508,3 +510,134 @@ def test_downloaded_models_preload_in_background(
     backends.HybridSpeaker(preload=False)
     time.sleep(0.05)
     assert len(record["loads"]) == 2
+
+
+@pytest.mark.parametrize("fail_load", [False, True])
+def test_hazard_speaks_while_requested_model_loads(
+    fake_piper: Any, system: Any, models: Path, record: dict[str, Any], fail_load: bool
+) -> None:
+    """A switch loading on another thread cannot hold up hazard speech in the old voice."""
+    speaker = backends.HybridSpeaker(preload=False)
+    speaker.set_voice(pid("alba"))
+    entered, release = threading.Event(), threading.Event()
+    original_load = fake_piper.PiperVoice.load
+
+    def gated_load(path: str) -> FakeVoice:
+        entered.set()
+        assert release.wait(5)
+        if fail_load:
+            raise RuntimeError("bad model")
+        return original_load(path)
+
+    fake_piper.PiperVoice.load = staticmethod(gated_load)
+    beeps = threading.Event()
+    alarm = types.SimpleNamespace(mode="fake", duration=0.0, play=beeps.set, close=lambda: None)
+    published: list[Any] = []
+    manager = AudioManager(lambda: speaker, alarm, publish=published.append)
+    try:
+        assert wait_for(lambda: any(isinstance(m, VoiceStatus) for m in published))
+        manager.on_voice_change(VoiceChange(time.time(), "cori", "slow-switch"))
+        assert entered.wait(2)
+        manager.on_hazard(HazardEvent(time.time(), "stairs_down", "yolo", 1.0))
+        assert beeps.is_set()
+        assert wait_for(lambda: any(
+            isinstance(m, SpeechStatus) and m.kind == "hazard" and m.status == "completed"
+            for m in published
+        ))
+        assert not release.is_set()
+        assert speaker._active == voices.preset_for("alba")
+        assert record["channels"]  # actual fake-mixer playback, not just queued telemetry
+        release.set()
+        assert wait_for(lambda: any(
+            isinstance(m, VoiceStatus) and m.request_id == "slow-switch" for m in published
+        ))
+        status = next(m for m in published if isinstance(m, VoiceStatus) and m.request_id == "slow-switch")
+        assert status.state == ("failed" if fail_load else "active")
+        assert status.active_voice == ("alba" if fail_load else "cori")
+    finally:
+        release.set()
+        manager.stop()
+
+
+def test_cached_switch_does_not_wait_for_unrelated_preload(
+    fake_piper: Any, system: Any, models: Path
+) -> None:
+    """The speech worker can activate a cached model even while another model loads."""
+    speaker = backends.HybridSpeaker(preload=False)
+    speaker.set_voice(pid("alba"))
+    switched = threading.Event()
+    with speaker._load_lock:
+        worker = threading.Thread(target=lambda: (speaker.try_set_voice(pid("alba")), switched.set()))
+        worker.start()
+        ready_without_lock = switched.wait(1)
+    worker.join(2)
+    assert ready_without_lock
+    assert speaker._active == voices.preset_for("alba")
+
+
+def test_new_request_supersedes_loading_voice(
+    fake_piper: Any, system: Any, models: Path
+) -> None:
+    """Finishing a superseded load must not switch back from the user's latest choice."""
+    speaker = backends.HybridSpeaker(preload=False)
+    speaker.set_voice(pid("alba"))
+    entered, release, finished = threading.Event(), threading.Event(), threading.Event()
+    original_load = fake_piper.PiperVoice.load
+
+    def gated_load(path: str) -> FakeVoice:
+        entered.set()
+        assert release.wait(5)
+        result = original_load(path)
+        finished.set()
+        return result
+
+    fake_piper.PiperVoice.load = staticmethod(gated_load)
+    published: list[Any] = []
+    alarm = types.SimpleNamespace(mode="fake", duration=0.0, play=lambda: None, close=lambda: None)
+    manager = AudioManager(lambda: speaker, alarm, publish=published.append)
+    try:
+        assert wait_for(lambda: any(isinstance(m, VoiceStatus) for m in published))
+        manager.on_voice_change(VoiceChange(time.time(), "cori", "old"))
+        assert entered.wait(2)
+        manager.on_voice_change(VoiceChange(time.time(), "alba", "new"))
+        assert wait_for(lambda: any(isinstance(m, VoiceStatus) and m.request_id == "new" for m in published))
+        release.set()
+        assert finished.wait(2)
+        manager.on_hazard(HazardEvent(time.time(), "stairs_down", "yolo", 1.0))
+        assert wait_for(lambda: any(isinstance(m, SpeechStatus) and m.kind == "hazard" and m.status == "completed" for m in published))
+        assert speaker._active == voices.preset_for("alba")
+        assert not any(isinstance(m, VoiceStatus) and m.request_id == "old" for m in published)
+    finally:
+        release.set()
+        manager.stop()
+
+
+def test_startup_model_load_keeps_system_hazard_voice_available(
+    fake_piper: Any, system: Any, models: Path
+) -> None:
+    """Startup loading also leaves the worker able to speak hazards using the fallback."""
+    entered, release = threading.Event(), threading.Event()
+    original_load = fake_piper.PiperVoice.load
+
+    def gated_load(path: str) -> FakeVoice:
+        entered.set()
+        assert release.wait(5)
+        return original_load(path)
+
+    fake_piper.PiperVoice.load = staticmethod(gated_load)
+    speaker = backends.HybridSpeaker(preload=False)
+    published: list[Any] = []
+    alarm = types.SimpleNamespace(mode="fake", duration=0.0, play=lambda: None, close=lambda: None)
+    manager = AudioManager(lambda: speaker, alarm, publish=published.append)
+    try:
+        assert entered.wait(2)
+        manager.on_hazard(HazardEvent(time.time(), "stairs_down", "yolo", 1.0))
+        assert wait_for(lambda: system.instances[0].said == ["Stop. Stairs."])
+        release.set()
+        assert wait_for(lambda: any(
+            isinstance(m, VoiceStatus) and m.quality == "enhanced" for m in published
+        ))
+        assert not any(isinstance(m, SpeechStatus) and m.source == "audio" for m in published)
+    finally:
+        release.set()
+        manager.stop()

@@ -55,8 +55,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Download the requested presets' voices (all nine by default)."""
     keys = [p.key for p in PRESETS]
     parser = argparse.ArgumentParser(description="Download Piper voices for audio/.")
-    parser.add_argument("keys", nargs="*", choices=keys, help="preset keys (default: all)")
+    # Python 3.11 applies choices to [] for an omitted nargs="*" positional.
+    parser.add_argument("keys", nargs="*", metavar="VOICE", help="preset keys (default: all)")
     args = parser.parse_args(argv)
+    unknown = [key for key in args.keys if key not in keys]
+    if unknown:
+        parser.error(f"unknown voice(s): {', '.join(unknown)}; choose from {', '.join(keys)}")
     wanted = args.keys or keys
     for preset in PRESETS:
         if preset.key in wanted:

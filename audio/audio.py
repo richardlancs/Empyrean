@@ -27,10 +27,11 @@ import os
 import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import Future
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from audio.backends import HybridSpeaker, LogSpeaker, load_alarm
+from audio.backends import HybridSpeaker, LogSpeaker, VoiceLoading, load_alarm
 from audio.phrases import (
     FALLBACK_HAZARD_PHRASES,
     HAZARD_PHRASES,  # noqa: F401  re-exported: language -> hazard type -> phrase
@@ -169,6 +170,7 @@ class _VoiceSwitch:
 
     key: str
     request_id: str | None
+    sample: bool = True
 
 
 class AudioManager:
@@ -213,6 +215,7 @@ class AudioManager:
         self._active_voice: ResolvedVoice = resolve_voice(self._startup_voice, [])
         self._language = active_language(self._active_voice)  # guarded by self._cond
         self._installed: list[str] = []
+        self._voice_load: tuple[_VoiceSwitch, Future[Any]] | None = None
         self._thread = threading.Thread(
             target=self._run, name="audio-speech", daemon=True
         )
@@ -463,7 +466,7 @@ class AudioManager:
             log.exception("Listing installed voices failed")
             installed = []
         resolved = resolve_voice(key, installed)
-        set_voice = getattr(speaker, "set_voice", None)
+        set_voice = getattr(speaker, "try_set_voice", None) or getattr(speaker, "set_voice", None)
         if set_voice is not None:
             set_voice(resolved.voice_id)
         language = active_language(resolved)
@@ -491,6 +494,9 @@ class AudioManager:
         """Apply a requested switch between phrases, confirm it, then queue the sample."""
         try:
             resolved = self._apply_voice(speaker, switch.key)
+        except VoiceLoading as loading:
+            self._defer_voice(switch, loading.ready)
+            return
         except Exception as exc:
             log.exception("Voice switch to %s failed", switch.key)
             with self._cond:
@@ -511,16 +517,29 @@ class AudioManager:
             )
             self._drop_stale_language()
             # Answer priority: never displaces a waiting touch or hazard phrase.
-            self._offer(
-                self._new_item(
-                    PRIORITY_ANSWER,
-                    sample_line(resolved.label, self._language),
-                    self._state.generation,
-                    self._clock(),
-                    source="audio",
+            if switch.sample:
+                self._offer(
+                    self._new_item(
+                        PRIORITY_ANSWER,
+                        sample_line(resolved.label, self._language),
+                        self._state.generation,
+                        self._clock(),
+                        source="audio",
+                    )
                 )
-            )
         self._flush()
+
+    def _defer_voice(self, switch: _VoiceSwitch, ready: Future[Any]) -> None:
+        """Remember a model load while leaving the speech worker free for hazards."""
+        with self._cond:
+            self._voice_load = (switch, ready)
+
+        def wake(_: Future[Any]) -> None:
+            """Wake the worker; only it may apply the completed switch."""
+            with self._cond:
+                self._cond.notify_all()
+
+        ready.add_done_callback(wake)
 
     def _flush(self) -> None:
         """Publish queued telemetry in order, outside the state lock."""
@@ -565,26 +584,29 @@ class AudioManager:
     def _next_item(self) -> _Item | _VoiceSwitch | None:
         """Block until a voice switch is pending or an item is due. None once stopped.
 
-        A waiting hazard phrase always goes first: a switch (which may load a
-        voice model) never runs ahead of it. Otherwise a pending switch is
-        returned before the next phrase, so that phrase uses the new voice.
+        Hazards go before switches, including switches whose model just loaded.
+        While a model loads, other speech continues in the confirmed voice.
         """
         with self._cond:
             state = self._state
             while True:
-                while (
-                    state.slot is None and state.pending_voice is None and not state.closed
-                ):
-                    self._cond.wait()
                 if state.closed:
                     return None
                 hazard_waiting = state.slot is not None and state.slot.priority == PRIORITY_ALARM
                 if state.pending_voice is not None and not hazard_waiting:
                     key, request_id = state.pending_voice
                     state.pending_voice = None
+                    self._voice_load = None  # a newer request supersedes an older load
                     return _VoiceSwitch(key, request_id)
+                if self._voice_load is not None and not hazard_waiting:
+                    switch, ready = self._voice_load
+                    if ready.done():
+                        self._voice_load = None
+                        return switch
                 item = state.slot
-                assert item is not None
+                if item is None:
+                    self._cond.wait()
+                    continue
                 remaining = item.not_before - self._clock()
                 if remaining <= 0:
                     state.slot = None
@@ -607,6 +629,10 @@ class AudioManager:
         lists_voices = getattr(speaker, "installed_voices", None) is not None
         try:
             resolved: ResolvedVoice | None = self._apply_voice(speaker, self._startup_voice)
+        except VoiceLoading as loading:
+            # The system fallback remains usable while the startup model loads.
+            self._defer_voice(_VoiceSwitch(self._startup_voice, None, sample=False), loading.ready)
+            resolved = self._active_voice
         except Exception:
             log.exception("Setting the startup voice failed; using the system voice")
             resolved = None

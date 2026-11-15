@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable, Iterable
+from concurrent.futures import Future
 from pathlib import Path
 from typing import Any
 
@@ -170,6 +171,15 @@ def _to_mixer_array(np: Any, samples: Any, src_rate: int, mixer_init: tuple[int,
     return np.ascontiguousarray(out)
 
 
+class VoiceLoading(Exception):
+    """A requested model is loading without changing the active voice."""
+
+    def __init__(self, ready: Future[Any]) -> None:
+        """Keep the completion signal so the speech worker can resume the switch."""
+        super().__init__("Voice model is loading")
+        self.ready = ready
+
+
 class HybridSpeaker:
     """Piper neural voices played through the pygame mixer, with pyttsx3 for system voices.
 
@@ -224,6 +234,8 @@ class HybridSpeaker:
         # a background thread at startup, so a later switch does not hold up the
         # speech worker (and the hazard phrase behind it). Costs RAM per model.
         self._load_lock = threading.Lock()
+        self._pending_load_lock = threading.Lock()
+        self._pending_loads: dict[str, Future[Any]] = {}
         if preload and self._piper is not None:
             threading.Thread(target=self._preload, name="audio-preload", daemon=True).start()
 
@@ -258,6 +270,41 @@ class HybridSpeaker:
         self._active = None
         if self._system is not None:
             self._system.set_voice(voice_id)
+
+    def try_set_voice(self, voice_id: str | None) -> None:
+        """Switch immediately if ready; otherwise load in the background and raise VoiceLoading.
+
+        Unlike set_voice(), this never waits for the preloader or a model load.
+        Only this calling thread changes the active voice, between phrases.
+        """
+        if voice_id is None or not voice_id.startswith(voices.PIPER_ID_PREFIX):
+            self.set_voice(voice_id)
+            return
+        preset = next((p for p in voices.PRESETS if voices.piper_voice_id(p) == voice_id), None)
+        if preset is None or self._piper is None:
+            raise ValueError(f"Piper voice {voice_id!r} is not available")
+        # Do not take _load_lock: the preloader may hold it for a different model.
+        if preset.model in self._loaded:
+            self._active = preset
+            return
+        with self._pending_load_lock:
+            ready = self._pending_loads.get(preset.model)
+            if ready is None:
+                ready = Future()
+                self._pending_loads[preset.model] = ready
+
+                def load() -> None:
+                    """Load without touching the active voice or its system engine."""
+                    try:
+                        ready.set_result(self._load(preset))
+                    except Exception as exc:  # noqa: BLE001 - delivered to the speech worker
+                        ready.set_exception(exc)
+
+                threading.Thread(target=load, name="audio-voice-load", daemon=True).start()
+        if not ready.done():
+            raise VoiceLoading(ready)
+        ready.result()  # Propagate a failed load before changing the active voice.
+        self._active = preset
 
     def prepare(self, texts: Iterable[str]) -> None:
         """Render texts fully for the active Piper voice on a background thread.
