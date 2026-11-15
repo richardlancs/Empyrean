@@ -131,3 +131,11 @@ time, .ui-numeric {
     outline-color: Highlight;
   }
 }
+
+/* Cross-page transition to and from /how-it-works/: the brand stays put while
+   the rest cross-fades. Browsers without support navigate as usual. */
+@view-transition { navigation: auto; }
+.app-brand { view-transition-name: empyrean-brand; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

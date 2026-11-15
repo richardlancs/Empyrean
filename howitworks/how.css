@@ -137,3 +137,15 @@
 @media (max-width: 600px) {
   .how-stage__hint { display: none; }
 }
+
+/* Cross-page transition to and from the dashboard: the brand stays put while
+   the rest cross-fades. Browsers without support navigate as usual. */
+@view-transition { navigation: auto; }
+.app-brand { view-transition-name: empyrean-brand; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+.how-stage__view { view-transition-name: how-stage; }
+@keyframes how-stage-rise { from { opacity: 0; transform: translateY(24px); } }
+::view-transition-new(how-stage) { animation: how-stage-rise 320ms var(--easing) both; }

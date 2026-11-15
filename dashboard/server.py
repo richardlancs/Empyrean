@@ -38,6 +38,7 @@ from dashboard.video import VideoFeed
 
 LOGGER = logging.getLogger("dashboard")
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+HOW_DIR = Path(__file__).resolve().parents[1] / "howitworks"
 DEFAULT_HOST = "127.0.0.1"
 SERVER_STOP_SECONDS = 3.0  # how long stop() waits for the web server thread
 
@@ -222,6 +223,9 @@ def _build_app(services: DashboardServices) -> FastAPI:
     app.include_router(build_realtime_router(hub))
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    if HOW_DIR.is_dir():
+        # The static How It Works page (howitworks/): no engine data, no routes.
+        app.mount("/how-it-works", StaticFiles(directory=HOW_DIR, html=True), name="how-it-works")
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_request: Request, exc: RequestValidationError) -> JSONResponse:

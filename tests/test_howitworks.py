@@ -144,3 +144,46 @@ def test_js_unit_tests() -> None:
         ["node", "--test", *files], capture_output=True, text=True, timeout=120, check=False
     )
     assert result.returncode == 0, result.stdout[-3000:] + result.stderr[-2000:]
+
+
+# ----- the real dashboard serves and links to the page -----
+
+DASHBOARD_STATIC = ROOT / "dashboard" / "static"
+
+
+def _dashboard_client() -> TestClient:
+    """Return a client for the real dashboard app."""
+    from dashboard.server import create_app
+
+    return TestClient(create_app())
+
+
+def test_real_dashboard_serves_page() -> None:
+    """The dashboard app serves the page and its files."""
+    client = _dashboard_client()
+    response = client.get(BASE)
+    assert response.status_code == 200
+    assert "How it works" in response.text
+    assert client.get(BASE + "main.js").status_code == 200
+
+
+def test_dashboard_still_serves_index_and_static() -> None:
+    """Mounting the page leaves the dashboard's own routes alone."""
+    client = _dashboard_client()
+    assert client.get("/").status_code == 200
+    assert client.get("/static/app.js").status_code == 200
+
+
+def test_dashboard_header_links_to_page() -> None:
+    """The dashboard's How it works control links to the full page."""
+    shell = (DASHBOARD_STATIC / "components" / "app-shell.js").read_text(encoding="utf-8")
+    assert 'href: "/how-it-works/"' in shell
+
+
+def test_both_pages_opt_into_view_transitions() -> None:
+    """Both documents enable cross-page transitions and share the brand name."""
+    base = (DASHBOARD_STATIC / "styles" / "base.css").read_text(encoding="utf-8")
+    how = (HOW_DIR / "how.css").read_text(encoding="utf-8")
+    for text in (base, how):
+        assert "@view-transition" in text
+        assert "view-transition-name: empyrean-brand" in text
