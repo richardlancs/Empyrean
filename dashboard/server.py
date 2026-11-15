@@ -24,6 +24,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import DASHBOARD_PORT
+from contracts.languages import DEFAULT_LANGUAGE
 from dashboard import bus_adapter
 from dashboard.api.realtime import ClientHub, build_realtime_router
 from dashboard.api.routes import INDEX_PATH, build_router
@@ -207,6 +208,7 @@ def _questions(
         last_seen,
         scene_running=lambda: not state.health.not_started("namer"),
         history_running=lambda: last_seen.available and not state.health.not_started("storage"),
+        language=lambda: state.voice.language() if state.voice is not None else DEFAULT_LANGUAGE,
     )
 
 

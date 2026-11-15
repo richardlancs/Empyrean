@@ -230,8 +230,15 @@ def test_snapshot_has_voice_and_capability(setup: Any) -> None:
         "message",
         "request_id",
         "updated_ts",
+        "language",
+        "languages",
     }
-    assert v["options"][0] == {"key": "ava", "label": "Ava", "installed": True}
+    assert v["options"][0] == {
+        "key": "ava",
+        "label": "Ava",
+        "installed": True,
+        "language": "en",
+    }
     assert [o["key"] for o in v["options"]] == list(VOICES)
     assert v["options"][2]["installed"] is False
     assert snap["capabilities"]["voice_switch"] is True
@@ -252,3 +259,79 @@ def test_api_voice_round_trip(setup: Any) -> None:
         "matilda",
         NOW,
     )
+
+
+# Languages (SPEC 4.8): the active language is the language of audio's confirmed voice.
+
+MULTI = {"ava": "Ava", "zoe": "Zoe", "huayan": "Huayan", "claude": "Claude", "siwis": "Siwis"}
+MULTI_LANGS = {"ava": "en", "zoe": "en", "huayan": "zh", "claude": "es", "siwis": "fr"}
+
+
+def multi_status(active: str, language: str, **kw: Any) -> VoiceStatus:
+    return VoiceStatus(
+        ts=NOW,
+        state="active",
+        active_voice=active,
+        label=MULTI[active],
+        quality="premium",
+        voices=dict(MULTI),
+        installed=list(MULTI),
+        language=language,
+        voice_languages=dict(MULTI_LANGS),
+        **kw,
+    )
+
+
+def test_view_reports_language_languages_and_option_languages(setup: Any) -> None:
+    client, bus, _, _ = setup
+    bus.publish(multi_status("claude", "es"))
+    v = voice(client)
+    assert v["language"] == "es"
+    # LANGUAGES order; Hindi has no option here so it is not offered.
+    assert v["languages"] == [
+        {"code": "en", "label": "English"},
+        {"code": "zh", "label": "中文"},
+        {"code": "es", "label": "Español"},
+        {"code": "fr", "label": "Français"},
+    ]
+    assert [o["language"] for o in v["options"]] == ["en", "en", "zh", "es", "fr"]
+    assert v["options"][3] == {
+        "key": "claude",
+        "label": "Claude",
+        "installed": True,
+        "language": "es",
+    }
+
+
+def test_view_before_any_status_is_english(setup: Any) -> None:
+    client, _, dashboard, _ = setup
+    v = voice(client)
+    assert (v["language"], v["languages"]) == ("en", [])
+    assert dashboard.voice.language() == "en"
+
+
+def test_unknown_language_code_shows_as_english(setup: Any) -> None:
+    client, bus, dashboard, _ = setup
+    bus.publish(
+        VoiceStatus(
+            ts=NOW, state="active", active_voice="ava", label="Ava", quality="premium",
+            voices={"ava": "Ava", "x": "X"}, installed=["ava"], language="klingon",
+            voice_languages={"ava": "en", "x": "tlh"},
+        )
+    )
+    v = voice(client)
+    assert v["language"] == "en" and dashboard.voice.language() == "en"
+    assert [o["language"] for o in v["options"]] == ["en", "en"]
+    assert v["languages"] == [{"code": "en", "label": "English"}]
+
+
+def test_picking_a_language_is_a_plain_voice_change(setup: Any) -> None:
+    client, bus, _, _ = setup
+    bus.publish(multi_status("ava", "en"))
+    reply = client.post("/api/voice", json={"voice": "siwis"})
+    assert reply.status_code == 202
+    (sent,) = changes(bus)
+    assert sent.voice == "siwis"
+    assert voice(client)["language"] == "en"  # unchanged until audio confirms
+    bus.publish(multi_status("siwis", "fr", request_id=sent.request_id))
+    assert voice(client)["language"] == "fr"

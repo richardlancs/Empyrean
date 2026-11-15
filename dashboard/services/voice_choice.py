@@ -18,6 +18,7 @@ from typing import Any
 
 from config import VOICE_SWITCH_TIMEOUT_SECONDS
 from contracts import VoiceChange, VoiceStatus
+from contracts.languages import DEFAULT_LANGUAGE, LANGUAGES, known_language
 
 NO_STATUS = "Audio has not reported a voice."
 NO_ENGINE = "Switching voices needs the full app; this page has no engine attached."
@@ -121,6 +122,12 @@ class VoiceService:
         self._notify()
         return True
 
+    def language(self) -> str:
+        """The active language code from audio's last VoiceStatus, or "en" before one."""
+        with self._lock:
+            status = self._status
+        return known_language(status.language) if status is not None else DEFAULT_LANGUAGE
+
     def view(self) -> dict[str, Any]:
         """The voice state for the page snapshot (plain JSON)."""
         with self._lock:
@@ -136,6 +143,8 @@ class VoiceService:
                 "message": NO_STATUS,
                 "request_id": None,
                 "updated_ts": None,
+                "language": DEFAULT_LANGUAGE,
+                "languages": [],
             }
         if pending is not None:
             state, switching_to = "switching", pending["voice"]
@@ -144,19 +153,34 @@ class VoiceService:
         else:
             state, switching_to = "active", None
         installed = set(status.installed)
+        option_languages = {
+            key: known_language(status.voice_languages.get(key)) for key in status.voices
+        }
+        offered = set(option_languages.values())
         return {
             "state": state,
             "active_voice": status.active_voice,
             "label": status.label,
             "quality": status.quality,
             "options": [
-                {"key": key, "label": label, "installed": key in installed}
+                {
+                    "key": key,
+                    "label": label,
+                    "installed": key in installed,
+                    "language": option_languages[key],
+                }
                 for key, label in status.voices.items()
             ],
             "switching_to": switching_to,
             "message": note or status.detail,
             "request_id": pending["request_id"] if pending else status.request_id,
             "updated_ts": status.ts,
+            "language": known_language(status.language),
+            "languages": [
+                {"code": code, "label": label}
+                for code, label in LANGUAGES.items()
+                if code in offered
+            ],
         }
 
     def _notify(self) -> None:

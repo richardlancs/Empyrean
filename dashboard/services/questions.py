@@ -33,12 +33,14 @@ from typing import Any
 
 from config import LAST_SEEN_TIMEOUT_SECONDS, QUESTION_TIMEOUT_SECONDS
 from contracts import SceneQuestion, SpeakRequest
+from contracts.languages import DEFAULT_LANGUAGE
 from dashboard.questions import (
     HISTORY_UNAVAILABLE_ANSWER,
     SCENE_BUSY_ANSWER,
     SCENE_PENDING_ANSWER,
     SCENE_UNAVAILABLE_ANSWER,
     parse_question,
+    spoken,
 )
 from dashboard.services.last_seen import LastSeenService, QueryRejected
 
@@ -87,11 +89,13 @@ class QuestionService:
         history_running: Callable[[], bool],
         clock: Callable[[], float] = time.time,
         scene_timeout: float = SCENE_ANSWER_TIMEOUT_SECONDS,
+        language: Callable[[], str] | None = None,
     ) -> None:
         """publish is bus.publish, or None when the dashboard runs without the engine.
 
         scene_running and history_running say whether namer/ and storage/ are
-        running in this launch.
+        running in this launch. language returns the active spoken language
+        (the voice view's "language"); the dashboard's own answers use it.
         """
         self._publish = publish
         self._last_seen = last_seen
@@ -99,6 +103,7 @@ class QuestionService:
         self._history_running = history_running
         self._clock = clock
         self._scene_timeout = scene_timeout
+        self._language = language or (lambda: DEFAULT_LANGUAGE)
         self._pending_scene: str | None = None  # question_id waiting for namer
         self._late_scene_answers = 0  # namer answers still due for timed-out questions
         self._lock = threading.Lock()
@@ -208,7 +213,7 @@ class QuestionService:
             # Nothing is spoken: namer may still answer late and speak for itself.
             record.update(
                 status="unavailable",
-                answer=SCENE_UNAVAILABLE_ANSWER,
+                answer=self._say(SCENE_UNAVAILABLE_ANSWER),
                 answered_by="dashboard",
                 speech_requested=False,
                 detail="No answer from the scene question worker in time",
@@ -238,11 +243,11 @@ class QuestionService:
         running = self._scene_running()
         with self._lock:
             if not running:
-                self._answer_now(record, SCENE_UNAVAILABLE_ANSWER, now)
+                self._answer_now(record, self._say(SCENE_UNAVAILABLE_ANSWER), now)
                 record.update(status="unavailable", detail="Namer is not running in this launch")
                 return True
             if self._pending_scene is not None:
-                self._answer_now(record, SCENE_BUSY_ANSWER, now)
+                self._answer_now(record, self._say(SCENE_BUSY_ANSWER), now)
                 record.update(status="unavailable", detail="Another question is still being answered")
                 return True
             self._pending_scene = record["question_id"]
@@ -279,7 +284,7 @@ class QuestionService:
                 self._on_lookup_changed()
                 return False
         with self._lock:
-            self._answer_now(record, HISTORY_UNAVAILABLE_ANSWER, now)
+            self._answer_now(record, self._say(HISTORY_UNAVAILABLE_ANSWER), now)
             record.update(status="unavailable", history_status="unavailable", detail=reason)
         return True
 
@@ -293,6 +298,7 @@ class QuestionService:
             ]
         speak: list[str] = []
         changed = False
+        unavailable = self._say(HISTORY_UNAVAILABLE_ANSWER)
         for lookup_id, question_id in waiting:
             result = self._last_seen.get(lookup_id)
             if result is not None and result["status"] == "pending":
@@ -318,19 +324,23 @@ class QuestionService:
                     # Timed out or forgotten: storage never answered, so nothing was spoken.
                     record.update(
                         status="unavailable",
-                        answer=HISTORY_UNAVAILABLE_ANSWER,
+                        answer=unavailable,
                         answered_by="dashboard",
                         speech_requested=True,
                         history_status="unavailable",
                         detail=result["detail"] if result else "The lookup expired",
                         answered_at=now,
                     )
-                    speak.append(HISTORY_UNAVAILABLE_ANSWER)
+                    speak.append(unavailable)
                 changed = True
         for text in speak:
             self._speak(text)
         if changed:
             self._notify()
+
+    def _say(self, answer: str) -> str:
+        """Word one of the dashboard's fixed answers in the active spoken language."""
+        return spoken(answer, self._language())
 
     def _speak(self, text: str) -> None:
         """Ask audio/ to speak one answer (an in-memory enqueue)."""
