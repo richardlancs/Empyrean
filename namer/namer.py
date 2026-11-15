@@ -10,6 +10,7 @@ import queue
 import re
 import threading
 import time
+import unicodedata
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -44,42 +45,93 @@ def clean_name(raw: str) -> str:
 
 
 # "Spanish: botella" -> label "Spanish". Only a label that names a language is dropped.
-_LABEL_PREFIX = re.compile(r"^([^:：]{1,40})[:：]\s*(.+)$")
+_LABEL_PREFIX = re.compile(r"^([^:：]{1,40})[:：]\s*(.*)$")
+# Words a language label may be made of: the English names of the five
+# languages (with their prompt qualifiers), "Chinese"/"Mandarin", their own
+# names, and a few connectives Grok uses ("In Hindi:", "Spanish translation:").
+_LABEL_WORDS = frozenset(
+    {"in", "translation", "name", "chinese", "mandarin"}
+    | {word for name in LANGUAGE_NAMES_EN.values() for word in re.findall(r"[a-z]+", name.lower())}
+    | {word for name in LANGUAGES.values() for word in re.findall(r"\w+", name.lower())}
+)
+# "- x", "* x", "• x", "1. x", "1) x"
+_LIST_MARKER = re.compile(r"^(?:[-*•]|\d+[.)])\s+")
+# "Heinz ketchup / हाइंज़ केचप", "| ", " - "
+_SEPARATORS = (" / ", " | ", " - ")
+# "Heinz ketchup (हाइंज़ केचप)"
+_PARENTHESISED = re.compile(r"^(.*?)\s*[(（]([^()（）]+)[)）]\s*$")
 
 
-def _strip_language_label(line: str, language: str) -> str:
-    """Drop a leading "<language>:" label Grok may put before a line."""
+def _is_label(text: str) -> bool:
+    """True if text (the part before a colon) only names a language."""
+    words = re.findall(r"\w+", text.lower())
+    return bool(words) and all(word in _LABEL_WORDS for word in words)
+
+
+def _strip_label(line: str) -> str:
+    """Drop a leading "<language>:" label; a line that is only a label becomes empty."""
     match = _LABEL_PREFIX.match(line.strip())
-    if match is None:
-        return line
-    vocabulary = {"translation", "name", LANGUAGES.get(language, "").lower()}
-    vocabulary.update(
-        re.findall(r"[a-z]+", LANGUAGE_NAMES_EN.get(language, "").lower())
+    if match is None or not _is_label(match.group(1)):
+        return line.strip()
+    return match.group(2).strip()
+
+
+def _clean_line(line: str) -> str:
+    """Strip a list marker, bold markers and a language label from one reply line."""
+    text = line.replace("**", "").strip()
+    text = _LIST_MARKER.sub("", text).strip()
+    return _strip_label(text)
+
+
+def _is_latin(text: str) -> bool:
+    """True if every letter in text is Latin script (accents included)."""
+    return all(
+        unicodedata.name(ch, "").startswith("LATIN") for ch in text if ch.isalpha()
     )
-    words = re.findall(r"\w+", match.group(1).lower())
-    if words and all(word in vocabulary for word in words):
-        return match.group(2)
-    return line
+
+
+def _split_mixed(line: str) -> tuple[str, str] | None:
+    """Split "Latin / non-Latin" (or " | ", " - ", parentheses) into (Latin, other)."""
+    pairs = [line.partition(sep)[::2] for sep in _SEPARATORS if sep in line]
+    match = _PARENTHESISED.match(line)
+    if match is not None:
+        pairs.append((match.group(1), match.group(2)))
+    for left, right in pairs:
+        left, right = _clean_line(left), _clean_line(right)
+        if not left or not right:
+            continue
+        if _is_latin(left) and not _is_latin(right):
+            return left, right
+        if _is_latin(right) and not _is_latin(left):
+            return right, left
+    return None
 
 
 def split_reply(raw: str, language: str) -> tuple[str, str]:
     """Split Grok's reply into (English name, name in language).
 
     English: the whole reply is cleaned exactly as before and the second part is
-    empty. Otherwise the first non-empty line is the English name and the second
-    non-empty line, trimmed and cut to NAME_MAX_CHARS, is the spoken name; a
-    missing second line gives an empty spoken name.
+    empty. Otherwise each line loses list markers, "**" and language labels, and
+    label-only lines are skipped. The first line is the English name and the
+    second, cut to NAME_MAX_CHARS, is the spoken name. The English name only
+    ever holds Latin-script text: a first line mixing a Latin and a non-Latin
+    part is split into the two, and a first line with no Latin part gives an
+    empty name (the class label is used) and becomes the spoken name when
+    there is no second line.
     """
     if language == DEFAULT_LANGUAGE:
         return clean_name(raw), ""
-    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    lines = [text for text in (_clean_line(line) for line in raw.splitlines()) if text]
     if not lines:
         return "", ""
-    name = clean_name(_strip_language_label(lines[0], DEFAULT_LANGUAGE))
-    spoken = ""
-    if len(lines) > 1:
-        spoken = clean_name(_strip_language_label(lines[1], language))
-    return name, spoken
+    first = lines[0]
+    second = clean_name(lines[1]) if len(lines) > 1 else ""
+    if _is_latin(first):
+        return clean_name(first), second
+    mixed = _split_mixed(first)
+    if mixed is not None:
+        return clean_name(mixed[0]), second or clean_name(mixed[1])
+    return "", second or clean_name(first)
 
 
 def _default_client() -> httpx.AsyncClient:

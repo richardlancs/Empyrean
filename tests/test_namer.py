@@ -456,6 +456,39 @@ def test_split_reply_two_lines_one_line_and_english() -> None:
     assert split_reply("Heinz\nketchup", "en") == (clean_name("Heinz\nketchup"), "")
 
 
+@pytest.mark.parametrize(
+    ("raw", "language", "expected"),
+    [
+        ("Heinz ketchup / हाइंज़ केचप", "hi", ("Heinz ketchup", "हाइंज़ केचप")),
+        ("Heinz ketchup | हाइंज़ केचप", "hi", ("Heinz ketchup", "हाइंज़ केचप")),
+        ("Coca-Cola - 可口可乐", "zh", ("Coca-Cola", "可口可乐")),
+        ("Heinz ketchup (हाइंज़ केचप)", "hi", ("Heinz ketchup", "हाइंज़ केचप")),
+        ("可口可乐 (Coca-Cola)", "zh", ("Coca-Cola", "可口可乐")),
+        ("Mandarin Chinese: 可口可乐", "zh", ("", "可口可乐")),
+        ("可口可乐", "zh", ("", "可口可乐")),
+        ("In Hindi: कप", "hi", ("", "कप")),
+        ("可口可乐\nChinese: 可口可乐罐", "zh", ("", "可口可乐罐")),
+        ("- **Heinz ketchup**\n- **Hindi:** हाइंज़ केचप", "hi",
+         ("Heinz ketchup", "हाइंज़ केचप")),
+        ("* cup\n• taza", "es", ("cup", "taza")),
+        ("1. Coca-Cola can\n2) 可口可乐罐", "zh", ("Coca-Cola can", "可口可乐罐")),
+        ("English:\ncup\nHindi:\nकप", "hi", ("cup", "कप")),
+        ("**English:** cup\n**French:** tasse", "fr", ("cup", "tasse")),
+    ],
+)
+def test_split_reply_keeps_name_latin_only(
+    raw: str, language: str, expected: tuple[str, str]
+) -> None:
+    """The stored English name never holds non-Latin text; markers and labels go."""
+    assert split_reply(raw, language) == expected
+
+
+def test_split_reply_english_path_is_clean_name_exactly() -> None:
+    """English ignores every non-English rule: the whole reply is clean_name(raw)."""
+    for raw in ("Heinz ketchup / हाइंज़ केचप", "- **cup**", "Hindi: कप", "1. cup"):
+        assert split_reply(raw, "en") == (clean_name(raw), "")
+
+
 def test_english_result_has_no_spoken_name() -> None:
     async def handler(_req: httpx.Request) -> httpx.Response:
         return reply("Heinz ketchup")

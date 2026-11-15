@@ -167,6 +167,12 @@ class SceneQuestions:
                     answer = fixed_answer("failed", language)
                 else:
                     self._failing = False
+                with self._lock:
+                    current = self._language
+                if current != language:
+                    # The voice changed while Grok answered: never speak the old
+                    # language's text with the new voice.
+                    answer = fixed_answer("failed", current)
                 if not self._stop.is_set():
                     self._emit(answer)
 

@@ -256,7 +256,9 @@ class Store:
         nothing. A database outage or failed query says "Touch history is
         unavailable right now." When the query had a request_id, a
         LastSeenResult follows carrying the same sentence the wearer heard.
-        Every sentence is in the language captured when the query arrived.
+        Every sentence is in the language captured when the query arrived; if
+        the voice's language changed meanwhile, the unavailable sentence is said
+        in the current language instead.
         """
         if isinstance(payload, str):
             payload = (payload, None)
@@ -280,6 +282,13 @@ class Store:
                 answer = unavailable(language)
                 status = "unavailable"
                 row = None
+        current = self.language
+        if current != language:
+            # The voice changed while the query ran: never speak the old
+            # language's sentence with the new voice.
+            answer = unavailable(current)
+            status = "unavailable"
+            row = None
         try:
             self._publish(
                 SpeakRequest(ts=time.time(), text=answer, priority="normal", source="storage")

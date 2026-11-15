@@ -282,7 +282,61 @@ def test_question_language_is_captured_when_asked(monkeypatch) -> None:
         worker.on_voice_status(_status("en"))
         assert ready.wait(2)
         assert seen_languages == ["es"]
-        assert answers[0].text == module.fixed_answer("failed", "es")
+        # The voice is English now, so the failure is said in English.
+        assert answers[0].text == module.fixed_answer("failed", "en")
+    finally:
+        worker.stop()
+
+
+def test_late_answer_in_a_stale_language_is_replaced(monkeypatch) -> None:
+    """A Hindi answer arriving after a switch to English is not spoken; English failure is."""
+    import namer.questions as module
+
+    ready = threading.Event()
+    answers = []
+    worker: SceneQuestions
+
+    async def answer_after_switch(self, client, frame, text, language) -> str:
+        assert language == "hi"
+        worker.on_voice_status(_status("en"))  # the wearer switches mid-call
+        return "आपकी चाबियाँ बाईं ओर हैं।"
+
+    def publish(msg) -> None:
+        answers.append(msg)
+        ready.set()
+
+    monkeypatch.setattr(SceneQuestions, "_answer", answer_after_switch)
+    worker = SceneQuestions(publish)
+    try:
+        worker.on_voice_status(_status("hi"))
+        worker.on_frame(FrameResult(time.time(), 1, None))
+        worker.on_question(SceneQuestion(time.time(), "Where are my keys?"))
+        assert ready.wait(2)
+        assert [a.text for a in answers] == [module.fixed_answer("failed", "en")]
+    finally:
+        worker.stop()
+
+
+def test_answer_in_unchanged_language_is_spoken(monkeypatch) -> None:
+    """With no switch, Grok's answer in the captured language is spoken as is."""
+    ready = threading.Event()
+    answers = []
+
+    async def answer(self, client, frame, text, language) -> str:
+        return "आपकी चाबियाँ बाईं ओर हैं।"
+
+    def publish(msg) -> None:
+        answers.append(msg)
+        ready.set()
+
+    monkeypatch.setattr(SceneQuestions, "_answer", answer)
+    worker = SceneQuestions(publish)
+    try:
+        worker.on_voice_status(_status("hi"))
+        worker.on_frame(FrameResult(time.time(), 1, None))
+        worker.on_question(SceneQuestion(time.time(), "Where are my keys?"))
+        assert ready.wait(2)
+        assert [a.text for a in answers] == ["आपकी चाबियाँ बाईं ओर हैं।"]
     finally:
         worker.stop()
 

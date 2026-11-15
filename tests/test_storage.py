@@ -367,7 +367,7 @@ class _Conn:
 
 
 def test_language_is_captured_when_query_arrives(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A query asked in Spanish is answered in Spanish even if French arrives before it runs."""
+    """Each query is answered in the voice language it was asked in."""
     monkeypatch.setattr(db, "connect", lambda url: _Conn())
     monkeypatch.setattr(db, "ensure_schema", lambda conn: None)
     rows: dict[str, dict[str, Any] | None] = {
@@ -379,16 +379,14 @@ def test_language_is_captured_when_query_arrives(monkeypatch: pytest.MonkeyPatch
     published: list[Any] = []
     store = Store(published.append, UNREACHABLE_URL, start=False)
     assert store.language == "en"  # English until the first VoiceStatus
-    store.on_voice_status(_voice("es"))
-    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="ketchup", request_id="a"))
-    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="nothing", request_id="b"))
-    store.on_voice_status(_voice("fr"))
-    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="nothing", request_id="c"))
-    store.on_voice_status(_voice("xx"))  # unknown code -> English
-    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="nothing", request_id="d"))
     store.start()
     try:
-        assert _wait_for(lambda: len(published) == 8)
+        for i, (lang, text, rid) in enumerate([("es", "ketchup", "a"), ("es", "nothing", "b"),
+                                               ("fr", "nothing", "c"),
+                                               ("xx", "nothing", "d")]):  # xx -> English
+            store.on_voice_status(_voice(lang))
+            store.on_last_seen_query(LastSeenQuery(ts=NOW, text=text, request_id=rid))
+            assert _wait_for(lambda n=2 * (i + 1): len(published) == n)
     finally:
         store.stop()
     spoken = [m.text for m in published if isinstance(m, SpeakRequest)]
@@ -399,6 +397,38 @@ def test_language_is_captured_when_query_arrives(monkeypatch: pytest.MonkeyPatch
     assert [results[k].status for k in "abcd"] == ["found", "not_found", "not_found",
                                                    "not_found"]
     assert results["a"].label == "bottle"  # the stored value, not translated
+
+
+def test_stale_language_answer_is_unavailable_in_current_language(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A switch while the query runs gives the unavailable sentence in the new language."""
+    monkeypatch.setattr(db, "connect", lambda url: _Conn())
+    monkeypatch.setattr(db, "ensure_schema", lambda conn: None)
+    published: list[Any] = []
+    store = Store(published.append, UNREACHABLE_URL, start=False)
+
+    def last_seen(conn: Any, text: str) -> dict[str, Any]:
+        store.on_voice_status(_voice("en"))  # the wearer switches mid-query
+        return {"ts": time.time() - 240, "name": "", "class_label": "bottle",
+                "neighbours": ["cup"]}
+
+    monkeypatch.setattr(db, "last_seen", last_seen)
+    store.on_voice_status(_voice("hi"))
+    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="ketchup", request_id="s"))
+    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="ketchup"))  # asked in Hindi too
+    store.start()
+    try:
+        assert _wait_for(lambda: len(published) == 3)
+    finally:
+        store.stop()
+    spoken = [m.text for m in published if isinstance(m, SpeakRequest)]
+    results = [m for m in published if isinstance(m, LastSeenResult)]
+    assert spoken == [UNAVAILABLE, UNAVAILABLE]
+    assert len(results) == 1
+    assert results[0].answer == UNAVAILABLE and results[0].status == "unavailable"
+    assert results[0].matched_at is None and results[0].label == ""
+    assert results[0].neighbours == []
 
 
 def test_unavailable_answer_follows_language() -> None:
