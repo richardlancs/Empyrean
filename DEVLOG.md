@@ -88,6 +88,15 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-15, Person 4 (dashboard demo-toggle test race; PR #34 and #35 review), Claude Code
+**Changed:** Fixed the one test that failed on `main`, `tests/test_demo_toggle_dashboard.py::test_live_regular_demo_regular_through_the_engine`. It was a timing race in the test, not a dashboard bug. A trace on a Windows laptop showed: the switch request returned and the page showed "switching" at 1.187 s, fake vision confirmed demo at 1.500 s (its 0.3 s delay), and the test's "not yet confirmed" read only came back at 1.562 s. One local HTTP round trip took about 0.35 s. The fixture now gives fake vision a 2.0 s switch time, and the test also checks `state == "switching"` and `switching_to == "demo"` during the switch. `dashboard/services/detector_mode.py` already reports only what vision confirms; no product code changed.
+
+Reviewed PR #34 (Piper voices, five languages) and PR #35 (How it works page). Both had already been merged by the time the reviews finished. PR #34 comments list what is still open: team agreement on `piper-tts`, Person 3 sign-off on `namer/` and `storage/`, memory with every voice preloaded, and running `fetch_voices` plus one full JBL run on the demo laptop. PR #35's four `dashboard/` edits are fine: keyboard focus outlines and the high-contrast theme are untouched, the page loads only local files, has no console errors, has no horizontal scroll at 375 px, and its hazard copy says it is a prototype.
+
+**Tested:** The demo-toggle test file, 3 runs: 12 passed each time. Ruff clean. Full suite on this branch: 589 passed, 2 skipped, 0 failed. `python -m app --fake vision` starts and serves `/api/state` with the fake camera and detector active. For PR #34: `python -m audio` with and without Piper (Alba fetched in a throwaway venv). With Piper, speech started 0 ms after the event, against 0.9 to 1.5 s with pyttsx3.
+
+**Teammates need to know:** `tests/test_scene_questions.py::test_question_language_is_captured_when_asked` failed once in a full run on `main` and passed 3 of 3 times on its own. It looks flaky; owner of `scene/` questions, please check.
+
 ### 2026-11-14, Person 2 (How It Works review fixes), Codex
 **Changed:** Fixed PR #35's two accessibility findings at the user's explicit request. The graph now allows horizontal/vertical touch scrolling and pinch zoom outside draggable nodes. Nodes activate on click (including assistive technology), with drag/cancel suppression and no duplicate pointer activation.
 **Tested:** Python 3.11 `pytest -q`: 405 passed, 2 skipped. Headless Edge checks passed for semantic click, one activation per mouse click, Enter/Space, drag suppression, activation after a drag, horizontal touch scrolling at 360 px, and touch node dragging. `python -m app --fake vision` started all modules; `/`, `/api/state`, `/how-it-works/` and its diagram script returned HTTP 200. External Grok/database services were unavailable without local credentials. `git diff --check` passed.
