@@ -35,7 +35,6 @@ Problems in someone else's folder go here. The owner removes the line once fixed
 - **Person 1 (voice questions):** read the "voice questions plan for Person 1" entry before building. Confirm first that a Google Home can pass questions to our process at all.
 - **Person 1 (`hazard/`):** the narrowed tier B prompt has only been tested on scenes with no hazard (0 of 10 flagged). Test it on real stairs, a doorway and a wall before the demo. If it misses them, loosen the "do not count" list.
 - **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed and the Objects panel to your folder (`dashboard/video.py`, `server.py`, `state.py`, `__init__.py`, `index.html`, `requirements.txt`, and the dashboard tests). Keep, change or revert, then remove this line.
-- **Person 4 (`dashboard/`, not built yet from SPEC.md 4.9):** the processed-FPS readout and the "last touched" search box. Nothing publishes `LastSeenQuery` in the running app, so the last-seen answer (working in `storage/`) cannot be reached from the page.
 - **Person 4 (`audio/backends.py`, please review):** Person 2's fix that builds a fresh `pyttsx3` engine per phrase. Confirm it on the JBL.
 - **Person 3 (`namer/grok_client.py`, please review):** Person 2 rewrote `INSTRUCTION` so Grok names a brand only when it is printed and readable. Rerun `fakes.namer.eval_batch`, then remove this line.
 - **Person 3 (naming on real crops):** accuracy on Logitech camera crops of the demo objects is still unmeasured. `fakes.namer.crop_recorder` and `eval_batch --manifest` are ready for it.
@@ -84,6 +83,15 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14, Person 4 (audio: SIGTERM shutdown fix, dashboard FPS check), Claude Code
+**Changed:** `audio/backends.py`: `PygameAlarm` sets `SDL_NO_SIGNAL_HANDLERS=1` (via `setdefault`) before importing pygame. Cause: `pygame.mixer.init()` starts SDL, which installs its own SIGTERM handler when none is set and swallows the signal. With real audio, `python -m app` ignored `kill`/SIGTERM and kept processing frames for 20+ s. Ctrl+C was never affected, because Python already owns SIGINT. Added `tests/test_audio_shutdown.py`. Removed the stale Person 4 "not built yet" line from Needs attention.
+
+**Tested:** Reproduced on macOS with `python -m app --fake vision`: SIGTERM still running after 20 s; with `--fake vision audio` it exited in 0.02 s, which isolated the cause to the real alarm. After the fix, SIGTERM exits in 0.02 s, Ctrl+C exits cleanly in 1.0 s, and the alarm WAV still loads (0.61 s). The new test fails without the fix and passes with it. `pytest -q`: 361 passed, 5 skipped. Ruff clean. The FPS readout in `/api/state` showed a steady 5.0 fps on fake vision.
+
+**Decisions:** Only SDL's handler is disabled. SIGTERM now has Python's default action, an immediate exit, as with fake audio. It does not run `RunningApp.stop()`. A graceful SIGTERM path would belong in `app/` (Person 1) if wanted.
+
+**Teammates need to know:** The processed-FPS readout and the last-touched search were already built in the dashboard redesign (Richard Lan): `dashboard/services/health.py` and `LastSeenService`.
 
 ### 2026-11-14, Merge latest main (d861971, 39d9e0c) into `integration/main-voice-pip` for PR #27, Claude Code
 **Changed:** Resolved the conflicts between main's independent Grok scene questions and #27's layered dashboard. The user chose: main's behaviour, #27's code. Only "Where/When did I last touch/see X?" goes to storage, as before (a correlated `LastSeenQuery`). Every other question, including "Where are my keys?" and "Find my phone", is published as `SceneQuestion`; namer answers it and speaks the answer, and `QuestionService` shows it (`answered_by: "namer"`) without speaking it again. Only one scene question is outstanding at a time, so namer's next `SpeakRequest` belongs to it; a second one meanwhile gets namer's own "Please wait…" sentence. If namer is not running, or does not answer within `LAST_SEEN_TIMEOUT_SECONDS`, the question is unavailable, and a late namer answer is not attributed to the next question. The dashboard now subscribes to `SpeakRequest`. Audio announces touches by default again (main). Kept #27's `SpeechStatus`/`ModuleStatus`/`ModeChange`/`DetectorStatus` and added main's `SceneQuestion` in `contracts/`. `SPEC.md` 4.9 now has #27's panel paragraph with a new routing table, followed by main's 4.9.1. Removed the local scene/touch phrase answers (`scene_answer`, help sentence).

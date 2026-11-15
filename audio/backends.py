@@ -91,6 +91,9 @@ class PygameAlarm:
     def __init__(self, path: Path = ALARM_WAV) -> None:
         """Open the mixer and load the alarm file."""
         os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+        # SDL otherwise takes over SIGTERM when the mixer starts and swallows it,
+        # so `kill` or a process manager could not stop the app. Ctrl+C was unaffected.
+        os.environ.setdefault("SDL_NO_SIGNAL_HANDLERS", "1")
         import pygame
 
         if not pygame.mixer.get_init():
