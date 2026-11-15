@@ -65,3 +65,15 @@ def test_degenerate_box_is_never_hit() -> None:
 def test_ties_go_to_lower_object_id() -> None:
     hand = pointing_hand(wrist=(400.0, 340.0), toward=(160.0, 170.0))
     assert pointed_ids([(7, BOTTLE), (3, BOTTLE)], [hand]) == {3}
+
+
+def test_scripted_fake_hand_points_at_bottle_not_cup() -> None:
+    from fakes.vision.fake_vision import scripted_frame
+
+    frame = scripted_frame(12, 0.0)
+    boxes = [(obj.object_id, obj.box) for obj in frame.objects]
+    hand = frame.hands[0]
+    assert has_landmarks(hand)
+    assert pointed_ids(boxes, frame.hands) == {1}
+    bottle = next(obj.box for obj in frame.objects if obj.object_id == 1)
+    assert not (bottle[0] <= hand.index_tip[0] <= bottle[2] and bottle[1] <= hand.index_tip[1] <= bottle[3])

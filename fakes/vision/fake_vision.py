@@ -1,8 +1,9 @@
-"""Generate realistic BGR frames, stable objects, and a touch-and-release cycle."""
+"""Generate realistic BGR frames, stable objects, and a point-and-release cycle."""
 
 from __future__ import annotations
 
 import logging
+import math
 import os
 import threading
 import time
@@ -14,10 +15,34 @@ import numpy as np
 
 from config.thresholds import PROCESS_FPS, PROCESS_HEIGHT, PROCESS_WIDTH
 from contracts import DetectorStatus, FrameResult, Hand, ModeChange, TrackedObject
+from contracts.messages import Point
 
 log = logging.getLogger("vision")
 Publish = Callable[[object], None]
 CYCLE_FRAMES = 60
+# (mcp, pip, dip, tip) MediaPipe indices for index, middle, ring and pinky.
+_FINGERS = ((5, 6, 7, 8), (9, 10, 11, 12), (13, 14, 15, 16), (17, 18, 19, 20))
+_EXTENDED = (40.0, 60.0, 72.0, 85.0)  # distance from the wrist along the pointing line
+_CURLED = (40.0, 55.0, 42.0, 30.0)  # tip folded back toward the wrist
+
+
+def _pointing_hand_landmarks(wrist: Point, toward: Point) -> list[Point]:
+    """Return 21 landmarks for a hand pointing its index finger at a point, others curled."""
+    length = math.hypot(toward[0] - wrist[0], toward[1] - wrist[1])
+    ux = (toward[0] - wrist[0]) / length
+    uy = (toward[1] - wrist[1]) / length
+    points: list[Point] = [wrist] * 21
+    for index in (1, 2, 3, 4):
+        points[index] = (wrist[0] - 6.0 * index, wrist[1] - 4.0 * index)
+    for finger, joints in enumerate(_FINGERS):
+        distances = _EXTENDED if finger == 0 else _CURLED
+        spread = (finger - 1.5) * 6.0  # fan the knuckles a little across the hand
+        for landmark, distance in zip(joints, distances, strict=True):
+            points[landmark] = (
+                wrist[0] + ux * distance - uy * spread,
+                wrist[1] + uy * distance + ux * spread,
+            )
+    return points
 
 
 def scripted_frame(frame_id: int, ts: float) -> FrameResult:
@@ -35,9 +60,14 @@ def scripted_frame(frame_id: int, ts: float) -> FrameResult:
     hands: list[Hand] = []
     if 10 <= phase < 25:
         # Hand appears only after the bottle has been stable for >1 second.
-        hand_box = (148.0, 105.0, 205.0, 185.0)
-        cv2.rectangle(image, (148, 105), (205, 185), (105, 155, 195), -1)
-        hands.append(Hand("right", (165.0, 145.0), (180.0, 160.0), hand_box))
+        # It sits outside the bottle's box and points its index finger at it.
+        points = _pointing_hand_landmarks((290.0, 340.0), (170.0, 187.5))
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        hand_box = (min(xs), min(ys), max(xs), max(ys))
+        for point in points:
+            cv2.circle(image, (int(point[0]), int(point[1])), 4, (105, 155, 195), -1)
+        hands.append(Hand("right", points[4], points[8], hand_box, landmarks=points))
     if frame_id % PROCESS_FPS == 0:
         log.debug("Script frame %d, hands=%d", frame_id, len(hands))
     return FrameResult(ts=ts, frame_id=frame_id, image=image, objects=objects, hands=hands)
