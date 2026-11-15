@@ -11,21 +11,10 @@ export const POLL_INTERVAL_MS = 700;
 /** Milliseconds after asking before a pending lookup is reported as still waiting. */
 export const LOOKUP_TIMEOUT_MS = 15_000;
 
-/** Example questions shown as buttons. Each one fills the input and asks it. */
-export const EXAMPLE_QUESTIONS = Object.freeze([
-  "What can you see?",
-  "What am I touching?",
-  "What am I holding?",
-  "Where did I last touch my keys?",
-]);
-
 export const RECORD_STATUSES = Object.freeze(["answered", "looking_up", "unavailable"]);
 const INTENTS = new Set(["scene", "touch", "history", "help"]);
 const ANSWERED_BY = new Set(["dashboard", "namer", "storage"]);
 const HISTORY_STATUSES = new Set(["found", "not_found", "unavailable"]);
-
-/** Panel phases for this page's latest question. */
-export const ASK_PHASES = Object.freeze(["idle", "submitting", "looking_up", "answered", "unavailable", "error"]);
 
 export const HISTORY_UNAVAILABLE_TITLE = "Touch history is unavailable right now.";
 export const SCENE_UNAVAILABLE_TITLE = "No answer is available right now.";
@@ -223,24 +212,6 @@ export function announcementFor(record) {
 /** Stable announcer key for a record's final status. */
 export function announcementKey(record) {
   return `question:${record.question_id}:${record.status}`;
-}
-
-/** Status line text for the ask phase (shown in the panel's role="status" region). */
-export function askStatusText(ask) {
-  switch (ask.phase) {
-    case "submitting":
-      return "Asking…";
-    case "looking_up":
-      return "Looking up… the answer will appear here.";
-    case "answered":
-      return "Answered.";
-    case "unavailable":
-      return "Unavailable. See the message below.";
-    case "error":
-      return ask.message || "Something went wrong. Try again.";
-    default:
-      return "Ready for a question.";
-  }
 }
 
 /** Short label for a record in the recent list. */

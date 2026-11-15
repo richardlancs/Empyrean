@@ -33,7 +33,6 @@ from typing import Any, Protocol
 
 from audio.backends import HybridSpeaker, LogSpeaker, VoiceLoading, load_alarm
 from audio.phrases import (
-    FALLBACK_HAZARD_PHRASES,
     HAZARD_PHRASES,  # noqa: F401  re-exported: language -> hazard type -> phrase
     hazard_phrase,
     hazard_prerender,
@@ -68,7 +67,6 @@ log = logging.getLogger("audio")
 # Spoken hazard phrases per language live in audio/phrases.py (SPEC.md section 4.8).
 # The English ones are rendered ahead after a switch to an English voice; every
 # voice change pre-renders its own language's set, so a hazard phrase starts at once.
-FALLBACK_HAZARD_PHRASE = FALLBACK_HAZARD_PHRASES[DEFAULT_LANGUAGE]
 HAZARD_PRERENDER: list[str] = hazard_prerender(DEFAULT_LANGUAGE)
 
 # Lower number wins, SPEC.md section 4.8.
