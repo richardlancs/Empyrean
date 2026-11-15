@@ -17,7 +17,7 @@ import pytest
 from audio import audio as audio_module
 from audio.audio import HAZARD_PHRASES, AudioManager
 from audio.backends import ALARM_WAV
-from contracts import HazardEvent, NameResult, SpeakRequest, TouchEvent
+from contracts import HazardEvent, NameResult, SpeakRequest, TouchEvent, VoiceChange
 
 BOX = (100.0, 100.0, 200.0, 200.0)
 
@@ -365,14 +365,14 @@ class RecordingBus:
 def test_register_subscribes_hazard_first(
     monkeypatch: pytest.MonkeyPatch, speaker: RecordingSpeaker
 ) -> None:
-    """register(bus) subscribes the four input types, HazardEvent first, publishes nothing."""
+    """register(bus) subscribes the five input types, HazardEvent first, VoiceChange last."""
     monkeypatch.setattr(audio_module, "Pyttsx3Speaker", lambda: speaker)
     monkeypatch.setattr(audio_module, "load_alarm", RecordingAlarm)
     bus = RecordingBus()
     mgr = audio_module.register(bus)
     try:
         types = [t for t, _ in bus.subscriptions]
-        assert types == [HazardEvent, TouchEvent, NameResult, SpeakRequest]
+        assert types == [HazardEvent, TouchEvent, NameResult, SpeakRequest, VoiceChange]
         bus.publish(touch(1, "bottle", "Heinz ketchup"))
         assert settle(speaker, 1) == ["Heinz ketchup"]
         bus.publish(named(1, "New ketchup name"))
@@ -396,6 +396,7 @@ def test_fake_audio_register_prints(capsys: pytest.CaptureFixture[str]) -> None:
             TouchEvent,
             NameResult,
             SpeakRequest,
+            VoiceChange,
         ]
         bus.publish(touch(1, "bottle", "Heinz"))
         bus.publish(named(1, "Heinz ketchup"))

@@ -14,6 +14,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from config import SPEECH_RATE_WPM
+
 log = logging.getLogger("audio")
 
 ALARM_WAV = Path(__file__).resolve().parent / "sounds" / "alarm.wav"
@@ -28,9 +30,22 @@ def _init_com_for_thread() -> None:
     comtypes.CoInitialize()
 
 
-def _speak_once(pyttsx3: Any, text: str, should_stop: Callable[[], bool]) -> None:
-    """Speak text on a brand-new engine, cutting off at a word boundary on should_stop()."""
+def _speak_once(
+    pyttsx3: Any,
+    text: str,
+    should_stop: Callable[[], bool],
+    voice_id: str | None,
+    rate: int,
+) -> None:
+    """Speak text on a brand-new engine, cutting off at a word boundary on should_stop().
+
+    The rate is set on every engine, and the voice too unless voice_id is None
+    (None keeps the system default voice).
+    """
     engine = pyttsx3.init()
+    engine.setProperty("rate", rate)
+    if voice_id is not None:
+        engine.setProperty("voice", voice_id)
 
     def on_word(name: Any, location: int, length: int) -> None:
         """Cut speech off at the next word boundary once an alarm arrives."""
@@ -54,21 +69,38 @@ class Pyttsx3Speaker:
 
     mode = "real"  # drives a real speech engine; still does not prove anyone heard it
 
-    def __init__(self) -> None:
-        """Check on the current thread that a pyttsx3 engine can start."""
+    def __init__(self, rate: int = SPEECH_RATE_WPM) -> None:
+        """Check on the current thread that a pyttsx3 engine can start; list its voices."""
         _init_com_for_thread()
         import pyttsx3
 
         self._pyttsx3 = pyttsx3
-        pyttsx3.init()  # raise now, so the manager falls back to logging at startup
+        self._rate = rate
+        self._voice_id: str | None = None
+        engine = pyttsx3.init()  # raise now, so the manager falls back to logging
+        try:
+            voices = engine.getProperty("voices") or []
+            self._voices = [(str(v.id), str(v.name)) for v in voices]
+        except Exception:
+            log.exception("Could not list installed voices; using the system voice")
+            self._voices = []
+        del engine
         gc.collect()
+
+    def installed_voices(self) -> list[tuple[str, str]]:
+        """Return the (voice_id, name) pairs the engine listed at startup."""
+        return list(self._voices)
+
+    def set_voice(self, voice_id: str | None) -> None:
+        """Use voice_id on every later engine; None means the system default voice."""
+        self._voice_id = voice_id
 
     def say(self, text: str, should_stop: Callable[[], bool]) -> None:
         """Speak text, blocking until it ends or should_stop() turns true."""
         if should_stop():
             return
         try:
-            _speak_once(self._pyttsx3, text, should_stop)
+            _speak_once(self._pyttsx3, text, should_stop, self._voice_id, self._rate)
         finally:
             gc.collect()  # drop the used engine so the next init() builds a new one
 
@@ -77,6 +109,13 @@ class LogSpeaker:
     """Stand-in used when text to speech cannot start: logs instead of speaking."""
 
     mode = "unavailable"
+
+    def installed_voices(self) -> list[tuple[str, str]]:
+        """No engine, so no voices."""
+        return []
+
+    def set_voice(self, voice_id: str | None) -> None:
+        """Nothing to switch: speech is only logged."""
 
     def say(self, text: str, should_stop: Callable[[], bool]) -> None:
         """Log the text that would have been spoken."""
