@@ -31,7 +31,7 @@ test("normalize: legacy state gains every optional field, with honest defaults",
     assert.equal(s.diagnostics[key].last_update_ts, null);
   }
   assert.equal(s.diagnostics.camera.fps, null);
-  assert.deepEqual(s.capabilities, { last_seen: false, thumbnails: false, overlays: false, speech_status: false, mode_switch: false, questions: false });
+  assert.deepEqual(s.capabilities, { last_seen: false, thumbnails: false, overlays: false, speech_status: false, mode_switch: false, questions: false, voice_switch: false });
 });
 
 test("normalize: legacy latest_warning is split by its simulated flag", () => {
@@ -468,4 +468,12 @@ test("feature loader: load failure, missing export and mount error are reported,
   assert.deepEqual(reported.map((e) => e.phase), ["load", "load", "mount"]);
   assert.match(reported[1].cause.message, /does not export mountExperience/);
   assert.equal(reported[2].cause.message, "render bug");
+});
+
+test("normalize: the voice view and voice_switch capability reach the page", () => {
+  const voice = { state: "active", active_voice: "alba", label: "Alba", quality: "enhanced", options: [] };
+  const s = normalizeState({ ...BASE_STATE, voice, capabilities: { voice_switch: true } });
+  assert.equal(s.voice.active_voice, "alba");
+  assert.equal(s.capabilities.voice_switch, true);
+  assert.equal(normalizeState(BASE_STATE).voice, null);
 });
