@@ -72,6 +72,7 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
         h(doc, "li", {}, "Touch an object and ask “What am I touching?”: the speaker says its name."),
         h(doc, "li", {}, "This page mirrors that. The wearer never needs to use it."),
       ]),
+      h(doc, "a", { className: "ui-button ui-button--secondary", href: "/how-it-works/" }, "See the full walkthrough"),
     ]),
   ]);
 

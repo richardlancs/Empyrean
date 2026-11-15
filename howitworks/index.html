@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>How it works: Empyrean</title>
+<link rel="icon" href="data:,">
+<script src="/static/core/theme-boot.js"></script>
+<link rel="stylesheet" href="/static/styles/tokens.css">
+<link rel="stylesheet" href="/static/styles/base.css">
+<link rel="stylesheet" href="/static/styles/layout.css">
+<link rel="stylesheet" href="/static/styles/components.css">
+<link rel="stylesheet" href="./how.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/",
+    "gsap": "./vendor/gsap/index.js"
+  }
+}
+</script>
+<script type="module" src="./main.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="app-header">
+  <div class="app-container app-header__inner">
+    <div class="app-brand">
+      <span class="app-brand__mark" aria-hidden="true"></span>
+      <span class="app-brand__name">Empyrean</span>
+      <span class="ui-chip ui-chip--outline">Prototype</span>
+    </div>
+    <div class="app-header__purpose">
+      <p class="app-header__tagline">Point at an object. Hear its name.</p>
+    </div>
+    <div class="app-header__tools">
+      <a class="ui-button ui-button--secondary" href="/">&larr; Dashboard</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="app-container how-main" tabindex="-1">
+  <section class="how-intro" aria-labelledby="how-title">
+    <h1 id="how-title">How it works</h1>
+    <p>A camera on a pair of sunglasses, a laptop in a backpack and a small speaker. Open each part to see what it does.</p>
+  </section>
+
+  <section id="stage" class="how-stage" aria-label="The parts of the kit">
+    <div class="how-stage__view">
+      <img id="stage-poster" class="how-stage__poster" src="./assets/poster.svg" alt="Sunglasses with a small camera, a backpack holding a laptop, and a portable speaker." width="1600" height="900">
+      <div id="stage-canvas-host" class="how-stage__canvas"></div>
+      <p id="stage-hint" class="how-stage__hint" hidden>Drag to look around. Select a marker to learn more.</p>
+    </div>
+    <aside id="hotspot-panel" class="how-panel" aria-label="Details" hidden></aside>
+    <ul id="hotspot-list" class="how-list">
+        <li><h3>Camera</h3><p>Sees the objects and hands in front of the wearer.</p><p class="how-meta">Built with: Logitech webcam, OpenCV, YOLO11s with ByteTrack, MediaPipe Hands</p><p class="how-meta">5 frames a second at 640 x 360</p></li>
+        <li><h3>Pointing</h3><p>Works out which object the wearer's finger is pointing at.</p><p class="how-meta">Built with: A ray from the extended finger and a small state machine</p><p class="how-meta">Speech starts within 1 second</p></li>
+        <li><h3>Laptop</h3><p>Runs everything as one program, names objects and keeps a history.</p><p class="how-meta">Built with: Python message bus, Grok vision, Tiger Data</p><p class="how-meta">A name is stored within 2 seconds of an object settling</p></li>
+        <li><h3>Speaker</h3><p>Says the object's name. The alarm interrupts everything else.</p><p class="how-meta">Built with: pyttsx3 offline speech, pygame alarm tone, JBL Go 3</p><p class="how-meta">The alarm always outranks speech</p></li>
+        <li><h3>Hazard watch</h3><p>Watches the camera feed for things worth a warning, on its own path.</p><p class="how-meta">Built with: YOLO classes plus a Grok vision check</p><p class="how-meta">Alarm within 0.5 seconds (fast tier) or 3 seconds</p></li>
+    </ul>
+  </section>
+
+  <section id="pipeline" class="how-pipeline" aria-labelledby="pipeline-title">
+    <h2 id="pipeline-title">Follow one touch</h2>
+    <p class="how-pipeline__lede">Small modules pass messages to each other. None of them calls another directly.</p>
+    <div id="pipeline-controls" class="how-pipeline__controls"></div>
+    <div id="pipeline-diagram" class="how-pipeline__diagram">
+      <ol id="pipeline-static" class="how-pipeline__static">
+          <li>The camera on the glasses streams video. Vision processes 5 frames every second.</li>
+          <li>For each frame, Vision publishes the image, the tracked objects and the fingertip positions.</li>
+          <li>When a new object has been steady for 1 second, Scene sends a crop of it to be named.</li>
+          <li>Grok looks at the crop and replies with a specific name, which Scene stores on the object.</li>
+          <li>The wearer points. After 0.4 seconds on the same object, Scene announces the touch.</li>
+          <li>The speaker says the name, Tiger Data logs it and the dashboard highlights the object.</li>
+      </ol>
+    </div>
+    <p id="pipeline-caption" class="how-pipeline__caption" aria-live="polite"></p>
+  </section>
+
+  <section class="how-built" aria-labelledby="built-title">
+    <h2 id="built-title">How it was built</h2>
+    <p>Four people built this in 36 hours, each working with a coding agent. Every module was written and tested on its own against recorded input, and they meet only through the messages shown above.</p>
+  </section>
+</main>
+<footer class="app-footer">
+  <div class="app-container">
+    <p>Empyrean is a research prototype. It does not replace a mobility aid or anyone's own judgement.</p>
+  </div>
+</footer>
+</body>
+</html>
