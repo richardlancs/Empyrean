@@ -4,85 +4,34 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="Empyrean is a camera-glasses prototype that names the objects you point to and answers questions about what's in front of you.">
-  <title>Empyrean — A little more clarity</title>
+  <meta name="description" content="Empyrean: camera glasses that name what you touch.">
+  <title>Empyrean</title>
   <link rel="icon" href="/static/assets/empyrean.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/landing/landing.css">
-  <!-- Composition reference: PaulleDemon/awesome-landing-pages, CelestialSaaS.
-       Original buildless implementation; no template code or external assets copied. -->
+  <script type="importmap">{"imports": {"three": "/how-it-works/vendor/three/three.module.js"}}</script>
 </head>
 <body>
-  <div class="landing-shell">
-    <header class="landing-header">
-      <div class="brand"><img src="/static/assets/empyrean.svg" width="38" height="38" alt=""><span>Empyrean</span></div>
-      <span class="edition">Built at HackUMass XIV <span aria-hidden="true">↗</span></span>
-    </header>
+  <div class="backdrop" aria-hidden="true"><div class="grid"></div><div class="halo"></div><div class="orbit"></div><div class="orbit orbit-2"></div></div>
 
-    <main id="main">
-      <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-copy">
-          <p class="eyebrow"><span aria-hidden="true"></span> A different way to see the everyday</p>
-          <h1 id="hero-title">Your world.<br>A little more<br><em>clarity.</em></h1>
-          <p class="hero-description">Camera-equipped glasses that name the objects you point to and answer questions about what’s in front of you.</p>
-          <a class="open-button" href="/dashboard">Open Empyrean <span aria-hidden="true">↗</span></a>
-          <p class="cta-note">Straight to the live dashboard.</p>
-        </div>
+  <header class="top">
+    <span class="mark"><img src="/static/assets/empyrean.svg" width="22" height="22" alt="">EMPYREAN</span>
+    <span class="tag">Prototype · 2026</span>
+  </header>
 
-        <figure class="hero-visual">
-          <div class="visual-heading"><span>Small kit. A new perspective.</span><span class="figure-number">FIG. 01</span></div>
-          <svg class="kit-illustration" viewBox="0 0 620 470" role="img" aria-labelledby="kit-title kit-desc">
-            <title id="kit-title">A camera on a pair of glasses</title>
-            <desc id="kit-desc">An illustrated pair of sunglasses with a small camera on the bridge, connected to an example spoken response: a blue mug.</desc>
-            <defs>
-              <linearGradient id="lens" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#3c526a"/><stop offset="1" stop-color="#182d43"/></linearGradient>
-              <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#363c3f"/><stop offset="1" stop-color="#171c1f"/></linearGradient>
-              <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#c5c9bf"/></pattern>
-            </defs>
-            <rect x="16" y="20" width="588" height="390" fill="url(#dots)" opacity=".45"/>
-            <circle cx="314" cy="209" r="163" fill="#dfe8dc"/>
-            <circle cx="314" cy="209" r="134" fill="none" stroke="#c8d3c2" stroke-width="1"/>
-            <ellipse cx="314" cy="324" rx="191" ry="18" fill="#c4cdbd" opacity=".35"/>
-            <g transform="rotate(-10 310 213)">
-              <path d="M122 182 212 93 Q225 82 244 94 L329 139" fill="none" stroke="#262d31" stroke-width="17" stroke-linecap="round"/>
-              <path d="M481 189 550 121 Q561 109 550 101 L467 70" fill="none" stroke="#262d31" stroke-width="17" stroke-linecap="round"/>
-              <path d="M104 169 Q174 145 264 172 Q286 180 286 198 L282 252 Q276 283 243 287 L153 278 Q122 272 114 244 Z" fill="url(#frame)"/>
-              <path d="M125 187 Q186 171 259 187 L260 247 Q258 265 238 267 L158 258 Q140 254 137 238 Z" fill="url(#lens)"/>
-              <path d="M334 180 Q409 163 498 191 L482 265 Q475 292 446 293 L365 283 Q336 278 331 248 Z" fill="url(#frame)"/>
-              <path d="M352 199 Q412 186 475 205 L464 255 Q461 274 442 274 L370 265 Q351 263 351 245 Z" fill="url(#lens)"/>
-              <path d="M277 196 Q305 180 339 207" fill="none" stroke="#242b2f" stroke-width="15"/>
-              <path d="M145 195 215 260 M161 190 237 263 M369 205 436 269" stroke="#b8cbd8" stroke-opacity=".16" stroke-width="9"/>
-              <path d="m113 185-12-2 M489 207l13 3" stroke="#777f80" stroke-width="4" stroke-linecap="round"/>
-              <rect x="286" y="172" width="44" height="44" rx="11" fill="#5a646a" stroke="#8e989d" stroke-width="2"/>
-              <circle cx="308" cy="194" r="14" fill="#172430"/>
-              <circle cx="308" cy="194" r="8" fill="#2757b8"/>
-              <circle cx="305" cy="191" r="3" fill="#abc5fb"/>
-              <circle cx="322" cy="180" r="2" fill="#c9e5bc"/>
-            </g>
-            <path d="M310 166V95H404" fill="none" stroke="#6b7869" stroke-width="1.3"/>
-            <circle cx="310" cy="166" r="3" fill="#6b7869"/>
-            <text x="413" y="99" fill="#52614f" font-family="Arial, sans-serif" font-size="12">A camera, right here.</text>
-            <g transform="translate(54 353)">
-              <rect width="335" height="79" rx="16" fill="#fffefa" stroke="#d9ddd2"/>
-              <circle cx="39" cy="39" r="22" fill="#e8edff"/>
-              <path d="M29 32h15v18H29z M44 34h4q7 7-1 11h-3" fill="none" stroke="#3558ae" stroke-width="2" stroke-linejoin="round"/>
-              <text x="77" y="29" fill="#778170" font-family="Arial, sans-serif" font-size="10" letter-spacing="1.4">AN EXAMPLE RESPONSE</text>
-              <text x="77" y="54" fill="#253329" font-family="Georgia, serif" font-size="24">“A blue mug.”</text>
-              <path d="M271 34v11m6-17v23m6-30v36m6-29v22m6-16v10" stroke="#45614b" stroke-width="3" stroke-linecap="round"/>
-            </g>
-          </svg>
-          <figcaption>A camera to look. A laptop to understand. A speaker to tell you.</figcaption>
-        </figure>
-      </section>
+  <main id="main">
+    <h1 class="headline">Empyrean</h1>
+    <canvas id="glasses" role="img" aria-label="A 3D model of the Empyrean glasses: dark sunglasses with a small camera on the bridge."></canvas>
+    <p class="line">Touch it. <span>Hear it.</span></p>
 
-      <section class="how-strip" aria-label="From a gesture to an answer">
-        <div class="strip-intro"><span class="eyebrow">Made for everyday moments</span><h2>Point. Ask. Hear.</h2></div>
-        <div class="step"><span class="step-number">01</span><div><h3>Point to an object</h3><p>The camera follows your hand and the objects in view.</p></div></div>
-        <div class="step"><span class="step-number">02</span><div><h3>Ask about your world</h3><p>“What’s in front of me?” or “Where did I last touch my keys?”</p></div></div>
-        <div class="step"><span class="step-number">03</span><div><h3>Hear an answer</h3><p>A small speaker says the name or answers your question.</p></div></div>
-      </section>
-    </main>
+    <div class="cta-wrap">
+      <a class="cta" id="cta" href="/dashboard"><span class="cta-glow" aria-hidden="true"></span><span class="cta-label">Open Empyrean</span><span class="cta-arrow" aria-hidden="true">→</span></a>
+    </div>
+  </main>
 
-    <footer class="landing-footer"><span>Built by Push2Prod · 2026</span><p>A research prototype. Recognition and warnings can be missed or wrong. Use alongside your usual mobility aids.</p></footer>
-  </div>
+  <footer class="fine">A research prototype. Not a mobility aid.</footer>
+
+  <div class="warp" aria-hidden="true"><div class="warp-grid"></div><div class="warp-scan"></div><div class="warp-core"></div></div>
+
+  <script type="module" src="/static/landing/landing.js"></script>
 </body>
 </html>
