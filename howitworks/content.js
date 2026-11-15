@@ -66,16 +66,56 @@ export const HOTSPOTS = deepFreeze([
   },
 ]);
 
-/** Pipeline nodes: five on the main line, three branches. */
+/** Pipeline modules, each with the role it plays and what it is built with. */
 export const NODES = deepFreeze([
-  { id: "camera", label: "Camera" },
-  { id: "vision", label: "Vision" },
-  { id: "scene", label: "Scene" },
-  { id: "namer", label: "Grok namer" },
-  { id: "audio", label: "Audio" },
-  { id: "hazard", label: "Hazard" },
-  { id: "storage", label: "Tiger Data" },
-  { id: "dashboard", label: "Dashboard" },
+  {
+    id: "camera",
+    label: "Camera",
+    role: "The eyes. A webcam on the glasses streams what is in front of the wearer.",
+    tech: "Logitech USB webcam, OpenCV",
+  },
+  {
+    id: "vision",
+    label: "Vision",
+    role: "Finds objects and fingertips in 5 frames every second and follows them from frame to frame.",
+    tech: "YOLO11s, ByteTrack, MediaPipe Hands",
+  },
+  {
+    id: "scene",
+    label: "Scene",
+    role: "The memory. Keeps track of every object in view and decides when a finger is pointing at one.",
+    tech: "In-memory state and a small state machine",
+  },
+  {
+    id: "namer",
+    label: "Grok namer",
+    role: "Gives each object a specific name, such as a brand, and answers spoken questions about the scene.",
+    tech: "Grok vision over the Grok API",
+  },
+  {
+    id: "audio",
+    label: "Audio",
+    role: "The voice. Speaks names and answers; the alarm always plays ahead of speech.",
+    tech: "Offline text to speech, pygame alarm tone",
+  },
+  {
+    id: "hazard",
+    label: "Hazard",
+    role: "Watches the feed for things worth a warning, on a path nothing else can delay.",
+    tech: "YOLO classes plus a Grok vision check",
+  },
+  {
+    id: "storage",
+    label: "Tiger Data",
+    role: "The history. Logs every touch and warning so the wearer can ask where something was last touched.",
+    tech: "Tiger Data (Postgres time series)",
+  },
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    role: "Shows a helper the live feed, the objects in view and what is being touched.",
+    tech: "FastAPI, MJPEG video, one WebSocket",
+  },
 ]);
 
 /** One touch, from camera to speaker. */

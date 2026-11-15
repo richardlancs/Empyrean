@@ -181,6 +181,9 @@ export async function createStage(host, { reducedMotion = false, onFallback = ()
 
   return {
     THREE,
+    gsap,
+    reducedMotion,
+    targets: rig.userData.targets,
     scene,
     camera,
     canvas: renderer.domElement,

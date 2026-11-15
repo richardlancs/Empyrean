@@ -43,3 +43,10 @@ test("content is frozen", () => {
   assert.ok(Object.isFrozen(HOTSPOTS) && Object.isFrozen(HOTSPOTS[0]));
   assert.ok(Object.isFrozen(TOUCH_STEPS) && Object.isFrozen(TOUCH_STEPS[0]));
 });
+
+test("every module says what role it plays and what it is built with", () => {
+  for (const node of NODES) {
+    assert.ok(node.role.trim().length > 20, node.id);
+    assert.ok(node.tech.trim().length > 0, node.id);
+  }
+});

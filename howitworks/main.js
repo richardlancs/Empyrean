@@ -27,7 +27,7 @@ async function startStage() {
 function wireHaptics() {
   if (reducedMotion || typeof navigator.vibrate !== "function") return;
   document.addEventListener("click", (event) => {
-    if (event.target.closest?.(".ui-button, .hotspot, .web-node")) navigator.vibrate(8);
+    if (event.target.closest?.(".ui-button, .web-node, .how-sidebar__item, canvas")) navigator.vibrate(8);
   });
 }
 
@@ -57,7 +57,7 @@ async function start() {
       byId("hotspot-list").hidden = true;
       byId("stage-hint").hidden = false;
     } catch (error) {
-      console.warn("How it works: markers unavailable, keeping the plain list.", error);
+      console.warn("How it works: part details unavailable, keeping the plain list.", error);
     }
   }
 }

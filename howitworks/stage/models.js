@@ -53,10 +53,15 @@ function extras(THREE, palette) {
   cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), forward.clone().negate());
   group.add(cone);
 
+  cone.name = "view-cone";
+
+  // The pointing example is one part: fingertip, ray, object and table.
+  const pointing = new THREE.Group();
+  pointing.name = "pointing";
   const tip = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), new THREE.MeshStandardMaterial({ color: palette.accent }));
   tip.position.set(...FINGERTIP);
-  group.add(tip);
-  group.add(line(THREE, [FINGERTIP, BOTTLE], palette.accent, true));
+  pointing.add(tip);
+  pointing.add(line(THREE, [FINGERTIP, BOTTLE], palette.accent, true));
 
   const bottle = new THREE.Group();
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.24, 24), new THREE.MeshStandardMaterial({ color: palette.danger, roughness: 0.4 }));
@@ -64,10 +69,15 @@ function extras(THREE, palette) {
   neck.position.y = 0.17;
   bottle.add(body, neck);
   bottle.position.set(BOTTLE[0], BOTTLE[1] - 0.02, BOTTLE[2]);
-  group.add(bottle);
+  pointing.add(bottle);
   const table = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.02, 40), new THREE.MeshStandardMaterial({ color: palette.sunken, roughness: 0.9 }));
   table.position.set(BOTTLE[0], BOTTLE[1] - 0.15, BOTTLE[2]);
-  group.add(table);
+  pointing.add(table);
+  // Re-centre the group on its contents so it grows in place when hovered.
+  const centre = new THREE.Box3().setFromObject(pointing).getCenter(new THREE.Vector3());
+  for (const child of pointing.children) child.position.sub(centre);
+  pointing.position.copy(centre);
+  group.add(pointing);
   return group;
 }
 
@@ -137,6 +147,15 @@ export async function loadRig(THREE, { baseUrl, onFallback = () => {} }) {
     part.position.set(...position);
     rig.add(part);
   }));
-  rig.add(extras(THREE, palette));
+  const drawn = extras(THREE, palette);
+  rig.add(drawn);
+  // Which 3D object stands for each explanation on the page.
+  rig.userData.targets = {
+    camera: rig.getObjectByName("glasses"),
+    laptop: rig.getObjectByName("backpack"),
+    speaker: rig.getObjectByName("speaker"),
+    pointing: drawn.getObjectByName("pointing"),
+    hazard: drawn.getObjectByName("view-cone"),
+  };
   return rig;
 }

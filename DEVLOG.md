@@ -88,6 +88,13 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-15, How It Works page (hover parts, pipeline sidebar), Claude Code
+**Changed:** At Richard's request, after merging latest `main` (which already contains PR #35 and Person 2's pipeline fixes). The 3D kit no longer has marker buttons: pointing at a part makes that part grow, shows its name over it and its description in the side panel; clicking pins it and flies the camera in. Visually hidden buttons give keyboard and screen-reader users the same five parts. In the pipeline, the step counter moved to the right-hand end of the controls, and a new sidebar lists every module with a short description of the role it plays; pointing at a row lights that module in the web and the reverse, and clicking a row jumps to its step. Only `howitworks/` and its tests changed.
+
+**Tested:** `pytest`: 590 passed, 1 skipped; `node --test tests/howitworks_js/` 16 passed. Chromium checks on the development server: hovering camera, speaker and pointing each grows only that part and shows its label and description; click pins and flies in; Esc returns home; keyboard focus and Enter do the same; sidebar hover, click and web hover stay in step. Found and fixed during testing: an accordion version of the sidebar moved rows under the pointer and flickered, so descriptions now show in one fixed card.
+
+**Teammates need to know:** With the stand-in shapes, the speaker sits in front of the backpack from the starting view, so pointing at that spot picks the speaker; orbit to reach the laptop. Not tested on a touch screen.
+
 ### 2026-11-14, Person 2 (How It Works review fixes), Codex
 **Changed:** Fixed PR #35's two accessibility findings at the user's explicit request. The graph now allows horizontal/vertical touch scrolling and pinch zoom outside draggable nodes. Nodes activate on click (including assistive technology), with drag/cancel suppression and no duplicate pointer activation.
 **Tested:** Python 3.11 `pytest -q`: 405 passed, 2 skipped. Headless Edge checks passed for semantic click, one activation per mouse click, Enter/Space, drag suppression, activation after a drag, horizontal touch scrolling at 360 px, and touch node dragging. `python -m app --fake vision` started all modules; `/`, `/api/state`, `/how-it-works/` and its diagram script returned HTTP 200. External Grok/database services were unavailable without local credentials. `git diff --check` passed.
