@@ -18,6 +18,11 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 ## Needs attention
 
+- **Person 3 capture review follow-up (Person 2, Codex, 2026-11-14):** User authorized local fixes and handoff to combined training. Imported PR #25 unchanged photos; corrected phone_2, phone_9 and phone_20 boxes in training_data/person3/train/refs.json. Provenance and preserved 50/10 same-session split are in results/annotation-corrections-p2.json. Original candidate scores are historical and need rerunning with corrected labels. Independent eval capture and live sign-off still require Person 3.
+
+- **Person 4 capture review (Person 2, Codex, 2026-11-14):** PR #23 is data only, not a trained-model update. Evaluation photos include an unlabelled transparent water bottle at the rear left; recapture without other demo items before using the single-target evaluator. Tighten loose toothbrush annotations (for example train/toothbrush_11.jpg and eval/toothbrush_2.jpg) around the visible item, excluding hand/background where possible, before training and evaluation. Person 4 owns these corrections.
+
+
 - **TEAM PRIORITY — demo recognition remains failing (all four, 2026-11-14):** read `demotraining.md`. Person 1 owns watch/water bottle; Person 2 charger/toothpaste; Person 3 keys/phone; Person 4 headphones/toothbrush. Each person must collect separate training/evaluation sessions and train a full eight-class candidate using the frozen bootstrap plus their additions. Current live result: toothpaste works, watch is often classified charger, actual charger is sometimes absent. Headphones/keys also remain inconsistent. The model is experimental, not demo-ready.
 
 
@@ -83,6 +88,48 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14 19:10, Person 2 (repository cleanup), Codex
+**Changed:** Preserved the existing Person 1 watch-crop corrections, reproduction scripts and evaluation records, and Person 3 corrected captures/provenance as an archival commit. These experimental data changes are intentionally kept out of the working main product. Preserved prior local review notes. A verified Git bundle plus ZIP copies of all 135 dirty files across both worktrees are outside the repository at `../repository-backups/hackumass-20261114-190224/`.
+**Tested:** Current feature checkout pytest: 212 passed, 1 skipped. Latest main (94abe6e): 363 passed, 1 skipped, one existing failure in `test_a_superseded_load_is_cached_not_installed_and_reused_later`. All 140 affected capture images decode with valid boxes; all 40 crop-manifest hashes match. Pending files passed a credential/large-asset screening and git diff --check. Running dashboard /api/state returns HTTP 200.
+**Decisions:** Cleanup requested repository-wide by Person 2. Keep runtime code, model assets, environment settings and shared contracts unchanged. Archive five unmerged branch tips before retiring them; twenty other remote branches are ancestors of main. All associated PRs are closed or merged; no open PRs or issues exist. Keep the live worktree because it is serving the app. Do not merge experimental captures or change main while its existing test failure remains unresolved.
+**Teammates need to know:** Historical branches and local capture work remain recoverable under `archive/cleanup-2026-11-14/` tags. Main stays at 94abe6e. Person 1 should investigate the demo cache test, which depends on locally installed checkpoint assets. The cleanup does not establish hardware or model accuracy.
+
+
+### 2026-11-14, Person 2 (authorized Person 3 annotation fixes), Codex
+**Changed:** User explicitly authorized correcting Person 3 data and sending it to the running combined-training chat. Imported 60 original JPEGs/source reports, corrected phone_2/phone_9/phone_20 boxes, and recorded old/new coordinates, source revision, hashes and limitations. Prepared scratch/p3-corrected-pr25/train (50) and validation (10). Sent the concrete data paths and integration request to the active chat "Review the two demo items"; delivery succeeded. No runtime code or model changed.
+**Tested:** Visually verified three corrected full-frame overlays. Validated all 60 images/coordinates and unchanged image hashes, with disjoint preserved 50/10 split. Existing extend_dataset accepts corrected data plus bootstrap: 121 train/20 validation, eight canonical classes. Relevant pytest: 20 passed. Full pytest earlier in this review was blocked by the known Postgres DLL Application Control issue.
+**Decisions:** Preserve prior validation membership. Original metrics are historical because phone_9 validation annotation changed. Independent evaluation capture remains pending. Training chat owns scheduling and comparison; asked it to use a new dataset/run and include this in the next combined pass if its current run has started.
+**Teammates need to know:** Data corrections are local, not pushed/merged. Provenance: training_data/person3/results/annotation-corrections-p2.json. No candidate weights supplied or installed. The user explicitly authorized cross-owner corrections for this follow-up.
+
+### 2026-11-14, Person 2 (review of Person 3 capture PR), Codex
+**Changed:** Reviewed PR #25 head `afeef8f2ecd124cb8e173b8a6823b31d0f2294dc` using the agent-reach GitHub CLI workflow. Added annotation findings under Needs attention. No Person 3 data, runtime code, models or shared contracts changed. Review archive and annotated sheets are in the system temporary directory; existing working changes preserved.
+**Tested:** All 60 JPEGs decode at 640 x 360, contain valid in-bounds boxes and unique file content, and have no exact matches in bootstrap. Inspected all annotated contact sheets and full-size annotation examples. Reconstructed the documented 50/10 split with existing extend_dataset: 121 training / 20 validation images and canonical eight-class map. Recomputed both saved reports' IoUs, match flags and false-box totals against current refs; reported keys 4/5 and phone 5/5 agree. Relevant current-checkout vision/dataset tests: 20 passed. Full pytest attempted but collection fails in test_register.py and test_storage.py because Windows Application Control blocks the installed psycopg binary DLL. No security settings changed.
+**Decisions:** Request phone box corrections before training/integration. Published candidate metrics are validation results from related sessions used for checkpoint selection, not independent accuracy. No candidate weights were supplied in the PR, so inference, latency and all-class mAP claims were not rerun; no live camera sign-off performed.
+**Teammates need to know:** Person 3 should fix phone boxes and capture a separate eval session including distant tabletop keys. Candidate reports disclose charger/watch regressions; compare all eight classes before selecting or installing a final model. No PR comment, approval or merge posted.
+
+### 2026-11-14, Person 1 (corrected candidate training), Codex
+**Changed:** User explicitly requested training after the local crop correction. Installed official Python 3.11.9 and a fresh project venv with the team installer, without changing Windows security policies. Trained eight-class YOLO11s on the corrected 131-train/30-val dataset for 45 epochs on CPU, 1247.58 seconds. Candidate remains in ignored `scratch/p1-runs/candidate-cropped/weights/best.pt`. Added reproduction script, full metadata, pinned resolved environment, CSV history, hashes and separate comparison reports under `training_data/person1/results/candidate-cropped/`. Bootstrap evaluator now accepts checkpoint/output arguments and pins inference threads consistently.
+
+**Tested:** At confidence 0.25 / correct class IoU >= 0.5: cropped watch 10/10; original full-frame watch 3/10; bottle 10/10. Published baseline: watch 0/10 in both views, bottle 4/10. Frozen bootstrap target matches 9/13 to 11/13, unmatched boxes 3 to 3, no per-class count drops. All eight checkpoint classes verified. Dataset checks and Ruff pass. Available test run: 179 passed, two storage-import failures due to the Application Control-blocked Postgres DLL; full-suite collection is blocked in two storage-dependent modules by that same DLL.
+
+**Teammates need to know:** Crop selection results are biased and change apparent object scale. Full-frame watch accuracy is below the historical candidate-v1 report (10/10), whose weights were unavailable for a same-environment rerun. This checkpoint is not installed in the app; full-frame watch training data and live sign-off still need work. Original-image extra detections are not counted as reliable false positives because background bottles were unlabelled. Model handoff archive is local/ignored at `scratch/p1-candidate-cropped.zip`.
+
+
+### 2026-11-14, Person 2 (review of Person 4 capture merge), Codex
+**Changed:** Reviewed GitHub PR #23, merge a39a8d796620fff833228c85b0a1f953ec72f1a0, without changing Person 4 data or runtime code. Recorded annotation findings under Needs attention. Extracted review copies/contact sheets and a candidate dataset to the system temporary directory; existing local work remains intact.
+**Tested:** All 104 images decode, labels and boxes are valid, counts match 46/36 training and 12/10 evaluation, and no byte-identical train/eval images overlap. Visual inspection of all annotated contact sheets plus full-size examples. Existing extend_dataset successfully combines the frozen bootstrap with Person 4 into 153 training and 32 validation images. Vision/dataset tests: 20 passed. Full pytest attempted but collection failed in test_register.py and test_storage.py because Windows Application Control blocks the installed psycopg binary DLL; no security settings changed. Tests ran against the current local code; PR #23 changes only data and DEVLOG.
+**Decisions:** No model-quality claim: PR explicitly contains no candidate training run, checkpoint or inference evaluation. No live camera/model accuracy test performed.
+**Teammates need to know:** Person 4 should fix annotations and recapture evaluation photos without the background water bottle before their eight-class candidate run. The single-target evaluator counts extra detections as false positives, including correct detections of unlabelled objects. Person 1 remains the final integration owner.
+
+
+### 2026-11-14, Person 1 (local watch crop correction), Codex
+**Changed:** At the user's request, cropped all 30 training and 10 evaluation watch images to their existing box plus 16 pixels of context, without resizing; translated pixel annotations. Bottle photos are unchanged. Preserved original sessions and capture-validation report in ignored `scratch/person1-original-before-watch-crops/`. Added a reproducible one-time crop script and per-image provenance manifest. Refreshed hashes/capture metadata and marked original model results historical.
+
+**Tested:** Reviewed all 40 annotated watch crops; verified complete original labelled boxes, exact coordinate translation, readable images, matching hashes, unchanged bottle images and no exact train/eval duplicates. Built `scratch/p1-dataset-cropped` with 131 train/30 validation images and all eight classes. Dataset checks: six passed.
+
+**Teammates need to know:** This is a local dataset correction only. No weights were trained or installed. Existing candidate scores use the original images. Retraining and corrected-data evaluation are pending; padded crops change apparent scale and do not replace full-frame live validation.
+
 
 ### 2026-11-14, Person 1 (watch/bottle candidate training and comparison), Codex
 **Changed:** Per user request and demotraining.md, trained an eight-class candidate on frozen bootstrap plus Person 1's 60 training photos, using 20 separately captured Person 1 evaluation photos alongside bootstrap validation for checkpoint selection. Used fresh pinned Python 3.11.9 environment via the team installer, YOLO11s pretrained initialization, Apple M5 MPS, 45 epochs, 205.289 s training time. Candidate stays separate at `scratch/p1-runs/candidate-v1/weights/best.pt`. Added all 80 images, refs/capture metadata, JSON reports, training CSV, full arguments/checksums and a reproduction/limitations README under Person 1 data. Downloaded published experimental baseline for comparison. Created ignored `scratch/p1-candidate-v1.zip` for weight handoff.
@@ -1084,6 +1131,7 @@ Fill this in as you go. It becomes the SpaceXSI section of the Devpost write-up.
 **Teammates need to know:** This is an explicit user-directed runtime behavior change from SPEC 4.5/4.8; shared spec/contracts/config remain unchanged. Keep storage touch logging and scene tracking as-is, since only unsolicited speech was disabled. Browser recognition may still fail if its service is unavailable; the actual error remains visible.
 
 **Restart follow-up:** Restart exposed an existing dashboard port probe rejecting TCP TIME_WAIT sockets despite no listener on port 8000. Probe now uses SO_REUSEADDR to match Uvicorn; existing busy-port and start/stop tests still pass (9 dashboard tests). Restarted again with dashboard serving successfully.
+
 
 ### 2026-11-14, Person 2 (automatic touch plus independent voice questions), Codex
 **Authorization:** User identified as Person 2 and confirmed all four teammates agreed to this cross-folder and shared-contract/spec update.

@@ -1,0 +1,967 @@
+{
+  "operation": "watch crops with 16 pixels of context; no resizing",
+  "purpose": "Remove unlabelled neighbouring demo objects",
+  "evaluation_status": "Original candidate scores predate these crops; retrain and reevaluate",
+  "images": [
+    {
+      "split": "train",
+      "file": "watch_1.jpg",
+      "crop_xyxy": [
+        230,
+        140,
+        369,
+        233
+      ],
+      "original_box": [
+        246.5,
+        156.5,
+        352.5,
+        216.5
+      ],
+      "box": [
+        16.5,
+        16.5,
+        122.5,
+        76.5
+      ],
+      "original_sha256": "a09309f963e52f4011f4af168b0a44389e7f00588b03fd49976051857a7d2b24",
+      "sha256": "d3a67c602d17bb1421d8bea8094ca0d70923f020fffde8f431ebab784cc8961d"
+    },
+    {
+      "split": "train",
+      "file": "watch_2.jpg",
+      "crop_xyxy": [
+        245,
+        182,
+        348,
+        269
+      ],
+      "original_box": [
+        261.5,
+        198.0,
+        332.0,
+        253.0
+      ],
+      "box": [
+        16.5,
+        16.0,
+        87.0,
+        71.0
+      ],
+      "original_sha256": "1b189c47decf8f70af090c38ce8c74bab286bc692181fe20f31520057f4e4ac6",
+      "sha256": "66d09bf9f0088e7161a21b35f345589476194a8c07b6dfdc83e4930eada4e947"
+    },
+    {
+      "split": "train",
+      "file": "watch_3.jpg",
+      "crop_xyxy": [
+        275,
+        174,
+        390,
+        258
+      ],
+      "original_box": [
+        291.0,
+        190.5,
+        373.5,
+        241.5
+      ],
+      "box": [
+        16.0,
+        16.5,
+        98.5,
+        67.5
+      ],
+      "original_sha256": "849f6c275497439fee1c8921c6efb5c95814d81092d2f9cca14c4d253ef0a5b1",
+      "sha256": "21ea0f75cad14c8a971481e21fb37a2aceee69a570735d10c5e5b9c8fa6c7596"
+    },
+    {
+      "split": "train",
+      "file": "watch_4.jpg",
+      "crop_xyxy": [
+        328,
+        152,
+        474,
+        283
+      ],
+      "original_box": [
+        344.0,
+        168.0,
+        457.5,
+        266.5
+      ],
+      "box": [
+        16.0,
+        16.0,
+        129.5,
+        114.5
+      ],
+      "original_sha256": "3265ed27440c27e6ec3117e7751c14d191747a0d60739552c2869705e999e732",
+      "sha256": "d240860ddf12bb13fabb0d2c84b667ead133373ba93bfb09e125fa687aaabe9c"
+    },
+    {
+      "split": "train",
+      "file": "watch_5.jpg",
+      "crop_xyxy": [
+        446,
+        167,
+        638,
+        274
+      ],
+      "original_box": [
+        462.5,
+        183.5,
+        622.0,
+        258.0
+      ],
+      "box": [
+        16.5,
+        16.5,
+        176.0,
+        91.0
+      ],
+      "original_sha256": "f4b0be94a1b117db3b708a0a884506817dcc62dae79a5685c02ed957770b3f45",
+      "sha256": "68964b4fea9ac912515fced41bd98c562ce2f9e92fe032a1c10f978b00d50ead"
+    },
+    {
+      "split": "train",
+      "file": "watch_6.jpg",
+      "crop_xyxy": [
+        419,
+        176,
+        590,
+        305
+      ],
+      "original_box": [
+        435.0,
+        192.5,
+        573.5,
+        289.0
+      ],
+      "box": [
+        16.0,
+        16.5,
+        154.5,
+        113.0
+      ],
+      "original_sha256": "35766a0241a55d827b9fe3ccce54cf64a6a8d832bbbfcdefc2f143471057a620",
+      "sha256": "f6355b8ec973d45a5347bd40bd58a96185a1b8866b2cd074f04ea46893ac5dc0"
+    },
+    {
+      "split": "train",
+      "file": "watch_7.jpg",
+      "crop_xyxy": [
+        333,
+        226,
+        482,
+        319
+      ],
+      "original_box": [
+        349.5,
+        242.5,
+        466.0,
+        302.5
+      ],
+      "box": [
+        16.5,
+        16.5,
+        133.0,
+        76.5
+      ],
+      "original_sha256": "c68762e1204d524771bce3a2cc30017f3c4d0e7fcbdf5a05eefd186a574af04d",
+      "sha256": "54db161e8d5364d6cb73135eb7f74a28561a04ef25b63477faa2ecd6bd94d753"
+    },
+    {
+      "split": "train",
+      "file": "watch_8.jpg",
+      "crop_xyxy": [
+        289,
+        122,
+        423,
+        243
+      ],
+      "original_box": [
+        305.5,
+        138.0,
+        407.0,
+        227.0
+      ],
+      "box": [
+        16.5,
+        16.0,
+        118.0,
+        105.0
+      ],
+      "original_sha256": "0a56add758cb85d09cc6e40953a136e39ced3e5e7dbc3594014c269fb1f04517",
+      "sha256": "61b2bea95efae30414216fe429dc056c50cf72b557ecdd8eb3419270aa9da191"
+    },
+    {
+      "split": "train",
+      "file": "watch_9.jpg",
+      "crop_xyxy": [
+        318,
+        116,
+        453,
+        229
+      ],
+      "original_box": [
+        334.0,
+        132.5,
+        436.5,
+        212.5
+      ],
+      "box": [
+        16.0,
+        16.5,
+        118.5,
+        96.5
+      ],
+      "original_sha256": "0dccbba85eca7faba53ce1a6453c238727127c27852e14a8be50b28f1a3b9511",
+      "sha256": "46d3405c1b6864b00bdd920c3e3ab81dfc1c985ff9757a82108f36a748f20958"
+    },
+    {
+      "split": "train",
+      "file": "watch_10.jpg",
+      "crop_xyxy": [
+        372,
+        185,
+        488,
+        300
+      ],
+      "original_box": [
+        388.5,
+        201.5,
+        472.0,
+        284.0
+      ],
+      "box": [
+        16.5,
+        16.5,
+        100.0,
+        99.0
+      ],
+      "original_sha256": "d3beeb6afd0bf8408ba66db802e4c27a5bb87bc0a82765c36aa64f76821eae4f",
+      "sha256": "98c9bc925978da9694785b84b8fa297e304f81456f8e06adeff8b15fd2ecd2dd"
+    },
+    {
+      "split": "train",
+      "file": "watch_11.jpg",
+      "crop_xyxy": [
+        361,
+        169,
+        476,
+        281
+      ],
+      "original_box": [
+        377.5,
+        185.5,
+        459.5,
+        264.5
+      ],
+      "box": [
+        16.5,
+        16.5,
+        98.5,
+        95.5
+      ],
+      "original_sha256": "7a8b814ae382af130e58628b08c7ce9ce79b147987952934f55717fe9e5e6097",
+      "sha256": "d73d4a72b44418cc974069b2a2ab45c083e9cac60d115ed3354b4fc759ea15a9"
+    },
+    {
+      "split": "train",
+      "file": "watch_12.jpg",
+      "crop_xyxy": [
+        322,
+        223,
+        443,
+        292
+      ],
+      "original_box": [
+        338.5,
+        239.0,
+        426.5,
+        275.5
+      ],
+      "box": [
+        16.5,
+        16.0,
+        104.5,
+        52.5
+      ],
+      "original_sha256": "8d38d7170d435784d8112a528f9007e31cea44a437f2b250ed65f667d4026ca7",
+      "sha256": "c41af4ce24cc2513e479d9c8d5474727732ea2a78c10cb2e00232679dcf9caa6"
+    },
+    {
+      "split": "train",
+      "file": "watch_13.jpg",
+      "crop_xyxy": [
+        282,
+        138,
+        422,
+        218
+      ],
+      "original_box": [
+        298.5,
+        154.5,
+        406.0,
+        201.5
+      ],
+      "box": [
+        16.5,
+        16.5,
+        124.0,
+        63.5
+      ],
+      "original_sha256": "a1740564d0fbef18733509c156cb6795629fc51f443d51c6210e2ece96c03bdd",
+      "sha256": "64c9336ecbd426056a2e032ab62e28e372ae28002e767e9776e72213c899e171"
+    },
+    {
+      "split": "train",
+      "file": "watch_14.jpg",
+      "crop_xyxy": [
+        357,
+        171,
+        475,
+        259
+      ],
+      "original_box": [
+        373.5,
+        187.5,
+        459.0,
+        242.5
+      ],
+      "box": [
+        16.5,
+        16.5,
+        102.0,
+        71.5
+      ],
+      "original_sha256": "c81fdad298d655fedad11c0f6a78e6b75e97636b7b82ebf95dcc5b476efb6ca4",
+      "sha256": "250b78de58bd3d9ed1d42b55155f5a21ae7b84343b029c6b0216438a6d1efdc4"
+    },
+    {
+      "split": "train",
+      "file": "watch_15.jpg",
+      "crop_xyxy": [
+        317,
+        173,
+        431,
+        277
+      ],
+      "original_box": [
+        333.5,
+        189.5,
+        415.0,
+        260.5
+      ],
+      "box": [
+        16.5,
+        16.5,
+        98.0,
+        87.5
+      ],
+      "original_sha256": "8d57482d34e93eac4aa50e2a9d449e764fe5dc1d40339f6cb16d6e7bda38def0",
+      "sha256": "ee4dd25cf9dc48704819e2e1e6fbbc702b034975529d468a31f3305cfb864954"
+    },
+    {
+      "split": "train",
+      "file": "watch_16.jpg",
+      "crop_xyxy": [
+        289,
+        175,
+        391,
+        286
+      ],
+      "original_box": [
+        305.5,
+        191.0,
+        375.0,
+        270.0
+      ],
+      "box": [
+        16.5,
+        16.0,
+        86.0,
+        95.0
+      ],
+      "original_sha256": "6bf6605555a362e7d5731a32ab30a345ad35132acd7076fe8f5a6a3ce2628bb3",
+      "sha256": "c699647634e09735d02d55fb2aaa4e4980c4883905f87452303f9453dc751dfc"
+    },
+    {
+      "split": "train",
+      "file": "watch_17.jpg",
+      "crop_xyxy": [
+        319,
+        185,
+        426,
+        271
+      ],
+      "original_box": [
+        335.5,
+        201.0,
+        410.0,
+        255.0
+      ],
+      "box": [
+        16.5,
+        16.0,
+        91.0,
+        70.0
+      ],
+      "original_sha256": "9cf80b8769f301a8d0514205a708228e660d46c0767814c74dbaaa48f0044a7e",
+      "sha256": "8a8804201dd78af647a548db677e29ba68e3194df50b7d67bfb3742d61813744"
+    },
+    {
+      "split": "train",
+      "file": "watch_18.jpg",
+      "crop_xyxy": [
+        329,
+        223,
+        431,
+        310
+      ],
+      "original_box": [
+        345.0,
+        239.0,
+        415.0,
+        294.0
+      ],
+      "box": [
+        16.0,
+        16.0,
+        86.0,
+        71.0
+      ],
+      "original_sha256": "621464da7a7ded6cc6e76fbe4d342137c5ad0ad3fd0f9e162020b2d9a8ff4e0e",
+      "sha256": "937f5dddf619f8674dcbf85c23639ee4ee63db06d07b021ce67e7eda9fef67d4"
+    },
+    {
+      "split": "train",
+      "file": "watch_19.jpg",
+      "crop_xyxy": [
+        303,
+        76,
+        407,
+        235
+      ],
+      "original_box": [
+        319.0,
+        92.0,
+        391.0,
+        219.0
+      ],
+      "box": [
+        16.0,
+        16.0,
+        88.0,
+        143.0
+      ],
+      "original_sha256": "69c5f4b3ed12180cc6ac875be40ff1473b0783f50cbdfe0067f5942c6d45bf93",
+      "sha256": "31ef83dca6ef296a57beb07ddbe45c64a785a1a34cc47c4882f47362ce0d8439"
+    },
+    {
+      "split": "train",
+      "file": "watch_20.jpg",
+      "crop_xyxy": [
+        343,
+        125,
+        437,
+        201
+      ],
+      "original_box": [
+        359.0,
+        141.0,
+        420.5,
+        185.0
+      ],
+      "box": [
+        16.0,
+        16.0,
+        77.5,
+        60.0
+      ],
+      "original_sha256": "e484ad749b894f1f533d8b7d6af1fc9d2bcbe99679f7064c01927b8dc06fec90",
+      "sha256": "a98d56059bac76796362d4a8618cc1327cf3a9b7530262f45cb28c6902432a09"
+    },
+    {
+      "split": "train",
+      "file": "watch_21.jpg",
+      "crop_xyxy": [
+        383,
+        130,
+        475,
+        207
+      ],
+      "original_box": [
+        399.5,
+        146.5,
+        459.0,
+        191.0
+      ],
+      "box": [
+        16.5,
+        16.5,
+        76.0,
+        61.0
+      ],
+      "original_sha256": "8f88bff76b04110d992cb28ffd42ea70197d42255bcd6632e9545f3feacc32d9",
+      "sha256": "db226266e2641414ca674813937af16803811655845d2dd9c0024e84bde2c98a"
+    },
+    {
+      "split": "train",
+      "file": "watch_22.jpg",
+      "crop_xyxy": [
+        373,
+        157,
+        467,
+        231
+      ],
+      "original_box": [
+        389.0,
+        173.5,
+        451.0,
+        214.5
+      ],
+      "box": [
+        16.0,
+        16.5,
+        78.0,
+        57.5
+      ],
+      "original_sha256": "56acde8c2920fa52a48029f5f5f16c5ee16238218ae807f493a2aaf8448f80af",
+      "sha256": "e6904c2f3080c4476e8998731094f0e508d81278833da130b03b81e3485ad917"
+    },
+    {
+      "split": "train",
+      "file": "watch_23.jpg",
+      "crop_xyxy": [
+        318,
+        171,
+        417,
+        262
+      ],
+      "original_box": [
+        334.5,
+        187.5,
+        401.0,
+        246.0
+      ],
+      "box": [
+        16.5,
+        16.5,
+        83.0,
+        75.0
+      ],
+      "original_sha256": "96cd042d60452ea445445043df78bd76d90e13b653d58b3e94a338d06e50339d",
+      "sha256": "ecd1cf3787a65cb2e73532b98d510521d7ad58752d5d75df6e03583c0cd7e182"
+    },
+    {
+      "split": "train",
+      "file": "watch_24.jpg",
+      "crop_xyxy": [
+        470,
+        221,
+        549,
+        288
+      ],
+      "original_box": [
+        486.0,
+        237.5,
+        532.5,
+        271.5
+      ],
+      "box": [
+        16.0,
+        16.5,
+        62.5,
+        50.5
+      ],
+      "original_sha256": "1f66039c38d128288f5123a34c812cac9b8c9c2bcc94860e50870d524c4953cb",
+      "sha256": "b2dc97ed66107d493e5ada6827ffdfa7410118a5ec1978506b215027a404bac5"
+    },
+    {
+      "split": "train",
+      "file": "watch_25.jpg",
+      "crop_xyxy": [
+        371,
+        149,
+        462,
+        242
+      ],
+      "original_box": [
+        387.0,
+        165.5,
+        446.0,
+        225.5
+      ],
+      "box": [
+        16.0,
+        16.5,
+        75.0,
+        76.5
+      ],
+      "original_sha256": "f7e8444621917296c5f594402055f634f37ea03a24afe9ce0424086d79610ad5",
+      "sha256": "4099677cd3f2c5648d5539606031e242b1d79cf8df1aa0f1d22a327eae2de7fc"
+    },
+    {
+      "split": "train",
+      "file": "watch_26.jpg",
+      "crop_xyxy": [
+        336,
+        146,
+        442,
+        239
+      ],
+      "original_box": [
+        352.0,
+        162.5,
+        425.5,
+        223.0
+      ],
+      "box": [
+        16.0,
+        16.5,
+        89.5,
+        77.0
+      ],
+      "original_sha256": "503a87dd3e7687e9f975c181a7702b3e114e3b8ce578f91aa8e46ba2cd93de70",
+      "sha256": "7f76a4e46d8d4dba78aa13459ed4ad3c9a8a34ab448d8a4628fdb5b46064588f"
+    },
+    {
+      "split": "train",
+      "file": "watch_27.jpg",
+      "crop_xyxy": [
+        331,
+        151,
+        443,
+        252
+      ],
+      "original_box": [
+        347.0,
+        167.5,
+        427.0,
+        235.5
+      ],
+      "box": [
+        16.0,
+        16.5,
+        96.0,
+        84.5
+      ],
+      "original_sha256": "3eff05fc080e56fffec938f374ac4ac354f5c166c4f2eb33f5bbb421fb34dce6",
+      "sha256": "e37f5ab4174026521f4c267f8596f020d3bbfa1ce13581826ae938ed0ff5c4db"
+    },
+    {
+      "split": "train",
+      "file": "watch_28.jpg",
+      "crop_xyxy": [
+        334,
+        158,
+        432,
+        251
+      ],
+      "original_box": [
+        350.5,
+        174.0,
+        416.0,
+        235.0
+      ],
+      "box": [
+        16.5,
+        16.0,
+        82.0,
+        77.0
+      ],
+      "original_sha256": "e3c95a0edf0f6af462bdb4d380fc31831c8acf0cf691c68cc4cd218a5d8d3136",
+      "sha256": "e717426f28c3c7b9d2adf56bd2a6c513857e6cc9369a66c22fce9797bc481561"
+    },
+    {
+      "split": "train",
+      "file": "watch_29.jpg",
+      "crop_xyxy": [
+        331,
+        139,
+        428,
+        242
+      ],
+      "original_box": [
+        347.5,
+        155.0,
+        412.0,
+        226.0
+      ],
+      "box": [
+        16.5,
+        16.0,
+        81.0,
+        87.0
+      ],
+      "original_sha256": "3f0574fbdd444f04558fe00895886d105b690bedb01e15bff35819b5cdff1918",
+      "sha256": "283dd020f218b4125cf0b314a15946d4feefe27c46be908675e017279eadff95"
+    },
+    {
+      "split": "train",
+      "file": "watch_30.jpg",
+      "crop_xyxy": [
+        386,
+        203,
+        488,
+        278
+      ],
+      "original_box": [
+        402.0,
+        219.0,
+        472.0,
+        262.0
+      ],
+      "box": [
+        16.0,
+        16.0,
+        86.0,
+        59.0
+      ],
+      "original_sha256": "6f17feb0ff708e9973381c753fa1f5b0427030e5668a4fefbb6cc8901a9057b6",
+      "sha256": "a7b6affd86254a654e497eb0e8a771fe292a06569cec5d4f1b97039e9955b8c8"
+    },
+    {
+      "split": "eval",
+      "file": "watch_1.jpg",
+      "crop_xyxy": [
+        218,
+        155,
+        336,
+        245
+      ],
+      "original_box": [
+        234.0,
+        171.0,
+        319.5,
+        229.0
+      ],
+      "box": [
+        16.0,
+        16.0,
+        101.5,
+        74.0
+      ],
+      "original_sha256": "01fd171216e91ac95786c6eb0b4b6e28bf351ab1c8033303518581ac770c41f7",
+      "sha256": "9d39c050f6f7b90ba6026248bcbe02b09485430f152f4de38f3afe548fdf317f"
+    },
+    {
+      "split": "eval",
+      "file": "watch_2.jpg",
+      "crop_xyxy": [
+        191,
+        223,
+        274,
+        301
+      ],
+      "original_box": [
+        207.0,
+        239.0,
+        258.0,
+        285.0
+      ],
+      "box": [
+        16.0,
+        16.0,
+        67.0,
+        62.0
+      ],
+      "original_sha256": "67a1fee9c0ea712a70a1859b0ef535ed894c340b2ccde871b9469e0d562688df",
+      "sha256": "ccdac5093eb840d62a13160111f9b05cfa1f49f67b863d58a21507db3bc57e86"
+    },
+    {
+      "split": "eval",
+      "file": "watch_3.jpg",
+      "crop_xyxy": [
+        142,
+        99,
+        310,
+        216
+      ],
+      "original_box": [
+        158.5,
+        115.0,
+        293.5,
+        199.5
+      ],
+      "box": [
+        16.5,
+        16.0,
+        151.5,
+        100.5
+      ],
+      "original_sha256": "2cb82f7c74f5003eea6f49ba7faf703f27472cf2f62f2f7340f1ba7d41dd4504",
+      "sha256": "dfab3ea305ddda3f961be7037fce29ee14793880db3d4d0a0b290285d053d864"
+    },
+    {
+      "split": "eval",
+      "file": "watch_4.jpg",
+      "crop_xyxy": [
+        367,
+        106,
+        495,
+        184
+      ],
+      "original_box": [
+        383.5,
+        122.0,
+        479.0,
+        168.0
+      ],
+      "box": [
+        16.5,
+        16.0,
+        112.0,
+        62.0
+      ],
+      "original_sha256": "f5be702f3d8d786d02f19c48ea9db4b5ba42d260ce44d7bb161078d90c4e469e",
+      "sha256": "f61aa90c2b5758cbd8b07887e71d7cf9f0a8fdbbec0e9b57016798121072ac1c"
+    },
+    {
+      "split": "eval",
+      "file": "watch_5.jpg",
+      "crop_xyxy": [
+        401,
+        119,
+        511,
+        190
+      ],
+      "original_box": [
+        417.5,
+        135.5,
+        494.5,
+        173.5
+      ],
+      "box": [
+        16.5,
+        16.5,
+        93.5,
+        54.5
+      ],
+      "original_sha256": "e5b406b125cae1300939ca7143d7181b490cadd476c1a7e94fb2fb422a9899ca",
+      "sha256": "b4da7c649c33c3062c3233367b02dd69667afb7cbc3a1893294f5368ae1333ef"
+    },
+    {
+      "split": "eval",
+      "file": "watch_6.jpg",
+      "crop_xyxy": [
+        354,
+        73,
+        477,
+        200
+      ],
+      "original_box": [
+        370.5,
+        89.5,
+        461.0,
+        184.0
+      ],
+      "box": [
+        16.5,
+        16.5,
+        107.0,
+        111.0
+      ],
+      "original_sha256": "29e94456d715982aceabf0c9aa48ab2be9d9420adf0547f345b3db388c4a8aaf",
+      "sha256": "8e4ce721063723b5160efd9dad1865662038d3a385f0810711cdc9e8e798f8dc"
+    },
+    {
+      "split": "eval",
+      "file": "watch_7.jpg",
+      "crop_xyxy": [
+        345,
+        103,
+        493,
+        215
+      ],
+      "original_box": [
+        361.5,
+        119.5,
+        477.0,
+        198.5
+      ],
+      "box": [
+        16.5,
+        16.5,
+        132.0,
+        95.5
+      ],
+      "original_sha256": "070cc8acd8013dc3719ba44ff8269b45d05254631c4fb32fd14bcd333e9d9b81",
+      "sha256": "8ac85f3555e888aed7aae8a8cfa2ad993c0631bde36c8e1ed4c124d7420f4735"
+    },
+    {
+      "split": "eval",
+      "file": "watch_8.jpg",
+      "crop_xyxy": [
+        319,
+        106,
+        440,
+        193
+      ],
+      "original_box": [
+        335.5,
+        122.0,
+        423.5,
+        177.0
+      ],
+      "box": [
+        16.5,
+        16.0,
+        104.5,
+        71.0
+      ],
+      "original_sha256": "112a08b686962cf07e0c754daecd2c91c1daca7d7050e3b66a1bd8a68b038e3d",
+      "sha256": "1e9773d5934ca79ca79041f0bd650e2e30f4c86977513fab315a88d100f871eb"
+    },
+    {
+      "split": "eval",
+      "file": "watch_9.jpg",
+      "crop_xyxy": [
+        353,
+        117,
+        449,
+        191
+      ],
+      "original_box": [
+        369.0,
+        133.0,
+        432.5,
+        174.5
+      ],
+      "box": [
+        16.0,
+        16.0,
+        79.5,
+        57.5
+      ],
+      "original_sha256": "fcf92518afcc53f838498109089051f89207c10036bbac3cb4ecb41c97c67d2f",
+      "sha256": "ac832d2d35d912384332d199ab539494faf5e18f51784fd6a523ef1f6fff605a"
+    },
+    {
+      "split": "eval",
+      "file": "watch_10.jpg",
+      "crop_xyxy": [
+        324,
+        93,
+        438,
+        246
+      ],
+      "original_box": [
+        340.5,
+        109.5,
+        422.0,
+        229.5
+      ],
+      "box": [
+        16.5,
+        16.5,
+        98.0,
+        136.5
+      ],
+      "original_sha256": "cdb61b3d1ee013ac0d0964706541b7ee381f562880f3a5dfd528a068f5ed42cf",
+      "sha256": "91a58db09e97c5ed162b864327a9c814cca700dd1c02bbbd4fc93f98048028cd"
+    }
+  ]
+}

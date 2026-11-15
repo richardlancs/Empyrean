@@ -10,5 +10,10 @@
     "watch",
     "water bottle"
   ],
-  "platform": "darwin"
+  "platform": "darwin",
+  "postprocessing": {
+    "watch_images": "Cropped with 16-pixel context; no resizing; dimensions vary per image",
+    "water_bottle_images": "Unchanged",
+    "provenance": "results/watch-crop-manifest.json"
+  }
 }

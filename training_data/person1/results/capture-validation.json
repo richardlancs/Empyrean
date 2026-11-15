@@ -1,5 +1,5 @@
 {
-  "status": "capture_validated_candidate_trained_and_evaluated",
+  "status": "watch_crops_validated_candidate_trained_and_saved_image_evaluated",
   "items": [
     "watch",
     "water bottle"
@@ -14,123 +14,123 @@
       "images": [
         {
           "file": "watch_1.jpg",
-          "sha256": "a09309f963e52f4011f4af168b0a44389e7f00588b03fd49976051857a7d2b24"
+          "sha256": "d3a67c602d17bb1421d8bea8094ca0d70923f020fffde8f431ebab784cc8961d"
         },
         {
           "file": "watch_2.jpg",
-          "sha256": "1b189c47decf8f70af090c38ce8c74bab286bc692181fe20f31520057f4e4ac6"
+          "sha256": "66d09bf9f0088e7161a21b35f345589476194a8c07b6dfdc83e4930eada4e947"
         },
         {
           "file": "watch_3.jpg",
-          "sha256": "849f6c275497439fee1c8921c6efb5c95814d81092d2f9cca14c4d253ef0a5b1"
+          "sha256": "21ea0f75cad14c8a971481e21fb37a2aceee69a570735d10c5e5b9c8fa6c7596"
         },
         {
           "file": "watch_4.jpg",
-          "sha256": "3265ed27440c27e6ec3117e7751c14d191747a0d60739552c2869705e999e732"
+          "sha256": "d240860ddf12bb13fabb0d2c84b667ead133373ba93bfb09e125fa687aaabe9c"
         },
         {
           "file": "watch_5.jpg",
-          "sha256": "f4b0be94a1b117db3b708a0a884506817dcc62dae79a5685c02ed957770b3f45"
+          "sha256": "68964b4fea9ac912515fced41bd98c562ce2f9e92fe032a1c10f978b00d50ead"
         },
         {
           "file": "watch_6.jpg",
-          "sha256": "35766a0241a55d827b9fe3ccce54cf64a6a8d832bbbfcdefc2f143471057a620"
+          "sha256": "f6355b8ec973d45a5347bd40bd58a96185a1b8866b2cd074f04ea46893ac5dc0"
         },
         {
           "file": "watch_7.jpg",
-          "sha256": "c68762e1204d524771bce3a2cc30017f3c4d0e7fcbdf5a05eefd186a574af04d"
+          "sha256": "54db161e8d5364d6cb73135eb7f74a28561a04ef25b63477faa2ecd6bd94d753"
         },
         {
           "file": "watch_8.jpg",
-          "sha256": "0a56add758cb85d09cc6e40953a136e39ced3e5e7dbc3594014c269fb1f04517"
+          "sha256": "61b2bea95efae30414216fe429dc056c50cf72b557ecdd8eb3419270aa9da191"
         },
         {
           "file": "watch_9.jpg",
-          "sha256": "0dccbba85eca7faba53ce1a6453c238727127c27852e14a8be50b28f1a3b9511"
+          "sha256": "46d3405c1b6864b00bdd920c3e3ab81dfc1c985ff9757a82108f36a748f20958"
         },
         {
           "file": "watch_10.jpg",
-          "sha256": "d3beeb6afd0bf8408ba66db802e4c27a5bb87bc0a82765c36aa64f76821eae4f"
+          "sha256": "98c9bc925978da9694785b84b8fa297e304f81456f8e06adeff8b15fd2ecd2dd"
         },
         {
           "file": "watch_11.jpg",
-          "sha256": "7a8b814ae382af130e58628b08c7ce9ce79b147987952934f55717fe9e5e6097"
+          "sha256": "d73d4a72b44418cc974069b2a2ab45c083e9cac60d115ed3354b4fc759ea15a9"
         },
         {
           "file": "watch_12.jpg",
-          "sha256": "8d38d7170d435784d8112a528f9007e31cea44a437f2b250ed65f667d4026ca7"
+          "sha256": "c41af4ce24cc2513e479d9c8d5474727732ea2a78c10cb2e00232679dcf9caa6"
         },
         {
           "file": "watch_13.jpg",
-          "sha256": "a1740564d0fbef18733509c156cb6795629fc51f443d51c6210e2ece96c03bdd"
+          "sha256": "64c9336ecbd426056a2e032ab62e28e372ae28002e767e9776e72213c899e171"
         },
         {
           "file": "watch_14.jpg",
-          "sha256": "c81fdad298d655fedad11c0f6a78e6b75e97636b7b82ebf95dcc5b476efb6ca4"
+          "sha256": "250b78de58bd3d9ed1d42b55155f5a21ae7b84343b029c6b0216438a6d1efdc4"
         },
         {
           "file": "watch_15.jpg",
-          "sha256": "8d57482d34e93eac4aa50e2a9d449e764fe5dc1d40339f6cb16d6e7bda38def0"
+          "sha256": "ee4dd25cf9dc48704819e2e1e6fbbc702b034975529d468a31f3305cfb864954"
         },
         {
           "file": "watch_16.jpg",
-          "sha256": "6bf6605555a362e7d5731a32ab30a345ad35132acd7076fe8f5a6a3ce2628bb3"
+          "sha256": "c699647634e09735d02d55fb2aaa4e4980c4883905f87452303f9453dc751dfc"
         },
         {
           "file": "watch_17.jpg",
-          "sha256": "9cf80b8769f301a8d0514205a708228e660d46c0767814c74dbaaa48f0044a7e"
+          "sha256": "8a8804201dd78af647a548db677e29ba68e3194df50b7d67bfb3742d61813744"
         },
         {
           "file": "watch_18.jpg",
-          "sha256": "621464da7a7ded6cc6e76fbe4d342137c5ad0ad3fd0f9e162020b2d9a8ff4e0e"
+          "sha256": "937f5dddf619f8674dcbf85c23639ee4ee63db06d07b021ce67e7eda9fef67d4"
         },
         {
           "file": "watch_19.jpg",
-          "sha256": "69c5f4b3ed12180cc6ac875be40ff1473b0783f50cbdfe0067f5942c6d45bf93"
+          "sha256": "31ef83dca6ef296a57beb07ddbe45c64a785a1a34cc47c4882f47362ce0d8439"
         },
         {
           "file": "watch_20.jpg",
-          "sha256": "e484ad749b894f1f533d8b7d6af1fc9d2bcbe99679f7064c01927b8dc06fec90"
+          "sha256": "a98d56059bac76796362d4a8618cc1327cf3a9b7530262f45cb28c6902432a09"
         },
         {
           "file": "watch_21.jpg",
-          "sha256": "8f88bff76b04110d992cb28ffd42ea70197d42255bcd6632e9545f3feacc32d9"
+          "sha256": "db226266e2641414ca674813937af16803811655845d2dd9c0024e84bde2c98a"
         },
         {
           "file": "watch_22.jpg",
-          "sha256": "56acde8c2920fa52a48029f5f5f16c5ee16238218ae807f493a2aaf8448f80af"
+          "sha256": "e6904c2f3080c4476e8998731094f0e508d81278833da130b03b81e3485ad917"
         },
         {
           "file": "watch_23.jpg",
-          "sha256": "96cd042d60452ea445445043df78bd76d90e13b653d58b3e94a338d06e50339d"
+          "sha256": "ecd1cf3787a65cb2e73532b98d510521d7ad58752d5d75df6e03583c0cd7e182"
         },
         {
           "file": "watch_24.jpg",
-          "sha256": "1f66039c38d128288f5123a34c812cac9b8c9c2bcc94860e50870d524c4953cb"
+          "sha256": "b2dc97ed66107d493e5ada6827ffdfa7410118a5ec1978506b215027a404bac5"
         },
         {
           "file": "watch_25.jpg",
-          "sha256": "f7e8444621917296c5f594402055f634f37ea03a24afe9ce0424086d79610ad5"
+          "sha256": "4099677cd3f2c5648d5539606031e242b1d79cf8df1aa0f1d22a327eae2de7fc"
         },
         {
           "file": "watch_26.jpg",
-          "sha256": "503a87dd3e7687e9f975c181a7702b3e114e3b8ce578f91aa8e46ba2cd93de70"
+          "sha256": "7f76a4e46d8d4dba78aa13459ed4ad3c9a8a34ab448d8a4628fdb5b46064588f"
         },
         {
           "file": "watch_27.jpg",
-          "sha256": "3eff05fc080e56fffec938f374ac4ac354f5c166c4f2eb33f5bbb421fb34dce6"
+          "sha256": "e37f5ab4174026521f4c267f8596f020d3bbfa1ce13581826ae938ed0ff5c4db"
         },
         {
           "file": "watch_28.jpg",
-          "sha256": "e3c95a0edf0f6af462bdb4d380fc31831c8acf0cf691c68cc4cd218a5d8d3136"
+          "sha256": "e717426f28c3c7b9d2adf56bd2a6c513857e6cc9369a66c22fce9797bc481561"
         },
         {
           "file": "watch_29.jpg",
-          "sha256": "3f0574fbdd444f04558fe00895886d105b690bedb01e15bff35819b5cdff1918"
+          "sha256": "283dd020f218b4125cf0b314a15946d4feefe27c46be908675e017279eadff95"
         },
         {
           "file": "watch_30.jpg",
-          "sha256": "6f17feb0ff708e9973381c753fa1f5b0427030e5668a4fefbb6cc8901a9057b6"
+          "sha256": "a7b6affd86254a654e497eb0e8a771fe292a06569cec5d4f1b97039e9955b8c8"
         },
         {
           "file": "water_bottle_1.jpg",
@@ -262,43 +262,43 @@
       "images": [
         {
           "file": "watch_1.jpg",
-          "sha256": "01fd171216e91ac95786c6eb0b4b6e28bf351ab1c8033303518581ac770c41f7"
+          "sha256": "9d39c050f6f7b90ba6026248bcbe02b09485430f152f4de38f3afe548fdf317f"
         },
         {
           "file": "watch_2.jpg",
-          "sha256": "67a1fee9c0ea712a70a1859b0ef535ed894c340b2ccde871b9469e0d562688df"
+          "sha256": "ccdac5093eb840d62a13160111f9b05cfa1f49f67b863d58a21507db3bc57e86"
         },
         {
           "file": "watch_3.jpg",
-          "sha256": "2cb82f7c74f5003eea6f49ba7faf703f27472cf2f62f2f7340f1ba7d41dd4504"
+          "sha256": "dfab3ea305ddda3f961be7037fce29ee14793880db3d4d0a0b290285d053d864"
         },
         {
           "file": "watch_4.jpg",
-          "sha256": "f5be702f3d8d786d02f19c48ea9db4b5ba42d260ce44d7bb161078d90c4e469e"
+          "sha256": "f61aa90c2b5758cbd8b07887e71d7cf9f0a8fdbbec0e9b57016798121072ac1c"
         },
         {
           "file": "watch_5.jpg",
-          "sha256": "e5b406b125cae1300939ca7143d7181b490cadd476c1a7e94fb2fb422a9899ca"
+          "sha256": "b4da7c649c33c3062c3233367b02dd69667afb7cbc3a1893294f5368ae1333ef"
         },
         {
           "file": "watch_6.jpg",
-          "sha256": "29e94456d715982aceabf0c9aa48ab2be9d9420adf0547f345b3db388c4a8aaf"
+          "sha256": "8e4ce721063723b5160efd9dad1865662038d3a385f0810711cdc9e8e798f8dc"
         },
         {
           "file": "watch_7.jpg",
-          "sha256": "070cc8acd8013dc3719ba44ff8269b45d05254631c4fb32fd14bcd333e9d9b81"
+          "sha256": "8ac85f3555e888aed7aae8a8cfa2ad993c0631bde36c8e1ed4c124d7420f4735"
         },
         {
           "file": "watch_8.jpg",
-          "sha256": "112a08b686962cf07e0c754daecd2c91c1daca7d7050e3b66a1bd8a68b038e3d"
+          "sha256": "1e9773d5934ca79ca79041f0bd650e2e30f4c86977513fab315a88d100f871eb"
         },
         {
           "file": "watch_9.jpg",
-          "sha256": "fcf92518afcc53f838498109089051f89207c10036bbac3cb4ecb41c97c67d2f"
+          "sha256": "ac832d2d35d912384332d199ab539494faf5e18f51784fd6a523ef1f6fff605a"
         },
         {
           "file": "watch_10.jpg",
-          "sha256": "cdb61b3d1ee013ac0d0964706541b7ee381f562880f3a5dfd528a068f5ed42cf"
+          "sha256": "91a58db09e97c5ed162b864327a9c814cca700dd1c02bbbd4fc93f98048028cd"
         },
         {
           "file": "water_bottle_1.jpg",
@@ -344,12 +344,14 @@
     }
   },
   "exact_train_eval_duplicates": 0,
-  "candidate_dataset": "scratch/p1-dataset-v1/data.yaml",
-  "visual_review": "All 80 annotated images reviewed as contact sheets; not a recognition accuracy test.",
+  "candidate_dataset": "scratch/p1-dataset-cropped/data.yaml",
+  "visual_review": "All 40 cropped watches reviewed in an annotated contact sheet; watch boxes preserved and background bottles removed. Bottle photos unchanged.",
   "limits": [
     "Mostly held views in one room; limited background and tabletop diversity.",
     "Evaluation is a separate capture session but uses the same room and physical items.",
-    "Candidate training and saved-image evaluation completed; live glasses-camera checks remain pending."
+    "Existing candidate and score reports use the original uncropped images. Corrected candidate results are separate in results/candidate-cropped; live checks remain pending.",
+    "Padded watch crops change apparent object scale during model preprocessing; this is no longer a full-frame evaluation set.",
+    "Corrected candidate matches only 3/10 original full-frame watches despite 10/10 on crops."
   ],
   "combined_dataset": {
     "classes": {
@@ -364,5 +366,7 @@
     },
     "train_images": 131,
     "validation_images": 30
-  }
+  },
+  "postprocessing_manifest": "results/watch-crop-manifest.json",
+  "corrected_candidate_results": "results/candidate-cropped/README.md"
 }

@@ -286,5 +286,6 @@
       "best_iou": 0.0,
       "detections": []
     }
-  ]
+  ],
+  "dataset_status": "Historical: original uncropped captures; see watch-crop-manifest.json. Not evaluation of the current cropped dataset."
 }

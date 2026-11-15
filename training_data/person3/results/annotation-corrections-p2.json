@@ -1,0 +1,361 @@
+{
+  "source_pr": 25,
+  "source_revision": "afeef8f2ecd124cb8e173b8a6823b31d0f2294dc",
+  "reviewer": "Person 2, Codex, user-authorized annotation correction",
+  "coordinate_system": "640x360 full-frame pixels, xyxy",
+  "corrections": [
+    {
+      "file": "phone_2.jpg",
+      "old_box": [
+        312.0,
+        186.0,
+        493.0,
+        344.5
+      ],
+      "new_box": [
+        326,
+        166,
+        495,
+        360
+      ]
+    },
+    {
+      "file": "phone_9.jpg",
+      "old_box": [
+        306.0,
+        71.0,
+        414.0,
+        346.5
+      ],
+      "new_box": [
+        289,
+        122,
+        420,
+        341
+      ]
+    },
+    {
+      "file": "phone_20.jpg",
+      "old_box": [
+        205.5,
+        127.5,
+        296.5,
+        342.0
+      ],
+      "new_box": [
+        176,
+        173,
+        296,
+        326
+      ]
+    }
+  ],
+  "training_files": [
+    "keys_1.jpg",
+    "keys_2.jpg",
+    "keys_3.jpg",
+    "keys_4.jpg",
+    "keys_6.jpg",
+    "keys_7.jpg",
+    "keys_8.jpg",
+    "keys_9.jpg",
+    "keys_11.jpg",
+    "keys_12.jpg",
+    "keys_13.jpg",
+    "keys_14.jpg",
+    "keys_15.jpg",
+    "phone_1.jpg",
+    "phone_2.jpg",
+    "phone_3.jpg",
+    "phone_4.jpg",
+    "phone_6.jpg",
+    "phone_7.jpg",
+    "phone_8.jpg",
+    "phone_9.jpg",
+    "phone_11.jpg",
+    "phone_12.jpg",
+    "phone_13.jpg",
+    "phone_14.jpg",
+    "phone_16.jpg",
+    "phone_17.jpg",
+    "phone_18.jpg",
+    "phone_19.jpg",
+    "phone_20.jpg",
+    "keys_16.jpg",
+    "keys_17.jpg",
+    "keys_18.jpg",
+    "keys_19.jpg",
+    "keys_21.jpg",
+    "keys_22.jpg",
+    "keys_23.jpg",
+    "keys_24.jpg",
+    "keys_26.jpg",
+    "keys_27.jpg",
+    "keys_28.jpg",
+    "keys_29.jpg",
+    "phone_21.jpg",
+    "phone_22.jpg",
+    "phone_23.jpg",
+    "phone_24.jpg",
+    "phone_26.jpg",
+    "phone_27.jpg",
+    "phone_28.jpg",
+    "phone_29.jpg"
+  ],
+  "validation_files": [
+    "keys_5.jpg",
+    "keys_10.jpg",
+    "phone_5.jpg",
+    "phone_10.jpg",
+    "phone_15.jpg",
+    "keys_20.jpg",
+    "keys_25.jpg",
+    "keys_30.jpg",
+    "phone_25.jpg",
+    "phone_30.jpg"
+  ],
+  "independent_evaluation": false,
+  "limitations": "Validation images are same-session and were used for candidate-v1 checkpoint selection. Preserve this split. Fresh independent eval and live sign-off remain pending. Original result JSONs predate these annotation corrections; do not treat them as corrected-label inference results.",
+  "images": [
+    {
+      "file": "keys_1.jpg",
+      "sha256": "51d0bc5f29ec341616c3cdac44e7b838b742e9d19d72d855c0cb3242d5b3b020"
+    },
+    {
+      "file": "keys_2.jpg",
+      "sha256": "f9ad7d4f17491d260e01100766f2f64ed4a85b71d05232a8297a45b73cf87237"
+    },
+    {
+      "file": "keys_3.jpg",
+      "sha256": "e2b7516e9b1f9cace9019e7357ab3fa0d57d1cdb8a116992c3acbf0e3c617587"
+    },
+    {
+      "file": "keys_4.jpg",
+      "sha256": "1340d75d340d9484e295145bf51c6ed2cf42532b2c43714bb210fc06789e270e"
+    },
+    {
+      "file": "keys_5.jpg",
+      "sha256": "ae9e30050fd8dc5ee374e19341e2f5fedf2c2b649fd8a5e3186fa5f61e34c8fa"
+    },
+    {
+      "file": "keys_6.jpg",
+      "sha256": "d9dffe19c9ed5f542e7270d32fe262d2640603daeef44b8d95ad45000243ae90"
+    },
+    {
+      "file": "keys_7.jpg",
+      "sha256": "7a1684bfb0a6dc0f20ded56ab01e09493d54a11720c8130ade97cf87ff8fa72e"
+    },
+    {
+      "file": "keys_8.jpg",
+      "sha256": "11e53bbdce898e7e9c37cfaa266e93d5eeabff31119b7e7d3bc60a0abdbfa24e"
+    },
+    {
+      "file": "keys_9.jpg",
+      "sha256": "3898b59c271edb810989b2afc4cbdbcf926d269999e9392da814df2dbf3b9b31"
+    },
+    {
+      "file": "keys_10.jpg",
+      "sha256": "0cfc8031171f4d41fee090e2dead1f932c47ff252ade9acefba648d5ad413d01"
+    },
+    {
+      "file": "keys_11.jpg",
+      "sha256": "c48302e7bf75d6c7d2c47bc6382fc67fa97487b24527347cc974836d86b2d7aa"
+    },
+    {
+      "file": "keys_12.jpg",
+      "sha256": "4d0ac56e21d26eb82caff70ab0972b3b069dd5517283392a995454c6eed36198"
+    },
+    {
+      "file": "keys_13.jpg",
+      "sha256": "09aa6880ae17809c16a46954bd8471612502c73f78f594b56b1c15ab25375482"
+    },
+    {
+      "file": "keys_14.jpg",
+      "sha256": "7b2ae2705bef73a3adcaed3a0c385b4c1984005e11b82d6636e972030314e7ff"
+    },
+    {
+      "file": "keys_15.jpg",
+      "sha256": "de52a09c38a6fbebe2626e07bcd5427175c0a45104e4a025865d1d06f352973b"
+    },
+    {
+      "file": "phone_1.jpg",
+      "sha256": "43b8f5589095b3e790f7436cc828b0303e5d585ec398a56489e44be1d1a55ceb"
+    },
+    {
+      "file": "phone_2.jpg",
+      "sha256": "b2e4888f6c1520bd836aef9f0c0881d09b6ca40f09da4ffc9e918218f6232266"
+    },
+    {
+      "file": "phone_3.jpg",
+      "sha256": "a94c48bf27100c07f07285166290dcd4eee2cbe4f053359c963b3f922b0d390e"
+    },
+    {
+      "file": "phone_4.jpg",
+      "sha256": "97081432b09ed822485d3cb1e717174114eef6c41549e928c3fcb634bd9d097f"
+    },
+    {
+      "file": "phone_5.jpg",
+      "sha256": "e50775a2a896025930fa6e66e426e8c0d4b82637c3dd9d5480299c7e979fe08d"
+    },
+    {
+      "file": "phone_6.jpg",
+      "sha256": "a749c5b3b86ecc2f0bacfabf8dab4c3cdcba3d755267526facd157242c4b5885"
+    },
+    {
+      "file": "phone_7.jpg",
+      "sha256": "a98c017929fd2d0a935500442a38c93a9a8b0afbedfc9f984cb78e27f7e248de"
+    },
+    {
+      "file": "phone_8.jpg",
+      "sha256": "332bc47a95045c5b02bb7ef8fa5a03555e1b1e52d05b995b023bed3ca0629928"
+    },
+    {
+      "file": "phone_9.jpg",
+      "sha256": "0d0e8b70c596657ce16be2835cf97d69a28232da3ebd7c1c0f834cbb1dd72d62"
+    },
+    {
+      "file": "phone_10.jpg",
+      "sha256": "122cd124cdb0eb42597ec338a9e5397e3c6a80e7b52a1e46d8e422f105eb6d31"
+    },
+    {
+      "file": "phone_11.jpg",
+      "sha256": "95db6325073467d9635da20e704cd5cb1116eb455208536122ddb3a67cae0e37"
+    },
+    {
+      "file": "phone_12.jpg",
+      "sha256": "fd70f14192beafc6e34171b9d923960fb7b74fa7bc0ba161f40f8d95f2670866"
+    },
+    {
+      "file": "phone_13.jpg",
+      "sha256": "4e01af06015e8702e74f9039e46722f6e31a9cd366252d1ea7339bb4ca0645b7"
+    },
+    {
+      "file": "phone_14.jpg",
+      "sha256": "1c25bcc36474629ac69cbc9e142af3e36a09987874020ded52acda75c9b59db1"
+    },
+    {
+      "file": "phone_15.jpg",
+      "sha256": "48c4861610eab5083933cc2f886e4bfe0af8280e77078278c82e9a66e72b72d8"
+    },
+    {
+      "file": "phone_16.jpg",
+      "sha256": "bf0a3e1df59286319d5f3d298799857e4a4417f5432168f89c0269fa8fac95f7"
+    },
+    {
+      "file": "phone_17.jpg",
+      "sha256": "7d6d6b7cdc6d50ce860069d7fcc4608ad2f50b49943829fc1e6176ebfb8d293b"
+    },
+    {
+      "file": "phone_18.jpg",
+      "sha256": "e818014d36696a3fd11e41f27802d2f5e4e447d911b6d017e8b394e5329fa0bd"
+    },
+    {
+      "file": "phone_19.jpg",
+      "sha256": "e5c8b600b80ed0042ee89b6acbd4d7e0dc596850b7e738fffb0bab82ab50a4b7"
+    },
+    {
+      "file": "phone_20.jpg",
+      "sha256": "0359747e12e25d1fde595678f56d06fbb9bcfb4c09cdcf35d9b765aceaa97ff0"
+    },
+    {
+      "file": "keys_16.jpg",
+      "sha256": "bf9a7ec563cc6cd6f9877bc44df103782eb19fa95f4820a6e1816db8699b9ba1"
+    },
+    {
+      "file": "keys_17.jpg",
+      "sha256": "a40f2b3ea4a7b2928b63e6f2402d3de9ddb412238f989c2d623f12eb37483e33"
+    },
+    {
+      "file": "keys_18.jpg",
+      "sha256": "6669777949b288d1495abea944ca55fcc7ad34b507c62a641c4e3fa3cf1b6e37"
+    },
+    {
+      "file": "keys_19.jpg",
+      "sha256": "10752f59b376f8d1975bb6c4a34185f2664d06f84e3c453fd693f2d9d778efa2"
+    },
+    {
+      "file": "keys_20.jpg",
+      "sha256": "8280728b54de0e5f3259df8fac1b14ab9d81a485d4665c03e64b5654e70b70dc"
+    },
+    {
+      "file": "keys_21.jpg",
+      "sha256": "8cb1ef755503617e1d96495152b7562fcc3b1652d0f26c08bcb348b41f1925a5"
+    },
+    {
+      "file": "keys_22.jpg",
+      "sha256": "c655c32174b53425e1e0e5f68989c9469d7664415040499c94c3c30c269299a6"
+    },
+    {
+      "file": "keys_23.jpg",
+      "sha256": "12ba24543626f1c3f7454336d732fb8de528b852f8e337bb00ffe558194dcf1a"
+    },
+    {
+      "file": "keys_24.jpg",
+      "sha256": "b0b3617464d1c514285dbfe58c1b766a30ff19e1922bd74374559e3e76e86d92"
+    },
+    {
+      "file": "keys_25.jpg",
+      "sha256": "220040fa11308a393499b81ce26c03056bb9090f72ca981410105db85374a228"
+    },
+    {
+      "file": "keys_26.jpg",
+      "sha256": "5032826fce0fa777910e43b361fff364c6f6fff8206827baf58fd5d2795e9429"
+    },
+    {
+      "file": "keys_27.jpg",
+      "sha256": "8aa7f579b6880ce7c858c52ea3efbdbfcd7547a7d64f53df6c2fbc0725423b2f"
+    },
+    {
+      "file": "keys_28.jpg",
+      "sha256": "970a80ee978b9f91eb5a9f6c7b215d7d0d61d6a589df3e67ddae68ed5bb110b2"
+    },
+    {
+      "file": "keys_29.jpg",
+      "sha256": "133de8d2a002ad125b61dac9c81ed3f2a9630bc49c254d14b3f49559f94d992a"
+    },
+    {
+      "file": "keys_30.jpg",
+      "sha256": "7913f53d01cfcc82ac8c15612f9ece78bc77c2c26efc450ec3b17ee60ffb4631"
+    },
+    {
+      "file": "phone_21.jpg",
+      "sha256": "93c0667da7ed395c710e370971ff423d98fd9468d4a94523449206d5aee1a702"
+    },
+    {
+      "file": "phone_22.jpg",
+      "sha256": "5f012095aabbedf80b076c77cd0cac961e82efde407d2cba9b3c2cdab0bb4c89"
+    },
+    {
+      "file": "phone_23.jpg",
+      "sha256": "fab2fff567a9784fa91bfcd6e5ce6df04b6676687d75a1c2c35949f3e4002a46"
+    },
+    {
+      "file": "phone_24.jpg",
+      "sha256": "2ceb6e6beb86ae1cfaeb39db596552487157041721f249da9f7191267263290d"
+    },
+    {
+      "file": "phone_25.jpg",
+      "sha256": "8043e7d2eb2ebdf1224fc6bc1aefeeb35396cdd4ec560de4605055e753e02c9f"
+    },
+    {
+      "file": "phone_26.jpg",
+      "sha256": "a44baf5753ba064fa76fd03d4b64e723d2e68a4dcfc4c1021dc43e1b7394e7e4"
+    },
+    {
+      "file": "phone_27.jpg",
+      "sha256": "5f0e4b7254df067719b625fb07c925a94baf80c63761f5c71f17884c673159f5"
+    },
+    {
+      "file": "phone_28.jpg",
+      "sha256": "ee8334869960206f51d9c8b05b526f6bf0aaf487063651897e106efaac3fbbc0"
+    },
+    {
+      "file": "phone_29.jpg",
+      "sha256": "e6f7408ed8155574e2da7923806d412ab39ffdc1d43d4a6fa7b642a3b8bb6ca9"
+    },
+    {
+      "file": "phone_30.jpg",
+      "sha256": "1d033b94e699dff7fe7f02061795c97711e89ecdd64fbb261728df1024dbbace"
+    }
+  ]
+}

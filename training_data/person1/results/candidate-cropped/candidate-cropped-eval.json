@@ -1,0 +1,396 @@
+{
+  "weights": "scratch\\p1-runs\\candidate-cropped\\weights\\best.pt",
+  "confidence": 0.25,
+  "iou_required": 0.5,
+  "per_class": {
+    "watch": {
+      "correct": 10,
+      "total": 10
+    },
+    "water bottle": {
+      "correct": 10,
+      "total": 10
+    }
+  },
+  "false_positive_boxes": 1,
+  "median_inference_ms": 77.3168000014266,
+  "images": [
+    {
+      "file": "watch_1.jpg",
+      "expected": "watch",
+      "correct": true,
+      "best_iou": 0.7352248700462279,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.6572379469871521,
+          "box": [
+            21.527801513671875,
+            22.19622039794922,
+            105.92330169677734,
+            69.71937561035156
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_2.jpg",
+      "expected": "watch",
+      "correct": true,
+      "best_iou": 0.6778804654669351,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.7494974732398987,
+          "box": [
+            16.577802658081055,
+            23.89226531982422,
+            70.14533233642578,
+            56.82468032836914
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_3.jpg",
+      "expected": "watch",
+      "correct": true,
+      "best_iou": 0.8560012478631132,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.5723955631256104,
+          "box": [
+            25.08867073059082,
+            17.898637771606445,
+            147.8140411376953,
+            97.4651870727539
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_4.jpg",
+      "expected": "watch",
+      "correct": true,
+      "best_iou": 0.8224308372732179,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.7014533281326294,
+          "box": [
+            19.618051528930664,
+            15.817138671875,
+            98.78895568847656,
+            62.26133728027344
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_5.jpg",
+      "expected": "watch",
+      "correct": true,
+      "best_iou": 0.8038522673157943,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.7282592058181763,
+          "box": [
+            18.320392608642578,
+            13.598608016967773,
+            88.02891540527344,
+            56.89619445800781
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_6.jpg",
+      "expected": "watch",
+      "correct": true,
+      "best_iou": 0.8184134141062609,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.792527437210083,
+          "box": [
+            7.9957661628723145,
+            13.718936920166016,
+            112.41819763183594,
+            107.98453521728516
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_7.jpg",
+      "expected": "watch",
+      "correct": true,
+      "best_iou": 0.8409787568502065,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.5862219333648682,
+          "box": [
+            20.351709365844727,
+            19.532791137695312,
+            123.2405014038086,
+            94.11341857910156
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_8.jpg",
+      "expected": "watch",
+      "correct": true,
+      "best_iou": 0.78635799075514,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.523479700088501,
+          "box": [
+            24.174644470214844,
+            16.427122116088867,
+            96.40152740478516,
+            73.38847351074219
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_9.jpg",
+      "expected": "watch",
+      "correct": true,
+      "best_iou": 0.7884582999165317,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.46797269582748413,
+          "box": [
+            18.021520614624023,
+            13.246475219726562,
+            83.52399444580078,
+            61.36660385131836
+          ]
+        }
+      ]
+    },
+    {
+      "file": "watch_10.jpg",
+      "expected": "watch",
+      "correct": true,
+      "best_iou": 0.7942305846082262,
+      "detections": [
+        {
+          "label": "watch",
+          "confidence": 0.5095961093902588,
+          "box": [
+            14.048004150390625,
+            29.812774658203125,
+            102.21454620361328,
+            131.74246215820312
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_1.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.7689552949751518,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.7403340339660645,
+          "box": [
+            398.4273681640625,
+            82.0372543334961,
+            509.57879638671875,
+            348.6675720214844
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_2.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.6742661627908472,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.7678514122962952,
+          "box": [
+            257.30645751953125,
+            140.88551330566406,
+            587.1883544921875,
+            263.1227111816406
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_3.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.7985368202922569,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.6892954111099243,
+          "box": [
+            443.1246032714844,
+            125.25169372558594,
+            640.0,
+            251.95346069335938
+          ]
+        },
+        {
+          "label": "water bottle",
+          "confidence": 0.6318995952606201,
+          "box": [
+            356.08984375,
+            113.12303161621094,
+            639.6888427734375,
+            217.90574645996094
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_4.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.6885650350538378,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.7411924600601196,
+          "box": [
+            370.17523193359375,
+            88.5523452758789,
+            607.5048828125,
+            336.1290283203125
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_5.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.563101843575571,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.6677511930465698,
+          "box": [
+            333.4242858886719,
+            98.06481170654297,
+            609.3928833007812,
+            209.0029754638672
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_6.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.7619422836376646,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.7649442553520203,
+          "box": [
+            390.0506591796875,
+            122.9383316040039,
+            573.5529174804688,
+            239.15716552734375
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_7.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.5595540501999184,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.7855491638183594,
+          "box": [
+            324.4569396972656,
+            111.50703430175781,
+            491.8883056640625,
+            307.8680419921875
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_8.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.6910063755467395,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.8108713030815125,
+          "box": [
+            148.1331787109375,
+            149.90353393554688,
+            337.1461486816406,
+            307.9131164550781
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_9.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.7202006782233793,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.7780120372772217,
+          "box": [
+            351.2940979003906,
+            40.34468460083008,
+            471.4515686035156,
+            199.65719604492188
+          ]
+        }
+      ]
+    },
+    {
+      "file": "water_bottle_10.jpg",
+      "expected": "water bottle",
+      "correct": true,
+      "best_iou": 0.6493330128038459,
+      "detections": [
+        {
+          "label": "water bottle",
+          "confidence": 0.774506151676178,
+          "box": [
+            340.0154113769531,
+            91.99163055419922,
+            530.6624145507812,
+            305.73486328125
+          ]
+        }
+      ]
+    }
+  ],
+  "weights_sha256": "6f7eeea7daf7076057ddff35c144dbcbf122ca593aff7b722e499d8d079e0474",
+  "evaluation_view": "cropped",
+  "torch_threads": 4,
+  "device": "cpu",
+  "imgsz": 416,
+  "warmup_excluded": false,
+  "limitation": "Same physical objects and capture sessions; cropped validation participates in checkpoint selection, so results are selection-biased."
+}

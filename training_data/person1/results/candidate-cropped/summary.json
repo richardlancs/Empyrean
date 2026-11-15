@@ -1,0 +1,134 @@
+{
+  "baseline-bootstrap-eval": {
+    "per_class": {
+      "charger": {
+        "correct": 1,
+        "total": 2
+      },
+      "headphones": {
+        "correct": 1,
+        "total": 2
+      },
+      "keys": {
+        "correct": 1,
+        "total": 2
+      },
+      "toothpaste": {
+        "correct": 1,
+        "total": 2
+      },
+      "watch": {
+        "correct": 2,
+        "total": 2
+      },
+      "phone": {
+        "correct": 1,
+        "total": 1
+      },
+      "toothbrush": {
+        "correct": 0,
+        "total": 1
+      },
+      "water bottle": {
+        "correct": 1,
+        "total": 1
+      }
+    },
+    "median_inference_ms": 64.73184999777004,
+    "false_positive_boxes": 3
+  },
+  "baseline-cropped-eval": {
+    "per_class": {
+      "watch": {
+        "correct": 0,
+        "total": 10
+      },
+      "water bottle": {
+        "correct": 4,
+        "total": 10
+      }
+    },
+    "median_inference_ms": 71.13610001397319,
+    "false_positive_boxes": 6
+  },
+  "baseline-original-full-frame-eval": {
+    "per_class": {
+      "watch": {
+        "correct": 0,
+        "total": 10
+      },
+      "water bottle": {
+        "correct": 4,
+        "total": 10
+      }
+    },
+    "median_inference_ms": 67.61440000263974,
+    "additional_unmatched_boxes_incompletely_labelled": 8
+  },
+  "candidate-bootstrap-eval": {
+    "per_class": {
+      "charger": {
+        "correct": 1,
+        "total": 2
+      },
+      "headphones": {
+        "correct": 2,
+        "total": 2
+      },
+      "keys": {
+        "correct": 2,
+        "total": 2
+      },
+      "toothpaste": {
+        "correct": 1,
+        "total": 2
+      },
+      "watch": {
+        "correct": 2,
+        "total": 2
+      },
+      "phone": {
+        "correct": 1,
+        "total": 1
+      },
+      "toothbrush": {
+        "correct": 0,
+        "total": 1
+      },
+      "water bottle": {
+        "correct": 1,
+        "total": 1
+      }
+    },
+    "median_inference_ms": 67.18820000241976,
+    "false_positive_boxes": 3
+  },
+  "candidate-cropped-eval": {
+    "per_class": {
+      "watch": {
+        "correct": 10,
+        "total": 10
+      },
+      "water bottle": {
+        "correct": 10,
+        "total": 10
+      }
+    },
+    "median_inference_ms": 77.3168000014266,
+    "false_positive_boxes": 1
+  },
+  "candidate-original-full-frame-eval": {
+    "per_class": {
+      "watch": {
+        "correct": 3,
+        "total": 10
+      },
+      "water bottle": {
+        "correct": 10,
+        "total": 10
+      }
+    },
+    "median_inference_ms": 67.07535000168718,
+    "additional_unmatched_boxes_incompletely_labelled": 8
+  }
+}

@@ -1,5 +1,6 @@
 """Evaluate baseline and candidate on all bootstrap validation objects."""
 
+import argparse
 import hashlib
 import json
 import statistics
@@ -12,17 +13,26 @@ import cv2
 import torch
 import yaml
 from ultralytics import YOLO
+from ultralytics.utils import torch_utils
 
 sys.path.insert(0, str(Path.cwd()))
 from config import DEMO_DET_MIN_CONFIDENCE
 from vision.evaluate_demo_detector import box_iou
 from vision.vision import TRAINED_DEMO_IMAGE_SIZE
 
+torch_utils.NUM_THREADS = 4
 torch.set_num_threads(4)
-results = Path("training_data/person1/results")
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--baseline", type=Path, default=Path("scratch/p1-comparison-baseline.pt"))
+parser.add_argument("--candidate", type=Path,
+                    default=Path("scratch/p1-runs/candidate-v1/weights/best.pt"))
+parser.add_argument("--output-dir", type=Path, default=Path("training_data/person1/results"))
+args = parser.parse_args()
+results = args.output_dir
+results.mkdir(parents=True, exist_ok=True)
 weights = {
-    "baseline": Path("scratch/p1-comparison-baseline.pt"),
-    "candidate": Path("scratch/p1-runs/candidate-v1/weights/best.pt"),
+    "baseline": args.baseline,
+    "candidate": args.candidate,
 }
 root = Path("training_data/bootstrap")
 config = yaml.safe_load((root / "data.yaml").read_text())

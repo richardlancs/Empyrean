@@ -133,5 +133,6 @@
     "cfg": null,
     "tracker": "tracktrack.yaml",
     "save_dir": "scratch/p1-runs/candidate-v1"
-  }
+  },
+  "dataset_status": "Historical: original uncropped captures; see watch-crop-manifest.json. Not evaluation of the current cropped dataset."
 }
