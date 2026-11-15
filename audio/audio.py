@@ -82,6 +82,7 @@ KIND_BY_PRIORITY = {
 }
 SPEECH_MODES = ("real", "fake", "unavailable")
 UNAVAILABLE_DETAIL = "No speech engine: the text was logged, not played"
+LANGUAGE_CHANGED_DETAIL = "Language changed before it played"
 VOICE_MENU: dict[str, str] = {p.key: p.label for p in PRESETS}
 VOICE_LANGUAGES: dict[str, str] = {p.key: p.language for p in PRESETS}
 
@@ -137,6 +138,7 @@ class _Item:
     object_id: int | None = None
     source: str = ""
     hazard_type: str = ""  # set on a hazard phrase, re-worded if the language changed
+    language: str = DEFAULT_LANGUAGE  # active language when queued; others are dropped
 
 
 @dataclass
@@ -387,6 +389,7 @@ class AudioManager:
             object_id=object_id,
             source=source,
             hazard_type=hazard_type,
+            language=self._language,
         )
 
     def _status(self, item: _Item, status: str, detail: str = "") -> None:
@@ -506,6 +509,7 @@ class AudioManager:
                 request_id=switch.request_id,
                 detail=_voice_detail(resolved),
             )
+            self._drop_stale_language()
             # Answer priority: never displaces a waiting touch or hazard phrase.
             self._offer(
                 self._new_item(
@@ -530,6 +534,15 @@ class AudioManager:
                     self._publish(message)
                 except Exception:
                     log.exception("Publishing audio telemetry failed")
+
+    def _drop_stale_language(self) -> None:
+        """Drop a waiting non-hazard item queued in another language. Caller holds the lock."""
+        waiting = self._state.slot
+        if _is_stale_language(waiting, self._language):
+            assert waiting is not None
+            log.info("Dropped %r: language changed before it played", waiting.text)
+            self._status(waiting, "interrupted", LANGUAGE_CHANGED_DETAIL)
+            self._state.slot = None
 
     def _offer(self, item: _Item) -> None:
         """Put item in the one-item queue. Caller holds the lock.
@@ -651,10 +664,17 @@ class AudioManager:
                     self._status(item, "interrupted", "Cut off by a hazard alarm")
                 self._flush()
                 continue
-            if item.hazard_type:
-                # A switch applied while the beeps played: word it for the voice now loaded.
-                with self._cond:
+            with self._cond:
+                stale = _is_stale_language(item, self._language)
+                if stale:
+                    # Stale speech is worse than none: the loaded voice cannot read it.
+                    self._status(item, "interrupted", LANGUAGE_CHANGED_DETAIL)
+                elif item.hazard_type:
+                    # A switch applied while the beeps played: word it for the voice now loaded.
                     item.text = hazard_phrase(item.hazard_type, self._language)
+            if stale:
+                self._flush()
+                continue
             log.info(
                 "Speaking %r, %.0f ms after the event",
                 item.text,
@@ -690,6 +710,11 @@ class AudioManager:
                         self._speech_failed = False
                         self._module_status("active", "Speech engine recovered")
             self._flush()
+
+
+def _is_stale_language(item: _Item | None, language: str) -> bool:
+    """True for a non-hazard item queued in a language other than language."""
+    return item is not None and not item.hazard_type and item.language != language
 
 
 def _spoken_in(entry: tuple[str, str] | None, language: str) -> str:

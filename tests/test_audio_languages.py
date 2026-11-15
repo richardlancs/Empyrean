@@ -31,7 +31,14 @@ from audio.voices import (
     language_of,
     resolve_voice,
 )
-from contracts import HazardEvent, NameResult, TouchEvent, VoiceChange
+from contracts import (
+    HazardEvent,
+    NameResult,
+    SpeakRequest,
+    SpeechStatus,
+    TouchEvent,
+    VoiceChange,
+)
 from contracts.languages import LANGUAGES
 
 BOX = (10.0, 10.0, 50.0, 50.0)
@@ -279,4 +286,77 @@ def test_hazard_during_switch_is_worded_for_loaded_voice(published: list[Any]) -
         assert speaker.voice_at_start[0] == PREMIUM["siwis"][0]
     finally:
         speaker.release.set()
+        mgr.stop()
+
+
+LANGUAGE_CHANGED = "Language changed before it played"
+
+
+def speech(published: list[Any]) -> list[SpeechStatus]:
+    """Return the SpeechStatus messages published so far."""
+    return [m for m in list(published) if isinstance(m, SpeechStatus)]
+
+
+def test_queued_hindi_touch_dropped_after_switch_to_english(published: list[Any]) -> None:
+    """A Hindi touch waiting through a switch to alba is never read by the English voice."""
+    speaker = VoiceSpeaker()
+    mgr = start(speaker, published, voice="priyamvada")
+    try:
+        speaker.gate.clear()
+        mgr.on_touch(touch(1, "cup"))  # starts speaking, held mid-phrase
+        assert wait_for(lambda: len(speaker.started) == 1)
+        mgr.on_touch(touch(2, "bottle"))  # waits in the slot, in Hindi
+        hindi_text = speech(published)[-1].text
+        mgr.on_voice_change(VoiceChange(1.0, "alba", "r1"))
+        speaker.gate.set()
+        assert wait_for(lambda: speaker.finished[-1:] == ["This is Alba."])
+        dropped = [
+            s for s in speech(published) if s.object_id == 2 and s.status == "interrupted"
+        ]
+        assert len(dropped) == 1 and dropped[0].detail == LANGUAGE_CHANGED
+        assert hindi_text not in speaker.started
+        assert not any(s.object_id == 2 and s.status == "speaking" for s in speech(published))
+    finally:
+        speaker.gate.set()
+        mgr.stop()
+
+
+def test_queued_english_answer_dropped_after_switch_to_spanish(published: list[Any]) -> None:
+    """An English answer queued before an English-to-Spanish switch is dropped."""
+    speaker = VoiceSpeaker()
+    mgr = start(speaker, published)
+    try:
+        speaker.gate.clear()
+        mgr.on_speak(SpeakRequest(time.time(), "First answer.", "normal", "storage"))
+        assert wait_for(lambda: len(speaker.started) == 1)
+        mgr.on_speak(SpeakRequest(time.time(), "Last seen in the kitchen.", "normal", "storage"))
+        mgr.on_voice_change(VoiceChange(1.0, "claude", "r1"))
+        speaker.gate.set()
+        assert wait_for(lambda: speaker.finished[-1:] == ["Soy Claude."])
+        assert "Last seen in the kitchen." not in speaker.started
+        dropped = [
+            s
+            for s in speech(published)
+            if s.text == "Last seen in the kitchen." and s.status == "interrupted"
+        ]
+        assert len(dropped) == 1 and dropped[0].detail == LANGUAGE_CHANGED
+    finally:
+        speaker.gate.set()
+        mgr.stop()
+
+
+def test_same_language_items_unaffected(published: list[Any]) -> None:
+    """Items queued and spoken in one language are never reported as a language change."""
+    speaker = VoiceSpeaker()
+    mgr = start(speaker, published, voice="siwis")
+    try:
+        speaker.gate.clear()
+        mgr.on_touch(touch(1, "cup"))
+        assert wait_for(lambda: len(speaker.started) == 1)
+        mgr.on_speak(SpeakRequest(time.time(), "Vu dans la cuisine.", "normal", "storage"))
+        speaker.gate.set()
+        assert wait_for(lambda: speaker.finished == ["tasse", "Vu dans la cuisine."])
+        assert not any(s.detail == LANGUAGE_CHANGED for s in speech(published))
+    finally:
+        speaker.gate.set()
         mgr.stop()
