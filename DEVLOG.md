@@ -35,7 +35,6 @@ Problems in someone else's folder go here. The owner removes the line once fixed
 - **Person 1 (voice questions):** read the "voice questions plan for Person 1" entry before building. Confirm first that a Google Home can pass questions to our process at all.
 - **Person 1 (`hazard/`):** the narrowed tier B prompt has only been tested on scenes with no hazard (0 of 10 flagged). Test it on real stairs, a doorway and a wall before the demo. If it misses them, loosen the "do not count" list.
 - **Person 4 (`dashboard/`, please review):** Person 2 added the live camera feed and the Objects panel to your folder (`dashboard/video.py`, `server.py`, `state.py`, `__init__.py`, `index.html`, `requirements.txt`, and the dashboard tests). Keep, change or revert, then remove this line.
-- **Person 4 (`dashboard/`, not built yet from SPEC.md 4.9):** the processed-FPS readout and the "last touched" search box. Nothing publishes `LastSeenQuery` in the running app, so the last-seen answer (working in `storage/`) cannot be reached from the page.
 - **Person 4 (`audio/backends.py`, please review):** Person 2's fix that builds a fresh `pyttsx3` engine per phrase. Confirm it on the JBL.
 - **Person 3 (`namer/grok_client.py`, please review):** Person 2 rewrote `INSTRUCTION` so Grok names a brand only when it is printed and readable. Rerun `fakes.namer.eval_batch`, then remove this line.
 - **Person 3 (naming on real crops):** accuracy on Logitech camera crops of the demo objects is still unmeasured. `fakes.namer.crop_recorder` and `eval_batch --manifest` are ready for it.
