@@ -1,0 +1,130 @@
+/* How It Works page. Reads the dashboard tokens; defines no colours of its own. */
+
+.how-main { padding-block: var(--space-4) var(--space-8); display: grid; gap: var(--space-6); }
+.how-intro h1 { margin: 0 0 var(--space-1); font-size: clamp(28px, 4vw, 40px); }
+.how-intro p, .how-pipeline__lede, .how-built p { margin: 0; max-width: 62ch; color: var(--color-text-secondary); }
+.how-main h2 { margin: 0 0 var(--space-1); }
+.app-header__tools a { text-decoration: none; }
+.app-footer { padding-block: var(--space-3); color: var(--color-text-secondary); border-top: var(--rule-width) solid var(--color-rule); }
+.app-footer p { margin: 0; }
+
+/* ---------- Stage ---------- */
+.how-stage { display: grid; gap: var(--space-3); }
+.how-stage__view {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  max-height: 68vh;
+  width: 100%;
+  background: var(--color-surface-sunken);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.how-stage__poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 400ms var(--easing); }
+.how-stage__canvas { position: absolute; inset: 0; opacity: 0; transition: opacity 400ms var(--easing); }
+.how-stage__canvas canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.how-stage__canvas canvas:active { cursor: grabbing; }
+.how-stage__labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.how-stage.has-stage .how-stage__poster { opacity: 0; pointer-events: none; }
+.how-stage.has-stage .how-stage__canvas { opacity: 1; }
+.how-stage__hint {
+  position: absolute; left: var(--space-2); bottom: var(--space-2); margin: 0;
+  padding: var(--space-half) var(--space-1);
+  background: var(--color-surface); color: var(--color-text-secondary);
+  border-radius: var(--radius-sm); font-size: 14px; pointer-events: none;
+}
+
+/* Hotspot markers: quiet until hovered or focused. */
+.hotspot {
+  pointer-events: auto;
+  position: relative;
+  width: 44px; height: 44px; padding: 0;
+  display: grid; place-items: center;
+  background: none; border: 0; border-radius: var(--radius-circle);
+  cursor: pointer; color: var(--color-accent);
+  transition: opacity var(--duration) var(--easing);
+}
+.hotspot::before {
+  content: ""; width: 16px; height: 16px; border-radius: var(--radius-circle);
+  border: 2px solid currentColor; background: var(--color-surface);
+  opacity: 0.7;
+  transition: transform var(--duration) var(--easing), background var(--duration) var(--easing), opacity var(--duration) var(--easing);
+}
+.hotspot__label {
+  position: absolute; left: 50%; top: 100%; transform: translate(-50%, -4px);
+  padding: 2px var(--space-1); white-space: nowrap; font-size: 13px; font-weight: 600;
+  background: var(--color-accent); color: var(--color-on-accent); border-radius: var(--radius-sm);
+  opacity: 0; transition: opacity var(--duration) var(--easing);
+}
+.hotspot:hover::before, .hotspot:focus-visible::before, .hotspot[aria-expanded="true"]::before {
+  background: currentColor; opacity: 1; transform: scale(1.25);
+}
+.hotspot:hover .hotspot__label, .hotspot:focus-visible .hotspot__label, .hotspot[aria-expanded="true"] .hotspot__label { opacity: 1; }
+.hotspot:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 2px; }
+.hotspot.is-dimmed { opacity: 0.35; }
+.hotspot[hidden] { display: none; }
+
+/* Detail panel */
+.how-panel {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  display: grid; gap: var(--space-1);
+}
+.how-panel[hidden] { display: none; }
+.how-panel h3 { margin: 0; font-size: 22px; }
+.how-panel p { margin: 0; }
+.how-panel__actions { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-1); }
+.how-meta { color: var(--color-text-secondary); font-size: 15px; }
+.how-number { font-weight: 600; color: var(--color-accent-text); }
+
+@media (min-width: 960px) {
+  .how-stage.has-stage { grid-template-columns: minmax(0, 1fr) var(--info-column); align-items: start; }
+  .how-stage.has-stage .how-panel[hidden] { display: grid; visibility: hidden; }
+}
+
+/* Plain list: shown when there is no 3D stage. */
+.how-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.how-list[hidden] { display: none; }
+.how-list li { background: var(--color-surface); border: var(--border-width) solid var(--color-border); border-radius: var(--radius); padding: var(--space-2); }
+.how-list h3 { margin: 0 0 var(--space-half); font-size: 18px; }
+.how-list p { margin: 0 0 var(--space-half); }
+
+/* ---------- Pipeline ---------- */
+.how-pipeline { display: grid; gap: var(--space-2); }
+.how-pipeline__controls { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.how-pipeline__controls:empty { display: none; }
+.how-pipeline__diagram {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+  overflow-x: auto;
+}
+.how-pipeline__diagram svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.how-pipeline__static { margin: 0; padding-left: var(--space-3); display: grid; gap: var(--space-1); }
+.how-pipeline__caption { margin: 0; min-height: 3em; font-size: 18px; max-width: 70ch; }
+.how-pipeline__caption:empty { display: none; }
+
+.pipe-node { cursor: pointer; }
+.pipe-node rect { fill: var(--color-surface); stroke: var(--color-border-control); stroke-width: 1.5; transition: fill var(--duration) var(--easing), stroke var(--duration) var(--easing); }
+.pipe-node text { fill: var(--color-text); font: 600 15px var(--font-sans); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.pipe-node:hover rect { stroke: var(--color-accent); }
+.pipe-node:focus-visible { outline: none; }
+.pipe-node:focus-visible rect { stroke: var(--color-accent); stroke-width: 4; }
+.pipe-node.is-active rect { fill: var(--color-accent); stroke: var(--color-accent); }
+.pipe-node.is-active text { fill: var(--color-on-accent); }
+.pipe-node.is-alarm rect { fill: var(--color-danger); stroke: var(--color-danger); }
+.pipe-node.is-alarm text { fill: var(--color-on-danger); }
+.pipe-edge { fill: none; stroke: var(--color-border-control); stroke-width: 2; opacity: 0.5; transition: stroke var(--duration) var(--easing), opacity var(--duration) var(--easing); }
+.pipe-edge.is-active { stroke: var(--color-accent); stroke-width: 3; opacity: 1; }
+.pipe-edge.is-alarm { stroke: var(--color-danger); stroke-width: 4; opacity: 1; }
+.pipe-token rect { fill: var(--color-text); }
+.pipe-token.is-alarm rect { fill: var(--color-danger); }
+.pipe-token text { fill: var(--color-surface); font: 600 12px var(--font-mono); text-anchor: middle; dominant-baseline: central; }
+
+@media (prefers-reduced-motion: reduce) {
+  .how-stage__poster, .how-stage__canvas, .hotspot, .hotspot::before, .hotspot__label { transition: none; }
+}
