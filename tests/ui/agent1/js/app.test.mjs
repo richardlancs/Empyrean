@@ -66,7 +66,7 @@ test("app: shell exposes all eight mounts with the contract ids, in reading orde
   const ids = Object.values(ctx.roots).map((el) => el.id);
   assert.deepEqual(ids, [
     "health-panel", "warning-panel", "touch-panel", "questions-panel", "camera-panel",
-    "objects-panel", "find-panel", "events-panel", "demo-panel",
+    "objects-panel", "events-panel", "demo-panel",
   ]);
   for (const key of ["subscribe", "request", "announce"]) assert.equal(typeof ctx[key], "function");
   assert.ok(Object.isFrozen(ctx) && Object.isFrozen(ctx.roots));
@@ -144,26 +144,14 @@ test("app: destroy runs cleanups, releases every subscription and closes the soc
   assert.equal(win.document.getElementById("app").children.length, 0);
 });
 
-test("app: contrast toggle applies and saves the theme; saved theme wins at start", async () => {
+test("app: brand header has the logo and no contrast control", async () => {
   FakeWebSocket.reset();
-  const storage = fakeStorage();
-  const win = fakeWindow({ storage });
+  const win = fakeWindow();
   const app = startDashboard({ win, importModule: async () => ({}) });
   await app.ready;
-  const html = win.document.documentElement;
-  assert.equal(html.getAttribute("data-theme"), "light");
-  const toggle = win.document.body.find((el) => el.getAttribute("data-shell-control") === "contrast");
-  assert.equal(toggle.getAttribute("type"), "button");
-  assert.equal(toggle.getAttribute("aria-pressed"), "false");
-  toggle.dispatch("click");
-  assert.equal(html.getAttribute("data-theme"), "high-contrast");
-  assert.equal(toggle.getAttribute("aria-pressed"), "true");
-  assert.equal(storage.data.get("empyrean.theme"), '"high-contrast"');
+  assert.equal(win.document.body.find((el) => el.getAttribute("data-shell-control") === "contrast"), null);
+  assert.equal(win.document.body.find((el) => el.getAttribute("src") === "/static/assets/empyrean.svg")?.tagName, "IMG");
   app.destroy();
-
-  const again = startDashboard({ win: fakeWindow({ storage }), importModule: async () => ({}) });
-  assert.equal(again.store.getSnapshot().connection, "connecting");
-  again.destroy();
 });
 
 test("app: works when storage throws (private mode)", async () => {
@@ -202,7 +190,7 @@ test("app: FEATURES matches the shared contract", () => {
   assert.deepEqual(
     FEATURES.map((f) => [f.url, f.exportName, [...f.areas]]),
     [
-      ["/static/features/experience/index.js", "mountExperience", ["touch", "camera", "objects", "find"]],
+      ["/static/features/experience/index.js", "mountExperience", ["touch", "camera", "objects"]],
       ["/static/features/operations/index.js", "mountOperations", ["health", "warning", "events", "demo"]],
       ["/static/features/questions/index.js", "mountQuestions", ["questions"]],
     ],

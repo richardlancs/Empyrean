@@ -328,3 +328,10 @@
   .questions-panel .questions-recent-item { border-left-color: CanvasText; }
   .questions-panel :focus-visible { outline-color: Highlight; }
 }
+
+.app-conversation .questions-panel { border: 0; border-radius: 0; }
+.questions-panel .questions-voice { padding-top: 0; border-top: 0; }
+.questions-panel .questions-voice-status { font-size: var(--text-small); flex: 1 1 12rem; }
+.questions-panel .questions-result { display: grid; gap: var(--space-1); }
+.questions-panel .questions-asked-label { font-size: var(--text-small); color: var(--q-muted); }
+.questions-panel .questions-result-body { font-size: 1.25rem; }

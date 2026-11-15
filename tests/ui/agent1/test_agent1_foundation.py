@@ -37,7 +37,6 @@ MOUNT_IDS = [
     "touch-panel",
     "camera-panel",
     "objects-panel",
-    "find-panel",
     "events-panel",
     "demo-panel",
 ]

@@ -1,5 +1,4 @@
-// The page frame: skip link, header (purpose, Prototype label, display options),
-// the nine feature mounts in semantic order, and the footer.
+// The page frame: brand, combined conversation, independent content columns, footer.
 // The shell owns these elements but never their contents once a feature mounts:
 // each feature fills and updates its own mounts.
 
@@ -11,7 +10,6 @@ export const AREAS = Object.freeze([
   Object.freeze({ key: "questions", id: "questions-panel", label: "Ask a question" }),
   Object.freeze({ key: "camera", id: "camera-panel", label: "Camera view" }),
   Object.freeze({ key: "objects", id: "objects-panel", label: "Recognized objects" }),
-  Object.freeze({ key: "find", id: "find-panel", label: "Find a last touch" }),
   Object.freeze({ key: "events", id: "events-panel", label: "Recent activity" }),
   Object.freeze({ key: "demo", id: "demo-panel", label: "Demo tools" }),
 ]);
@@ -57,24 +55,6 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
 
   const skipLink = h(doc, "a", { className: "skip-link", href: "#main" }, "Skip to dashboard");
 
-  const contrastToggle = h(
-    doc,
-    "button",
-    {
-      type: "button",
-      className: "ui-button ui-button--secondary ui-toggle",
-      "aria-pressed": theme === "high-contrast" ? "true" : "false",
-      "data-shell-control": "contrast",
-    },
-    "High contrast",
-  );
-  const onToggle = () => {
-    const next = contrastToggle.getAttribute("aria-pressed") === "true" ? "light" : "high-contrast";
-    onThemeChange?.(next);
-  };
-  contrastToggle.addEventListener("click", onToggle);
-  cleanups.push(() => contrastToggle.removeEventListener("click", onToggle));
-
   // Optional welcome guidance: a small waving Pip and the three steps, closed by default.
   const welcome = h(doc, "details", { className: "app-welcome" }, [
     h(doc, "summary", { className: "ui-button ui-button--quiet" }, "How it works"),
@@ -98,22 +78,17 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
   const header = h(doc, "header", { className: "app-header" }, [
     h(doc, "div", { className: "app-container app-header__inner" }, [
       h(doc, "div", { className: "app-brand" }, [
-        h(doc, "span", { className: "app-brand__mark", "aria-hidden": "true" }),
+        h(doc, "img", { className: "app-brand__mark", src: "/static/assets/empyrean.svg", alt: "", width: "40", height: "40", "aria-hidden": "true" }),
         h(doc, "h1", { className: "app-brand__name" }, "Empyrean"),
-        h(doc, "span", { className: "ui-chip ui-chip--outline" }, "Prototype"),
-      ]),
-      h(doc, "div", { className: "app-header__purpose" }, [
-        h(doc, "p", { className: "app-header__tagline" }, "Touch an object. Ask what it is."),
       ]),
       h(doc, "div", { className: "app-header__tools", role: "group", "aria-label": "Display options" }, [
         welcome,
-        contrastToggle,
       ]),
     ]),
   ]);
 
   const roots = {};
-  const slots = AREAS.map((area) => {
+  AREAS.forEach((area) => {
     const slot = h(doc, "section", {
       id: area.id,
       className: `app-slot app-slot--${area.key}`,
@@ -127,8 +102,19 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
     return slot;
   });
 
+  const conversation = h(doc, "div", { className: "app-conversation" }, [
+    h(doc, "h2", { className: "app-conversation__heading" }, "Ask Empyrean"),
+    roots.touch, roots.questions,
+  ]);
   const main = h(doc, "main", { id: "main", className: "app-main", tabindex: "-1" }, [
-    h(doc, "div", { className: "app-container app-layout" }, slots),
+    h(doc, "div", { className: "app-container app-layout" }, [
+      roots.health, roots.warning,
+      h(doc, "div", { className: "app-columns" }, [
+        h(doc, "div", { className: "app-column app-column--conversation" }, [conversation, roots.objects]),
+        h(doc, "div", { className: "app-column app-column--camera" }, [roots.camera, roots.events]),
+      ]),
+      roots.demo,
+    ]),
   ]);
 
   const footer = h(doc, "footer", { className: "app-footer" }, [
@@ -148,10 +134,8 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
     roots: Object.freeze(roots),
     main,
 
-    /** Reflect the active theme in the contrast toggle. */
-    setTheme(next) {
-      contrastToggle.setAttribute("aria-pressed", next === "high-contrast" ? "true" : "false");
-    },
+    /** Theme is applied to the document by the app; there is no header toggle. */
+    setTheme() {},
 
     /** Clear loading placeholders and aria-busy once a feature has mounted. */
     markMounted(keys) {

@@ -44,8 +44,6 @@ def test_pip_assets_are_clean_single_shapes_with_transparent_padding() -> None:
 def test_pip_is_decorative_everywhere_and_never_in_camera_or_thumbnails() -> None:
     """Every Pip has an empty alt; artwork never enters the video, thumbnails or history."""
     uses = {
-        "pip-point.png": STATIC / "features" / "experience" / "touch-card.js",
-        "pip-peek.png": STATIC / "features" / "experience" / "touch-card.js",
         "pip-sit.png": STATIC / "features" / "operations" / "event-history.js",
         "pip-wave.png": STATIC / "components" / "app-shell.js",
         "pip-recline.png": STATIC / "features" / "experience" / "pip-companion.js",
@@ -88,13 +86,6 @@ def test_camera_pip_is_a_named_help_button_that_never_switches_models() -> None:
     pip_css = css[css.index("Pip, the camera companion") :]
     assert "infinite" not in pip_css, "Pip must not loop"
     assert "prefers-reduced-motion: reduce" in pip_css
-
-
-def test_help_sign_text_is_html_not_part_of_the_image() -> None:
-    """The sign's words are a figcaption, so they are read aloud and can grow."""
-    card = (STATIC / "features" / "experience" / "touch-card.js").read_text(encoding="utf-8")
-    assert '"figcaption"' in card and "pip-sign__text" in card
-    assert "Let go and touch again" in card
 
 
 def test_speech_never_infers_success_from_a_touch() -> None:

@@ -7,20 +7,16 @@
 // a socket; network requests go through ctx.request (last-seen search only).
 
 import { createCameraPanel } from "./camera-panel.js";
-import { createFindPanel } from "./find-panel.js";
-import { createLastSeenController } from "./last-seen.js";
 import { createObjectList } from "./object-list.js";
 import { createTouchCard } from "./touch-card.js";
 import {
   selectCamera,
   selectCurrentTouch,
   selectDetector,
-  selectFindAvailability,
   selectObjects,
   selectPip,
   selectSpeech,
   selectTouchCard,
-  serverNow,
   videoUrl,
 } from "./selectors.js";
 
@@ -78,8 +74,6 @@ export function mountExperience(ctx) {
   let lastTouchKey = null;
   let lastSpeechKey = null;
   let lastCameraKind = null;
-  let findView = { status: "idle", query: "", answer: "", matchedAt: null, message: "" };
-  let findGeneration = 0;
   // This page's own detector request; the engine's DetectorStatus stays the truth.
   let detectorLocal = { sending: null, error: null, requestId: null, at: null };
   let detectorHandoff = null;
@@ -114,25 +108,6 @@ export function mountExperience(ctx) {
         },
       })
     : null;
-  const lastSeen = createLastSeenController({
-    request: (path, options) => ctx.request(path, options),
-    onChange(next) {
-      if (next.status === "loading") findGeneration += 1;
-      findView = next;
-      if (["found", "not_found", "unavailable", "timeout", "error"].includes(next.status)) {
-        const text = next.status === "found" || next.status === "not_found" ? next.answer || "No recorded touch matches." : next.message;
-        announce(text, { priority: "polite", key: `find:${findGeneration}:${next.status}` });
-      }
-      render();
-    },
-  });
-  const findPanel = roots.find
-    ? createFindPanel(roots.find, {
-        onSearch: (query) => lastSeen.search(query),
-        onRetry: () => lastSeen.retry(),
-      })
-    : null;
-
   /**
    * Ask the engine for a detector. One request at a time; nothing reads as active until
    * vision confirms it. Outcomes are read out by the control's own status line.
@@ -239,11 +214,6 @@ export function mountExperience(ctx) {
     cameraPanel?.updateDetector(detectorVm);
     cameraPanel?.updatePip(selectPip(snapshot, cam, detectorVm, selectCurrentTouch(snapshot.state)));
     objectList?.update(selectObjects(snapshot, prefs, nowMs));
-    findPanel?.update(
-      selectFindAvailability(snapshot.state),
-      findView,
-      serverNow(snapshot.state, snapshot.receivedAt, nowMs),
-    );
     announceEvents(nowMs);
   }
 
@@ -270,10 +240,8 @@ export function mountExperience(ctx) {
     clearInterval(ticker);
     if (streamRetryTimer !== null) clearTimeout(streamRetryTimer);
     clearTimeout(detectorHandoff);
-    lastSeen.dispose();
     touchCard?.destroy();
     cameraPanel?.destroy();
     objectList?.destroy();
-    findPanel?.destroy();
   };
 }
