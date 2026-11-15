@@ -87,6 +87,13 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 2 (repository cleanup completed), Codex
+**Changed:** Removed 25 obsolete GitHub branches: 20 already merged, 5 with unique history first preserved under `archive/cleanup-2026-11-14/` tags. Removed 3 stale local branches after verifying their commits remain reachable. Primary checkout now tracks main at unchanged 94abe6e. Both worktrees are clean; the active app worktree is retained. Existing 134 dirty capture/log files were committed as 4754f20 and prior launch notes as 7f9e746; both are archived remotely. No runtime, dependency, model, secret, contract or threshold changes were introduced.
+**Tested:** Final primary checkout full pytest: 364 passed, 1 skipped, existing Starlette/httpx warning; includes fake-vision CLI startup. Active secondary worktree still has its previously reproduced checkpoint-dependent cache test failure (363 passed, 1 skipped, 1 failed). Live /api/state still returns HTTP 200. Verified all 133 non-log archived files against original backup bytes (allowing Git CRLF normalization). Remote main hash is unchanged. Pre- and post-cleanup Git bundles verified.
+**Decisions:** Keep experimental capture changes in archival history, without installing candidates or merging them into the working product. Preserve ignored environments, checkpoints, credentials and training handoffs. Remove only disposable primary-checkout pytest/ruff caches.
+**Teammates need to know:** GitHub now exposes only main as a branch. Fetch with prune to remove stale tracking refs. Unique closed-PR work remains recoverable through archive tags; rollback bundle, ZIP copies, branch inventory and cleanup report are at `../repository-backups/hackumass-20261114-190224/`. Active dashboard remains in hackumass-voice-main. Person 1 owns the checkpoint-dependent test follow-up.
+
+
 ### 2026-11-14 19:10, Person 2 (local checkout cleanup), Codex
 **Changed:** Committed the existing latest-main launch notes so the active worktree is clean. This is an archive-only documentation commit on 94abe6e; runtime files, local credentials and model assets are unchanged. Preserved capture corrections separately under `archive/cleanup-2026-11-14/local-capture-records`. Repository-wide cleanup records and rollback ZIPs/Git bundle are in `../repository-backups/hackumass-20261114-190224/`.
 **Tested:** Latest-main pytest: 363 passed, 1 skipped, existing cached-demo-toggle failure reproduced. GET /api/state returned HTTP 200. The previous feature checkout passed 212 tests with 1 skipped; 140 capture images/boxes and 40 provenance hashes validated.
