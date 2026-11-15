@@ -52,7 +52,7 @@ This is the whole stack. Do not substitute or add to it without all four people 
 | Hand tracking | MediaPipe Hands | `vision/` |
 | Brand naming and hazard check | A Grok model that accepts images, called over the Grok API with `httpx` | `namer/`, `hazard/` |
 | Database | Tiger Data (managed Postgres with time-series hypertables), `psycopg` 3 driver | `storage/` |
-| Speech | `pyttsx3`, offline text to speech | `audio/` |
+| Speech | `piper-tts` neural voices played through the `pygame` mixer, offline; `pyttsx3` as the fallback (proposed 2026-11-14, needs all four teammates' agreement) | `audio/` |
 | Alarm sound | `pygame` mixer playing a pre-made WAV file | `audio/` |
 | Web server | FastAPI on Uvicorn | `dashboard/` |
 | Dashboard page | Minimal `index.html` loading native ES modules and plain CSS from `dashboard/static/`, layered as described in `docs/dashboard-redesign/`. MJPEG for video, one WebSocket for data. No front-end framework or build step | `dashboard/` |
@@ -216,6 +216,9 @@ Rules:
 - The speech queue holds one item. A newer item replaces a waiting older one. Stale speech is worse than no speech.
 - Spoken hazard phrases: `stairs_down` is "Stop. Stairs.", `drop_off` is "Stop. Drop ahead.", `vehicle` is "Stop. Vehicle.", `obstacle` is "Stop. Obstacle."
 - Text to speech runs offline on the laptop so speech never waits on the network.
+- Speech uses one of five offline Piper neural voice presets at `SPEECH_RATE_WPM`: `alba` (Alba, default), `kristin` (Kristin), `northern` (Northern English), `cori` (Cori), `lessac` (Lessac). The model files are downloaded once per laptop with `python -m audio.fetch_voices` into the git-ignored `audio/voice_models/`; after that nothing touches the network. Piper high-tier models report quality `premium`, medium-tier `enhanced`. `AUDIO_VOICE` in `.env` picks the startup voice; an unknown value falls back to `alba`. A preset whose model is missing, or a laptop without Piper, speaks with pyttsx3 (Samantha where available) and reports `fallback`. Hazard phrases are pre-rendered in the active voice so they never wait on synthesis; an alarm stops Piper playback at once.
+- **Languages.** Each voice preset has a language: English (`alba`, `kristin`, `northern`, `cori`, `lessac`), Mandarin `huayan` (`zh`), Spanish `claude` (`es`, Mexican Spanish), French `siwis` (`fr`) and Hindi `priyamvada` (`hi`). The active language is the language of audio's confirmed voice, `VoiceStatus.language`; the dashboard's Language picker switches it by requesting that language's voice. In a non-English language: hazard phrases and the sample line come from fixed tables in `audio/`; an unnamed object's class label comes from `contracts/languages.py`; namer asks Grok for each name in English and the active language at once (`NameResult.spoken_name`) and answers scene questions in it; storage and the dashboard word their spoken answers from fixed tables. Translations are offline and fixed, so speech never waits on the network. A `spoken_name` in a language other than the active one is not spoken; the English name is.
+- A `VoiceChange` is applied between phrases on the speech worker, never mid-phrase and never ahead of a hazard. Audio answers with `VoiceStatus`, then says "This is <label>." at priority 3.
 - The alarm beeps are a pre-made sound file, not generated at run time.
 
 ### 4.9 Dashboard
@@ -228,6 +231,7 @@ One web page served from the laptop on port 8000. Since the 2026-11-14 light red
 | Right, top | Object list: name (or class label until named), state, seconds since last seen. Touched objects are highlighted and sorted to the top |
 | Right, bottom | Event log: last 10 touch and hazard events with times |
 | Top bar | Processed frames per second, a red banner while a hazard is active, and a "last touched" search box |
+| Voice picker | One of the five voices. The page shows a voice as active only after audio's `VoiceStatus` confirms it; a request unanswered within `VOICE_SWITCH_TIMEOUT_SECONDS` fails |
 
 Overlays, drawn on the laptop before streaming:
 
@@ -347,6 +351,8 @@ These are the contract between modules. Field names, types and units are fixed.
 | `object_id` | integer | Object named |
 | `name` | text | At most 40 characters. Empty if naming failed |
 | `ok` | true or false | False on timeout or error |
+| `spoken_name` | text | The name in `language` when the active language is not English, else empty. `name` stays English for storage, search and the dashboard |
+| `language` | text | Language code `spoken_name` is in, or empty |
 
 ### `TouchEvent` (scene to audio, storage, dashboard)
 
@@ -418,6 +424,35 @@ The only confirmation of a mode change. `active_mode` changes only after the rep
 | `demo_available` | true, false or empty | Empty until checked |
 | `message` | text | Why a switch failed, or how to make Demo available |
 | `fake` | true or false | True when vision is a fake (recorded clip): no model runs |
+
+### `VoiceChange` (dashboard to audio)
+
+A request to switch the spoken voice. Audio answers with `VoiceStatus`; a `VoiceChange` is never treated as confirmation.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When the switch was requested |
+| `voice` | text | Preset key: `alba`, `kristin`, `northern`, `cori` or `lessac` |
+| `request_id` | text or empty | Optional; echoed by the `VoiceStatus` that answers it |
+
+### `VoiceStatus` (audio to dashboard)
+
+The only confirmation of a voice switch. Published once at startup and after every `VoiceChange`.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When this status was true |
+| `state` | text | `active` or `failed` |
+| `active_voice` | text | Preset key in use now |
+| `label` | text | Display name of the active preset |
+| `quality` | text | `premium`, `enhanced`, `compact` or `fallback` |
+| `voices` | map | Preset key to label, in menu order |
+| `installed` | list of text | Keys whose own voice is installed |
+| `requested_voice` | text or empty | Set when answering or refusing a `VoiceChange` |
+| `request_id` | text or empty | From the `VoiceChange` this answers |
+| `detail` | text | Why a switch failed, or which voice stands in |
+| `language` | text | Language code of the active voice (`en`, `zh`, `es`, `fr`, `hi`); every spoken answer follows it |
+| `voice_languages` | map | Preset key to language code |
 
 ### `SceneQuestion` (dashboard to namer)
 
@@ -544,6 +579,7 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 | `NAME_TIMEOUT_SECONDS` | 4.0 | namer |
 | `NAME_MAX_CHARS` | 40 | namer |
 | `LATE_NAME_WINDOW_SECONDS` | 1.5 | audio |
+| `SPEECH_RATE_WPM` | 165 | audio |
 | `HAZARD_VEHICLE_MIN_AREA_FRACTION` | 0.10 | hazard |
 | `HAZARD_VEHICLE_GROWTH` | 0.30 | hazard |
 | `HAZARD_GROK_INTERVAL_SECONDS` | 1.5 | hazard |
@@ -558,6 +594,7 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 | `LAST_SEEN_TIMEOUT_SECONDS` | 8.0 | dashboard |
 | `THUMBNAIL_MAX_AGE_SECONDS` | 30.0 | dashboard |
 | `MODE_SWITCH_TIMEOUT_SECONDS` | 30.0 | dashboard |
+| `VOICE_SWITCH_TIMEOUT_SECONDS` | 10.0 | dashboard |
 
 ---
 

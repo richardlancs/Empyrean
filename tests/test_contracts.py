@@ -25,6 +25,8 @@ from contracts import (
     SpeechStatus,
     TouchEvent,
     TrackedObject,
+    VoiceChange,
+    VoiceStatus,
 )
 
 SPEC = Path(__file__).resolve().parents[1] / "SPEC.md"
@@ -86,7 +88,14 @@ def _all_messages() -> list[object]:
         NameRequest(
             ts=TS, object_id=3, class_label="bottle", crop_jpeg=b"\xff\xd8\xff\xd9"
         ),
-        NameResult(ts=TS, object_id=3, name="Heinz ketchup", ok=True),
+        NameResult(
+            ts=TS,
+            object_id=3,
+            name="Heinz ketchup",
+            ok=True,
+            spoken_name="亨氏番茄酱",
+            language="zh",
+        ),
         TouchEvent(
             ts=TS,
             object_id=3,
@@ -137,6 +146,21 @@ def _all_messages() -> list[object]:
             message="",
             fake=False,
         ),
+        VoiceChange(ts=TS, voice="zoe", request_id="v1"),
+        VoiceStatus(
+            ts=TS,
+            state="active",
+            active_voice="zoe",
+            label="Zoe",
+            quality="premium",
+            voices={"ava": "Ava", "zoe": "Zoe"},
+            installed=["ava", "zoe"],
+            requested_voice="zoe",
+            request_id="v1",
+            detail="",
+            language="en",
+            voice_languages={"ava": "en", "zoe": "en"},
+        ),
     ]
 
 
@@ -181,6 +205,8 @@ def test_fixed_values_match_spec() -> None:
         (HazardEvent, "source"): {"yolo", "grok"},
         (SpeakRequest, "priority"): {"normal"},
         (ModeChange, "mode"): {"actual", "demo"},
+        (VoiceStatus, "state"): {"active", "failed"},
+        (VoiceStatus, "quality"): {"premium", "enhanced", "compact", "fallback"},
     }
     for (cls, field_name), values in expected.items():
         hint = typing.get_type_hints(cls)[field_name]
@@ -206,7 +232,7 @@ def test_hand_landmarks_default_empty() -> None:
 def test_config_matches_spec_section_9() -> None:
     """config has every section 9 name with the spec's value and type, and nothing else."""
     spec = _spec_thresholds()
-    assert len(spec) == 36  # 27 original + 3 redesign + DEMO_DET_MIN_CONFIDENCE + MODE_SWITCH_TIMEOUT_SECONDS + 2 scene questions + 2 pointing
+    assert len(spec) == 38  # + SPEECH_RATE_WPM, VOICE_SWITCH_TIMEOUT_SECONDS; 27 original + 3 redesign + DEMO_DET_MIN_CONFIDENCE + MODE_SWITCH_TIMEOUT_SECONDS + 2 scene questions + 2 pointing
     assert set(config.__all__) == set(spec)
     for name, value in spec.items():
         actual = getattr(config, name)
@@ -219,3 +245,30 @@ def test_old_last_seen_query_constructor_still_works() -> None:
     assert query.request_id is None
     result = LastSeenResult(TS, "r1", "unavailable", "Touch history is unavailable right now.")
     assert result.matched_at is None and result.neighbours == [] and result.label == ""
+
+
+def test_voice_messages_default_to_empty() -> None:
+    """VoiceChange and VoiceStatus can be built with only their required fields."""
+    assert VoiceChange(ts=1.0, voice="ava").request_id is None
+    status = VoiceStatus(ts=1.0, state="active", active_voice="ava", label="Ava", quality="premium")
+    assert status.voices == {} and status.installed == [] and status.detail == ""
+    assert config.SPEECH_RATE_WPM == 165
+    assert config.VOICE_SWITCH_TIMEOUT_SECONDS == 10.0
+
+
+def test_language_vocabulary() -> None:
+    """Five languages, English default, and label translation falls back to English."""
+    from contracts.languages import (
+        LANGUAGE_NAMES_EN,
+        LANGUAGES,
+        known_language,
+        translate_label,
+    )
+
+    assert list(LANGUAGES) == ["en", "zh", "es", "fr", "hi"]
+    assert set(LANGUAGE_NAMES_EN) == set(LANGUAGES)
+    assert known_language("xx") == "en" and known_language("hi") == "hi"
+    assert translate_label("bottle", "es") == "botella"
+    assert translate_label("bottle", "en") == "bottle"
+    assert translate_label("unknown thing", "fr") == "unknown thing"
+    assert NameResult(ts=TS, object_id=1, name="cup", ok=True).spoken_name == ""

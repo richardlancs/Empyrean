@@ -101,7 +101,8 @@ def test_snapshot_keeps_original_fields_and_adds_the_agreed_ones() -> None:
     assert camera["last_frame_ts"] is None and camera["fps"] is None
     assert camera["width"] is None and camera["height"] is None
     assert set(snap["capabilities"]) == {
-        "last_seen", "thumbnails", "overlays", "speech_status", "mode_switch", "questions"
+        "last_seen", "thumbnails", "overlays", "speech_status", "mode_switch", "questions",
+        "voice_switch",
     }
     assert snap["questions"] is None and snap["capabilities"]["questions"] is False
     # Nothing was instrumented, so nothing claims to be healthy.

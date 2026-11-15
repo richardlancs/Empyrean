@@ -24,6 +24,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import DASHBOARD_PORT
+from contracts.languages import DEFAULT_LANGUAGE
 from dashboard import bus_adapter
 from dashboard.api.realtime import ClientHub, build_realtime_router
 from dashboard.api.routes import INDEX_PATH, build_router
@@ -32,6 +33,7 @@ from dashboard.services.detector_mode import DetectorModeService
 from dashboard.services.heartbeat import Heartbeat
 from dashboard.services.last_seen import LastSeenService
 from dashboard.services.questions import QuestionService
+from dashboard.services.voice_choice import VoiceService
 from dashboard.state import DashboardState
 from dashboard.thumbnails import ThumbnailCache
 from dashboard.video import VideoFeed
@@ -63,6 +65,7 @@ class Dashboard:
         thumbnails: ThumbnailCache | None = None,
         detector_mode: DetectorModeService | None = None,
         questions: QuestionService | None = None,
+        voice: VoiceService | None = None,
     ) -> None:
         """Hold the services; call serve() to start the web page."""
         self.state = state
@@ -76,6 +79,8 @@ class Dashboard:
         self.state.detector_mode = self.detector_mode
         self.questions = questions if questions is not None else _questions(None, self.state, self.last_seen)
         self.state.questions = self.questions
+        self.voice = voice if voice is not None else VoiceService(None)
+        self.state.voice = self.voice
         self.heartbeat = Heartbeat(self.tick)
         self._server: Any = None
         self._thread: threading.Thread | None = None
@@ -85,7 +90,7 @@ class Dashboard:
         """The services the routes call into."""
         return DashboardServices(
             self.state, self.video, self.last_seen, self.thumbnails, self.detector_mode,
-            self.questions,
+            self.questions, self.voice,
         )
 
     def tick(self) -> None:
@@ -93,6 +98,7 @@ class Dashboard:
         self.last_seen.expire()
         self.questions.expire()
         self.detector_mode.expire()
+        self.voice.expire()
         self.thumbnails.expire()
         self.state.tick()
 
@@ -160,6 +166,7 @@ def register(
         last_seen=last_seen,
         detector_mode=DetectorModeService(bus.publish),
         questions=_questions(bus.publish, state, last_seen),
+        voice=VoiceService(bus.publish),
     )
     bus_adapter.connect(bus, dashboard.services)
     if serve:
@@ -175,6 +182,7 @@ def create_app(
     thumbnails: ThumbnailCache | None = None,
     detector_mode: DetectorModeService | None = None,
     questions: QuestionService | None = None,
+    voice: VoiceService | None = None,
 ) -> FastAPI:
     """Build the dashboard web app (new empty services for anything not given)."""
     state = state if state is not None else DashboardState()
@@ -184,9 +192,11 @@ def create_app(
     state.thumbnails, state.last_seen, state.detector_mode = thumbnails, last_seen, detector_mode
     questions = _first(questions, state.questions, lambda: _questions(None, state, last_seen))
     state.questions = questions
+    voice = _first(voice, state.voice, lambda: VoiceService(None))
+    state.voice = voice
     video = video if video is not None else VideoFeed()
     return _build_app(
-        DashboardServices(state, video, last_seen, thumbnails, detector_mode, questions)
+        DashboardServices(state, video, last_seen, thumbnails, detector_mode, questions, voice)
     )
 
 
@@ -199,6 +209,7 @@ def _questions(
         last_seen,
         scene_running=lambda: not state.health.not_started("namer"),
         history_running=lambda: last_seen.available and not state.health.not_started("storage"),
+        language=lambda: state.voice.language() if state.voice is not None else DEFAULT_LANGUAGE,
     )
 
 
@@ -219,6 +230,7 @@ def _build_app(services: DashboardServices) -> FastAPI:
     services.last_seen.add_listener(hub.push)
     services.detector_mode.add_listener(hub.push)
     services.questions.add_listener(hub.push)
+    services.voice.add_listener(hub.push)
     app.include_router(build_router(services))
     app.include_router(build_realtime_router(hub))
     if STATIC_DIR.is_dir():

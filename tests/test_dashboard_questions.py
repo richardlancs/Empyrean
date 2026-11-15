@@ -25,6 +25,7 @@ from contracts import (
 )
 from dashboard import DashboardState, create_app, register
 from dashboard.questions import (
+    HISTORY_UNAVAILABLE_ANSWER,
     SCENE_BUSY_ANSWER,
     SCENE_PENDING_ANSWER,
     SCENE_UNAVAILABLE_ANSWER,
@@ -314,3 +315,74 @@ def test_invalid_and_standalone_requests() -> None:
     assert reply.json()["detail"] == "Questions require the running app."
     assert standalone.get("/api/state").json()["capabilities"]["questions"] is False
     assert client.get("/api/question/unknown").status_code == 404
+
+
+# Languages (SPEC 4.8): the dashboard's own spoken answers follow the active voice.
+
+FRENCH = {
+    SCENE_BUSY_ANSWER: "Veuillez attendre la fin de la question en cours.",
+    SCENE_UNAVAILABLE_ANSWER: "Je n'ai pas pu répondre pour le moment. Veuillez réessayer.",
+    HISTORY_UNAVAILABLE_ANSWER: (
+        "L'historique des contacts n'est pas disponible pour le moment."
+    ),
+}
+
+
+def test_english_spoken_answers_are_unchanged() -> None:
+    """English wording stays byte-identical."""
+    assert SCENE_BUSY_ANSWER == "Please wait for the current question to finish."
+    assert SCENE_UNAVAILABLE_ANSWER == "I could not answer that right now. Please try again."
+    assert HISTORY_UNAVAILABLE_ANSWER == "Touch history is unavailable right now."
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_each_spoken_message_follows_the_language(language: str) -> None:
+    """Busy, scene unavailable and history unavailable are spoken in the active language."""
+    def say(english: str) -> str:
+        return english if language == "en" else FRENCH[english]
+
+    clock = [1000.0]
+    published: list[Any] = []
+    scene_up = [True]
+    last_seen = LastSeenService(published.append)
+    service = QuestionService(
+        published.append, last_seen, scene_running=lambda: scene_up[0],
+        history_running=lambda: False, clock=lambda: clock[0], scene_timeout=8.0,
+        language=lambda: language,
+    )
+    service.ask("What can you see?")  # pending, so the next one is busy
+    busy = service.ask("What am I holding?")
+    assert busy["answer"] == say(SCENE_BUSY_ANSWER)
+    history = service.ask("Where did I last touch my keys?")
+    assert history["answer"] == say(HISTORY_UNAVAILABLE_ANSWER)
+    clock[0] += 9.0
+    service.expire()
+    scene_up[0] = False
+    down = service.ask("What can you see?")
+    assert down["answer"] == say(SCENE_UNAVAILABLE_ANSWER)
+    assert spoken_by_dashboard(published) == [
+        say(SCENE_BUSY_ANSWER),
+        say(HISTORY_UNAVAILABLE_ANSWER),
+        say(SCENE_UNAVAILABLE_ANSWER),
+    ]
+
+
+def test_history_timeout_is_spoken_in_the_active_language() -> None:
+    """A lookup storage never answers is spoken as unavailable in the voice's language."""
+    from contracts import VoiceStatus
+
+    bus = TestBus()
+    dashboard = register(bus, serve=False)
+    bus.publish(
+        VoiceStatus(
+            ts=time.time(), state="active", active_voice="siwis", label="Siwis",
+            quality="premium", voices={"siwis": "Siwis"}, installed=["siwis"],
+            language="fr", voice_languages={"siwis": "fr"},
+        )
+    )
+    dashboard.last_seen._timeout = -1.0  # every lookup is already overdue
+    reply = dashboard.questions.ask("Where did I last touch the keys?")
+    dashboard.last_seen.expire()
+    done = dashboard.questions.get(reply["question_id"])
+    assert done is not None and done["answer"] == FRENCH[HISTORY_UNAVAILABLE_ANSWER]
+    assert FRENCH[HISTORY_UNAVAILABLE_ANSWER] in spoken(bus)

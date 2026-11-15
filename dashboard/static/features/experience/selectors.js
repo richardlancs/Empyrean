@@ -491,6 +491,137 @@ export function selectDetector(snapshot, local = { sending: null, error: null })
 }
 
 // ---------------------------------------------------------------------------
+// Voice and language pickers. Audio's VoiceStatus is the truth: the pickers show a
+// voice or language as chosen only after audio confirms it; a request in flight, a
+// switch in progress, a failure or a lost connection each say so in words. The
+// active language is the confirmed voice's language (`voice.language`). Page
+// chrome stays English; only the language names are native.
+
+/** Voice options as the server listed them, cleaned; `language` is "" when not reported. */
+function voiceOptions(v) {
+  return (Array.isArray(v?.options) ? v.options : [])
+    .filter((o) => o && typeof o.key === "string")
+    .map((o) => {
+      const label = o.label || o.key;
+      return {
+        key: o.key,
+        label,
+        text: o.installed === false ? `${label} (not installed)` : label,
+        language: typeof o.language === "string" ? o.language : "",
+        installed: o.installed !== false,
+      };
+    });
+}
+
+/** Language menu as the server listed it: [{ code, label }], native labels. */
+function languageOptions(v) {
+  return (Array.isArray(v?.languages) ? v.languages : [])
+    .filter((l) => l && typeof l.code === "string" && l.code)
+    .map((l) => ({ code: l.code, label: typeof l.label === "string" && l.label ? l.label : l.code }));
+}
+
+/**
+ * View model for the voice picker.
+ * local = { sending, error, at, language } for this page's own request only: sending is the
+ * voice key asked for, language the language code when the request came from the
+ * language picker, error a refusal message, at the voice updated_ts when it was refused.
+ * Options are only the voices of the confirmed language (plus the confirmed voice itself).
+ * Returns { options: [{ key, label, text }], value, locked, statusText, tone }.
+ */
+export function selectVoice(snapshot, local = { sending: null, error: null }) {
+  const state = snapshot?.state ?? null;
+  const connected = snapshot?.connection === "connected";
+  const v = state?.voice ?? null;
+  const base = { options: [], value: null, locked: true, statusText: "", tone: "neutral" };
+  if (!state) return { ...base, statusText: "Waiting for the dashboard to connect." };
+  if (!state.capabilities?.voice_switch || !v) {
+    return { ...base, statusText: "Choosing a voice is not available on this server." };
+  }
+  const all = voiceOptions(v);
+  const languages = languageOptions(v);
+  const languageLabel = (code) => languages.find((l) => l.code === code)?.label || "";
+  const confirmedLanguage = typeof v.language === "string" && v.language ? v.language : null;
+  const shown = confirmedLanguage
+    ? all.filter((o) => !o.language || o.language === confirmedLanguage || o.key === v.active_voice)
+    : all;
+  const options = shown.map(({ key, label, text }) => ({ key, label, text }));
+  // Targets may be in another language, so look them up in the full list.
+  const labelOf = (key) => all.find((o) => o.key === key)?.label || key;
+  const targetText = (key) => {
+    const target = all.find((o) => o.key === key);
+    const lang = target?.language && target.language !== confirmedLanguage ? languageLabel(target.language) : "";
+    return lang ? `${labelOf(key)} (${lang})` : labelOf(key);
+  };
+  if (v.state === "unknown" || !v.active_voice) {
+    return { ...base, options, statusText: v.message || "Audio has not reported a voice." };
+  }
+
+  const active = v.label || labelOf(v.active_voice);
+  const activeLanguage = confirmedLanguage ? languageLabel(confirmedLanguage) : "";
+  const details = [activeLanguage, v.quality === "fallback" ? "fallback voice" : ""].filter(Boolean).join(", ");
+  const confirmed = details ? `Voice: ${active} (${details})` : `Voice: ${active}`;
+  const vm = { options, value: v.active_voice, locked: false, statusText: confirmed, tone: "ok" };
+  if (!connected) {
+    return {
+      ...vm,
+      locked: true,
+      tone: "neutral",
+      statusText: `Disconnected. ${active} was the voice when the page lost its connection; switching resumes after it reconnects.`,
+    };
+  }
+  if (v.state === "switching") {
+    const target = v.switching_to ? targetText(v.switching_to) : "another voice";
+    return { ...vm, locked: true, tone: "busy", statusText: `Switching to ${target}…` };
+  }
+  if (local?.sending) {
+    const target = local.language && languageLabel(local.language)
+      ? `${languageLabel(local.language)} (${labelOf(local.sending)})`
+      : targetText(local.sending);
+    return { ...vm, locked: true, tone: "busy", statusText: `Asking to switch to ${target}…` };
+  }
+  if (v.state === "failed") {
+    return { ...vm, tone: "error", statusText: v.message || `The last voice switch did not finish. Still using ${active}.` };
+  }
+  // This page's refused request, until audio reports anything newer.
+  if (local?.error && (local.at ?? null) === (v.updated_ts ?? null)) {
+    return { ...vm, tone: "error", statusText: `${local.error} Still using ${active}.` };
+  }
+  return vm;
+}
+
+/**
+ * View model for the language picker; it locks exactly when the voice picker does.
+ * local is the same voice request state selectVoice() takes.
+ * Returns { options: [{ code, label }], value, locked, statusText, visible } where
+ * statusText is the shared voice status line and visible is false when the server
+ * lists no languages (an older server).
+ */
+export function selectLanguage(snapshot, local = { sending: null, error: null }) {
+  const voiceVm = selectVoice(snapshot, local);
+  const v = snapshot?.state?.capabilities?.voice_switch ? snapshot?.state?.voice ?? null : null;
+  const options = languageOptions(v);
+  const reported = typeof v?.language === "string" && v.language ? v.language : null;
+  const value = voiceVm.value !== null && reported ? reported : null;
+  return {
+    options,
+    value,
+    locked: voiceVm.locked || value === null,
+    statusText: voiceVm.statusText,
+    visible: options.length > 0,
+  };
+}
+
+/**
+ * The voice key to request for a language: the first installed voice of that
+ * language, else its first voice, else null. Server option order is kept.
+ */
+export function languageRequestVoice(snapshot, code) {
+  const all = voiceOptions(snapshot?.state?.voice);
+  const ofLanguage = all.filter((o) => o.language === code);
+  return (ofLanguage.find((o) => o.installed) || ofLanguage[0])?.key ?? null;
+}
+
+// ---------------------------------------------------------------------------
 // Pip, the camera companion. Pose and help text come only from confirmed state:
 // the camera view model, the detector view model (vision's DetectorStatus), the
 // current touch and the warning. Pip never claims listening, recognition or sound.

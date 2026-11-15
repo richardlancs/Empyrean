@@ -22,6 +22,7 @@ from contracts import (
     SpeakRequest,
     SpeechStatus,
     TouchEvent,
+    VoiceStatus,
 )
 from dashboard import DashboardState, create_app, register
 from dashboard.state import EVENT_LOG_SIZE, HAZARD_LABELS
@@ -140,6 +141,7 @@ def test_register_and_real_events_are_not_simulated() -> None:
     original = {HazardEvent, TouchEvent, FrameResult, SceneSnapshot}
     added = {NameRequest, NameResult, SpeechStatus, ModuleStatus, LastSeenResult}
     added |= {DetectorStatus}  # Regular/Demo: vision's confirmation of a detector switch
+    added |= {VoiceStatus}  # voice picker: audio's confirmation of a voice switch
     added |= {SpeakRequest}  # namer's scene answers, shown on the page (SPEC 4.9.1)
     assert set(bus.subscribers) == original | added
 

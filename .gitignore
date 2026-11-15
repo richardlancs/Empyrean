@@ -21,6 +21,8 @@ __pycache__/
 *.engine
 *.tflite
 *.task
+# Piper voices fetched by `python -m audio.fetch_voices` (about 470 MB).
+audio/voice_models/
 # Text encoder that the demo prompt build downloads (600 MB).
 mobileclip_*.ts
 
