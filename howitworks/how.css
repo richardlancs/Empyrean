@@ -156,30 +156,7 @@
 .web-token.is-alarm rect { fill: var(--color-danger); }
 .web-token text { fill: var(--color-surface); font: 600 11.5px var(--font-mono); text-anchor: middle; dominant-baseline: central; }
 
-/* ---------- Buttons on this page: soft edges, grow on hover, bounce on press ---------- */
-:root:not([data-theme="high-contrast"]) .how-main .ui-button,
-:root:not([data-theme="high-contrast"]) .app-header__tools .ui-button {
-  border-color: transparent;
-  border-radius: var(--radius);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-text) 14%, transparent),
-              0 0 0 1px color-mix(in srgb, var(--color-text) 7%, transparent);
-}
-:root:not([data-theme="high-contrast"]) .how-main .ui-button--quiet { box-shadow: none; }
-.how-main .ui-button, .app-header__tools .ui-button {
-  transition: transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 200ms var(--easing),
-              background-color var(--duration-fast) var(--easing);
-}
-.how-main .ui-button:hover, .app-header__tools .ui-button:hover { transform: scale(1.05); }
-:root:not([data-theme="high-contrast"]) .how-main .ui-button:not(.ui-button--quiet):hover,
-:root:not([data-theme="high-contrast"]) .app-header__tools .ui-button:hover {
-  border-color: transparent;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--color-text) 16%, transparent),
-              0 0 0 1px color-mix(in srgb, var(--color-text) 7%, transparent);
-}
-/* Press in quickly; the springy transition above bounces it back on release. */
-.how-main .ui-button:active, .app-header__tools .ui-button:active { transform: scale(0.95); transition-duration: 80ms; }
-.how-main .ui-button[aria-disabled="true"]:hover, .how-main .ui-button[aria-disabled="true"]:active { transform: none; }
+/* Button softness and motion come from the shared components.css. */
 .hotspot:active::before { transform: scale(0.9); }
 
 @media (prefers-reduced-motion: reduce) {
