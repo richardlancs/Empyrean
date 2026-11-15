@@ -110,6 +110,17 @@
 .experience-button[aria-pressed="true"] { background: var(--x-primary-soft); border-color: var(--x-primary); }
 .experience-button-primary { background: var(--x-primary); border-color: var(--x-primary); color: var(--x-on-primary); font-weight: 600; }
 .experience-button-primary:hover { background: var(--x-primary-hover); }
+.experience-button.experience-button-demo-alert {
+  color: var(--color-on-danger, #FFFFFF);
+  background: var(--x-danger);
+  border-color: var(--x-danger);
+  font-weight: 600;
+}
+.experience-button.experience-button-demo-alert:hover {
+  background: var(--color-danger-hover, #8F1C13);
+}
+.experience-button-demo-alert[aria-disabled="true"] { opacity: 0.65; cursor: wait; }
+.experience-demo-alert-status { margin: 0 0 var(--x-s1); font-size: 0.875rem; }
 .experience-button:disabled,
 .experience-input:disabled { opacity: 0.6; cursor: not-allowed; }
 .experience-link-button {

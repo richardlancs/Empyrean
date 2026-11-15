@@ -78,7 +78,7 @@ export function createAppShell({ root, theme = "light", onThemeChange }) {
 
   const header = h(doc, "header", { className: "app-header" }, [
     h(doc, "div", { className: "app-container app-header__inner" }, [
-      h(doc, "div", { className: "app-brand" }, [
+      h(doc, "a", { className: "app-brand app-brand--home", href: "/", "aria-label": "Empyrean home" }, [
         h(doc, "img", { className: "app-brand__mark", src: "/static/assets/empyrean.svg", alt: "", width: "40", height: "40", "aria-hidden": "true" }),
         h(doc, "h1", { className: "app-brand__name" }, "Empyrean"),
       ]),

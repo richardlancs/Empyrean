@@ -28,8 +28,9 @@ function fullscreenApi(node) {
  * onStream(status) with "loading" | "loaded" | "error";
  * onOption(name, value) for boxes | hands | labels | fit;
  * onDetector(mode) when the Regular | Demo control is chosen.
+ * onDemoAlert() requests the existing dashboard-only simulated warning.
  */
-export function createCameraPanel(root, { onStream, onOption, onDetector = () => {} }) {
+export function createCameraPanel(root, { onStream, onOption, onDetector = () => {}, onDemoAlert = () => {} }) {
   const headingId = uniqueId("experience-camera-heading");
   const stateTitle = el("span", { class: "experience-camera-state-title" });
   const stateDetail = el("span", { class: "experience-muted" });
@@ -48,6 +49,44 @@ export function createCameraPanel(root, { onStream, onOption, onDetector = () =>
 
   const fitButton = el("button", { type: "button", class: "experience-button experience-button-quiet", "aria-pressed": "false" });
   const fsButton = el("button", { type: "button", class: "experience-button experience-button-quiet" });
+  const demoStatusId = uniqueId("experience-demo-alert-status");
+  const demoButton = el("button", {
+    type: "button",
+    class: "experience-button experience-button-primary experience-button-demo-alert",
+    text: "Demo alert",
+    title: "Show a simulated warning on this dashboard. No alarm sounds.",
+    "aria-describedby": demoStatusId,
+  });
+  const demoStatus = el("p", {
+    id: demoStatusId,
+    class: "experience-muted experience-demo-alert-status",
+    role: "status",
+    "aria-live": "polite",
+  });
+  demoStatus.hidden = true;
+  let demoPending = false;
+  let destroyed = false;
+  const onDemoClick = async () => {
+    if (demoPending || destroyed) return;
+    demoPending = true;
+    demoButton.setAttribute("aria-disabled", "true");
+    demoButton.setAttribute("aria-busy", "true");
+    demoStatus.hidden = false;
+    setText(demoStatus, "Adding a demo alert…");
+    try {
+      await onDemoAlert();
+      if (!destroyed) setText(demoStatus, "Demo alert added. No alarm sounded and nothing was saved.");
+    } catch (error) {
+      if (!destroyed) setText(demoStatus, error?.message || "Could not add the demo alert. Try again.");
+    } finally {
+      demoPending = false;
+      if (!destroyed) {
+        demoButton.setAttribute("aria-disabled", "false");
+        demoButton.setAttribute("aria-busy", "false");
+      }
+    }
+  };
+  demoButton.addEventListener("click", onDemoClick);
   const fsFallback = el("a", {
     class: "experience-button experience-button-quiet",
     href: "/video",
@@ -121,8 +160,9 @@ export function createCameraPanel(root, { onStream, onOption, onDetector = () =>
       "div",
       { class: "experience-camera-top" },
       el("div", { class: "experience-camera-title" }, heading, detector.badge),
-      el("div", { class: "experience-controls" }, fsButton, fsFallback),
+      el("div", { class: "experience-controls" }, demoButton, fsButton, fsFallback),
     ),
+    demoStatus,
     detectorMount,
     // Pip perches on the frame's top edge in this row, beside the camera state, so the
     // space is reserved and Pip never covers the picture, labels or controls.
@@ -202,6 +242,8 @@ export function createCameraPanel(root, { onStream, onOption, onDetector = () =>
     updateDetector: detector.update,
     updatePip: pip.update,
     destroy() {
+      destroyed = true;
+      demoButton.removeEventListener("click", onDemoClick);
       detector.destroy();
       pip.destroy();
       img.removeEventListener("load", onLoad);
