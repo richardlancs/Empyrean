@@ -612,3 +612,31 @@ def test_new_object_cannot_be_pointed_at() -> None:
 def test_legacy_hand_without_landmarks_still_touches() -> None:
     kinds, _ = _kinds_over(_track(), [[_hand(_TIP)]] * TOUCH_ENTER_FRAMES)
     assert kinds == ["touch"]
+
+
+def test_remote_point_at_lost_object_does_not_make_it_held() -> None:
+    kinds, track = _kinds_over(_track(), [[_POINT_AT_BOTTLE]] * TOUCH_ENTER_FRAMES)
+    assert kinds == ["touch"]
+    track = replace(track, detected=False)
+    ts = 2.0
+    for _ in range(10):  # 2 s of pointing at the lost bottle from outside its box
+        step = step_touch([track], [_POINT_AT_BOTTLE], ts)
+        track = replace(step.tracks[0], detected=False)
+        ts += 0.2
+    assert ts - 2.0 > HELD_LOST_SECONDS
+    assert track.phase == "touching"
+    assert track.state == "lost"
+
+
+def test_open_neighbour_does_not_steal_keep_fingertip() -> None:
+    inner = (120.0, 200.0, 180.0, 265.0)  # holds both grip tips, centre nearer than the bottle's
+    held = _track(object_id=1, phase="touching", state="touching", anchor_cx=160.0, anchor_cy=170.0)
+    neighbour = _track(object_id=2, class_label="cup", box=inner)
+    tracks = [held, neighbour]
+    kinds: list[str] = []
+    for index in range(TOUCH_EXIT_FRAMES + 2):
+        step = step_touch(tracks, [_GRIP_BOTTLE], 3.0 + index * 0.2)
+        kinds.extend(f"{event.object_id}:{event.kind}" for event in step.events)
+        tracks = step.tracks
+    assert kinds == []
+    assert tracks[0].state == "touching"

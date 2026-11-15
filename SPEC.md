@@ -163,17 +163,17 @@ Rules:
 
 The trigger is **pointing**. The names `touch`, `touching` and `TouchEvent` are kept for compatibility and now mean "pointed at".
 
-**Pointing.** Only the index, middle, ring and pinky fingers count; the thumb is ignored. A finger is extended when the distance from the wrist (landmark 0) to its tip is more than `POINT_EXTENDED_RATIO` times the distance from the wrist to its middle joint (PIP). Each extended finger casts a ray from its tip in the direction from its knuckle (MCP) to its tip. An object is pointed at when a ray hits its box after the box has been shrunk by 10% on every side; a fingertip already inside the shrunk box counts as a hit. If a ray hits more than one box, the first box along the ray wins. One or more extended fingers are enough. For `lost` objects, use the last known box.
+**Pointing.** Only the index, middle, ring and pinky fingers count; the thumb is ignored. A finger is extended when the distance from the wrist (landmark 0) to its tip is more than `POINT_EXTENDED_RATIO` times the distance from the wrist to its middle joint (PIP). Each extended finger casts a ray from its tip in the direction from its knuckle (MCP) to its tip. A finger whose knuckle-to-tip length is under `POINT_MIN_FINGER_PIXELS` (pointing toward the camera) casts no ray, because its direction is noise. An object is pointed at when a ray hits its box after the box has been shrunk by 10% on every side; a fingertip already inside the shrunk box counts as a hit. If a ray hits more than one box, the first box along the ray wins. One or more extended fingers are enough. For `lost` objects, use the last known box.
 
 **Fingertip contact.** A fingertip is "on" an object when the thumb tip or index fingertip lies inside the shrunk box. If fingertips are on more than one object, pick the object whose box centre is nearest the fingertip, measured as a fraction of that box's diagonal.
 
-**Which test applies.** For a hand that reports 21 landmarks, only pointing can start a touch: gripping an object with curled fingers does not announce it. Once an object is `touching` or `held`, pointing or fingertip contact keeps it so, so picking it up after pointing does not release it. A hand without landmarks falls back to fingertip contact for both.
+**Which test applies.** For a hand that reports 21 landmarks, only pointing can start a touch: gripping an object with curled fingers does not announce it. Once an object is `touching` or `held`, pointing or fingertip contact keeps it so, so picking it up after pointing does not release it. For this, fingertips are matched only among objects already `touching` or `held`. A hand without landmarks falls back to fingertip contact for both.
 
 | Transition | Condition | Result |
 |---|---|---|
 | `idle` or `lost` to `touching` | Pointed at for 2 consecutive processed frames (0.4 s) | Publish `TouchEvent` with kind `touch`. This triggers automatic object speech; independent questions also receive spoken answers |
 | `touching` to `idle` | Not pointed at and no fingertip on the object for 3 consecutive processed frames (0.6 s) | Publish `TouchEvent` with kind `release`. Not spoken |
-| `touching` to `held` | The object's box centre has moved more than 15% of the frame width since the touch began, or the object has been `lost` for 1 second while a hand is still over its last box | No event |
+| `touching` to `held` | The object's box centre has moved more than 15% of the frame width since the touch began, or the object has been `lost` for 1 second while a fingertip is still on its last box (pointing at it from a distance does not count) | No event |
 | `held` to `idle` | No hand in view for 3 consecutive frames, or fingertips off the object for 3 consecutive frames | Publish `TouchEvent` with kind `release` |
 
 Rules that follow from the table:
@@ -319,7 +319,7 @@ These are the contract between modules. Field names, types and units are fixed.
 | `ts` | number | Capture time |
 | `frame_id` | integer | Counts up from 0 |
 | `image` | 640 x 360 BGR image | The processed frame |
-| `objects` | list | One entry per tracked object: `object_id` (integer), `class_label` (text), `confidence` (0 to 1), `box` (`x1, y1, x2, y2`), `landmarks` (21 `x, y` points in MediaPipe order, or empty) |
+| `objects` | list | One entry per tracked object: `object_id` (integer), `class_label` (text), `confidence` (0 to 1), `box` (`x1, y1, x2, y2`), `landmarks` (21 `x, y` points in MediaPipe order, or empty; not clamped, so points may lie outside the frame) |
 | `hands` | list | One entry per hand: `side` (`left`, `right` or `unknown`), `thumb_tip` (`x, y`), `index_tip` (`x, y`), `box` (`x1, y1, x2, y2`) |
 
 ### `SceneSnapshot` (scene to dashboard, once per processed frame)
@@ -537,6 +537,7 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 | `HELD_LOST_SECONDS` | 1.0 | scene |
 | `HELD_MERGE_IOU` | 0.3 | scene |
 | `POINT_EXTENDED_RATIO` | 1.1 | scene |
+| `POINT_MIN_FINGER_PIXELS` | 15.0 | scene |
 | `NAME_CROP_PADDING` | 0.10 | scene |
 | `NAME_MAX_IN_FLIGHT` | 2 | namer |
 | `NAME_MIN_INTERVAL_SECONDS` | 1.0 | namer |

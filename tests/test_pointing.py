@@ -77,3 +77,14 @@ def test_scripted_fake_hand_points_at_bottle_not_cup() -> None:
     assert pointed_ids(boxes, frame.hands) == {1}
     bottle = next(obj.box for obj in frame.objects if obj.object_id == 1)
     assert not (bottle[0] <= hand.index_tip[0] <= bottle[2] and bottle[1] <= hand.index_tip[1] <= bottle[3])
+
+
+def test_foreshortened_finger_casts_no_ray() -> None:
+    # Pointing along the camera axis shrinks MCP->tip to a few pixels; its direction is noise.
+    hand = pointing_hand(wrist=(400.0, 340.0), toward=(160.0, 170.0), scale=0.2)
+    assert finger_rays(hand) == []
+
+
+def test_finger_at_minimum_length_still_casts() -> None:
+    hand = pointing_hand(wrist=(400.0, 340.0), toward=(160.0, 170.0), scale=0.5)
+    assert len(finger_rays(hand)) == 1

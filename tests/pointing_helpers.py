@@ -15,6 +15,7 @@ def pointing_hand(
     toward: Point,
     extended: tuple[int, ...] = (0,),
     side: str = "right",
+    scale: float = 1.0,
 ) -> Hand:
     """Build a hand whose listed fingers point from the wrist toward a point."""
     dx = toward[0] - wrist[0]
@@ -27,7 +28,7 @@ def pointing_hand(
     for finger, (mcp, pip, tip) in enumerate(_FINGERS):
         distances = _EXTENDED if finger in extended else _CURLED
         for landmark, distance in zip((mcp, pip, tip), distances, strict=True):
-            points[landmark] = (wrist[0] + ux * distance, wrist[1] + uy * distance)
+            points[landmark] = (wrist[0] + ux * distance * scale, wrist[1] + uy * distance * scale)
         dip = (points[pip][0] + points[tip][0]) / 2.0, (points[pip][1] + points[tip][1]) / 2.0
         points[tip - 1] = dip
     xs = [p[0] for p in points]

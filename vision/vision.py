@@ -121,11 +121,9 @@ def tracked_hands(result: Any) -> list[Hand]:
     for index, landmarks in enumerate(result.hand_landmarks[:2]):
         if len(landmarks) < 21:
             continue
-        points = [
-            (_clamp(mark.x * PROCESS_WIDTH, PROCESS_WIDTH),
-             _clamp(mark.y * PROCESS_HEIGHT, PROCESS_HEIGHT))
-            for mark in landmarks
-        ]
+        # Unclamped: pointing needs the true knuckle position when the hand enters from an edge.
+        raw = [(mark.x * PROCESS_WIDTH, mark.y * PROCESS_HEIGHT) for mark in landmarks]
+        points = [(_clamp(x, PROCESS_WIDTH), _clamp(y, PROCESS_HEIGHT)) for x, y in raw]
         xs, ys = zip(*points)
         box = (min(xs), min(ys), max(xs), max(ys))
         if box[0] >= box[2] or box[1] >= box[3]:
@@ -136,7 +134,7 @@ def tracked_hands(result: Any) -> list[Hand]:
             label = str(getattr(category, "category_name", "")).lower()
             # Handedness is returned for selfie/mirrored frames; our camera isn't mirrored.
             side = {"left": "right", "right": "left"}.get(label, "unknown")
-        hands.append(Hand(side, points[4], points[8], box, landmarks=points))
+        hands.append(Hand(side, points[4], points[8], box, landmarks=raw))
     return hands
 
 

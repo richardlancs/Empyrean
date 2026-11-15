@@ -7,7 +7,11 @@ from __future__ import annotations
 
 import math
 
-from config.thresholds import BOX_SHRINK_FRACTION, POINT_EXTENDED_RATIO
+from config.thresholds import (
+    BOX_SHRINK_FRACTION,
+    POINT_EXTENDED_RATIO,
+    POINT_MIN_FINGER_PIXELS,
+)
 from contracts.messages import Box, Hand, Point
 
 WRIST = 0
@@ -24,7 +28,7 @@ def has_landmarks(hand: Hand) -> bool:
 
 
 def finger_rays(hand: Hand) -> list[tuple[Point, Point]]:
-    """Return (fingertip, unit direction) for each extended finger of the hand."""
+    """Return (fingertip, unit direction) for each extended, long-enough finger of the hand."""
     if not has_landmarks(hand):
         return []
     points = hand.landmarks
@@ -35,8 +39,8 @@ def finger_rays(hand: Hand) -> list[tuple[Point, Point]]:
         if _dist(wrist, tip) <= POINT_EXTENDED_RATIO * _dist(wrist, pip):
             continue
         length = _dist(mcp, tip)
-        if length < _EPSILON:
-            continue
+        if length < POINT_MIN_FINGER_PIXELS:
+            continue  # foreshortened toward the camera: direction is noise
         direction = ((tip[0] - mcp[0]) / length, (tip[1] - mcp[1]) / length)
         rays.append((tip, direction))
     return rays
