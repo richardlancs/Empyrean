@@ -216,6 +216,8 @@ Rules:
 - The speech queue holds one item. A newer item replaces a waiting older one. Stale speech is worse than no speech.
 - Spoken hazard phrases: `stairs_down` is "Stop. Stairs.", `drop_off` is "Stop. Drop ahead.", `vehicle` is "Stop. Vehicle.", `obstacle` is "Stop. Obstacle."
 - Text to speech runs offline on the laptop so speech never waits on the network.
+- Speech uses one of five voice presets at `SPEECH_RATE_WPM`: `ava` (Ava, default), `zoe` (Zoe), `evan` (Evan), `jamie` (Jamie), `matilda` (Matilda), backed by Apple Premium or Enhanced voices downloaded once on the demo Mac. `AUDIO_VOICE` in `.env` picks the startup voice; an unknown value falls back to `ava`. A preset whose voice is not installed speaks with Samantha and reports `fallback`.
+- A `VoiceChange` is applied between phrases on the speech worker, never mid-phrase and never ahead of a hazard. Audio answers with `VoiceStatus`, then says "This is <label>." at priority 3.
 - The alarm beeps are a pre-made sound file, not generated at run time.
 
 ### 4.9 Dashboard
@@ -228,6 +230,7 @@ One web page served from the laptop on port 8000. Since the 2026-11-14 light red
 | Right, top | Object list: name (or class label until named), state, seconds since last seen. Touched objects are highlighted and sorted to the top |
 | Right, bottom | Event log: last 10 touch and hazard events with times |
 | Top bar | Processed frames per second, a red banner while a hazard is active, and a "last touched" search box |
+| Voice picker | One of the five voices. The page shows a voice as active only after audio's `VoiceStatus` confirms it; a request unanswered within `VOICE_SWITCH_TIMEOUT_SECONDS` fails |
 
 Overlays, drawn on the laptop before streaming:
 
@@ -419,6 +422,33 @@ The only confirmation of a mode change. `active_mode` changes only after the rep
 | `message` | text | Why a switch failed, or how to make Demo available |
 | `fake` | true or false | True when vision is a fake (recorded clip): no model runs |
 
+### `VoiceChange` (dashboard to audio)
+
+A request to switch the spoken voice. Audio answers with `VoiceStatus`; a `VoiceChange` is never treated as confirmation.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When the switch was requested |
+| `voice` | text | Preset key: `ava`, `zoe`, `evan`, `jamie` or `matilda` |
+| `request_id` | text or empty | Optional; echoed by the `VoiceStatus` that answers it |
+
+### `VoiceStatus` (audio to dashboard)
+
+The only confirmation of a voice switch. Published once at startup and after every `VoiceChange`.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | number | When this status was true |
+| `state` | text | `active` or `failed` |
+| `active_voice` | text | Preset key in use now |
+| `label` | text | Display name of the active preset |
+| `quality` | text | `premium`, `enhanced`, `compact` or `fallback` |
+| `voices` | map | Preset key to label, in menu order |
+| `installed` | list of text | Keys whose own voice is installed |
+| `requested_voice` | text or empty | Set when answering or refusing a `VoiceChange` |
+| `request_id` | text or empty | From the `VoiceChange` this answers |
+| `detail` | text | Why a switch failed, or which voice stands in |
+
 ### `SceneQuestion` (dashboard to namer)
 
 | Field | Type | Meaning |
@@ -544,6 +574,7 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 | `NAME_TIMEOUT_SECONDS` | 4.0 | namer |
 | `NAME_MAX_CHARS` | 40 | namer |
 | `LATE_NAME_WINDOW_SECONDS` | 1.5 | audio |
+| `SPEECH_RATE_WPM` | 165 | audio |
 | `HAZARD_VEHICLE_MIN_AREA_FRACTION` | 0.10 | hazard |
 | `HAZARD_VEHICLE_GROWTH` | 0.30 | hazard |
 | `HAZARD_GROK_INTERVAL_SECONDS` | 1.5 | hazard |
@@ -558,6 +589,7 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 | `LAST_SEEN_TIMEOUT_SECONDS` | 8.0 | dashboard |
 | `THUMBNAIL_MAX_AGE_SECONDS` | 30.0 | dashboard |
 | `MODE_SWITCH_TIMEOUT_SECONDS` | 30.0 | dashboard |
+| `VOICE_SWITCH_TIMEOUT_SECONDS` | 10.0 | dashboard |
 
 ---
 

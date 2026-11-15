@@ -204,6 +204,35 @@ class DetectorStatus:
 
 
 @dataclass
+class VoiceChange:
+    """Dashboard to audio: a request to switch the spoken voice. Never a confirmation."""
+
+    ts: float  # when the switch was requested
+    voice: str  # preset key, for example "ava"
+    request_id: str | None = None  # echoed in the VoiceStatus that answers it
+
+
+@dataclass
+class VoiceStatus:
+    """Audio to dashboard: the voice speech really uses now.
+
+    This is the only confirmation of a voice switch. Audio applies a switch
+    between phrases, never mid-phrase and never ahead of a hazard.
+    """
+
+    ts: float  # when this status was true
+    state: Literal["active", "failed"]
+    active_voice: str  # preset key in use now
+    label: str  # display name of the active preset, for example "Ava"
+    quality: Literal["premium", "enhanced", "compact", "fallback"]
+    voices: dict[str, str] = field(default_factory=dict)  # preset key -> label, menu order
+    installed: list[str] = field(default_factory=list)  # keys whose own voice is installed
+    requested_voice: str | None = None  # set when answering or refusing a VoiceChange
+    request_id: str | None = None  # from the VoiceChange this answers, if any
+    detail: str = ""  # why a switch failed, or which voice stands in
+
+
+@dataclass
 class SceneQuestion:
     """Dashboard to namer: ask Grok about the current camera view."""
 
