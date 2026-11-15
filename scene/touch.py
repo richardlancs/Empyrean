@@ -303,10 +303,10 @@ def _advance_touching(
 ) -> None:
     """Move a touching episode to held, lost, or release.
 
-    Lost turns into held only while a fingertip is over the last box; a ray from
-    across the table keeps the touch but does not mean the object was picked up.
+    Both held transitions require a fingertip over the box; a ray from across
+    the table keeps the touch but does not mean the object was picked up.
     """
-    if on and track.detected and _moved_far(track):
+    if over and track.detected and _moved_far(track):
         track.phase = "held"
         track.state = "held"
         track.off_frames = 0

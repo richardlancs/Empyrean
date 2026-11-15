@@ -640,3 +640,31 @@ def test_open_neighbour_does_not_steal_keep_fingertip() -> None:
         tracks = step.tracks
     assert kinds == []
     assert tracks[0].state == "touching"
+
+
+def test_remote_point_after_box_movement_does_not_transfer_name() -> None:
+    """Camera-relative movement must not let a remote point rename an item at the hand."""
+    _, track = _kinds_over(
+        _track(name="Heinz ketchup"), [[_POINT_AT_BOTTLE]] * TOUCH_ENTER_FRAMES
+    )
+    track = replace(track, box=_shift(track.box, 110.0))
+    hand = pointing_hand(wrist=(500.0, 340.0), toward=(270.0, 170.0))
+    step = step_touch([track], [hand], 2.0)
+    neighbour = _track(object_id=2, class_label="cup", state="new", box=hand.box)
+    step = step_touch([*step.tracks, neighbour], [hand], 2.2)
+    by_id = {item.object_id: item for item in step.tracks}
+    assert by_id[1].phase == "touching"
+    assert by_id[1].name == "Heinz ketchup"
+    assert by_id[2].phase == "open"
+    assert by_id[2].name == ""
+    assert step.events == []
+
+
+def test_grasp_after_pointing_still_becomes_held_when_moved() -> None:
+    """Requiring contact must preserve pickup after pointing with landmark-rich hands."""
+    _, track = _kinds_over(_track(), [[_POINT_AT_BOTTLE]] * TOUCH_ENTER_FRAMES)
+    track = replace(track, box=_shift(track.box, 110.0))
+    hand = gripping_hand(wrist=(270.0, 250.0))
+    step = step_touch([track], [hand], 2.0)
+    assert step.tracks[0].phase == "held"
+    assert step.events == []

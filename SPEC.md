@@ -173,7 +173,7 @@ The trigger is **pointing**. The names `touch`, `touching` and `TouchEvent` are 
 |---|---|---|
 | `idle` or `lost` to `touching` | Pointed at for 2 consecutive processed frames (0.4 s) | Publish `TouchEvent` with kind `touch`. This triggers automatic object speech; independent questions also receive spoken answers |
 | `touching` to `idle` | Not pointed at and no fingertip on the object for 3 consecutive processed frames (0.6 s) | Publish `TouchEvent` with kind `release`. Not spoken |
-| `touching` to `held` | The object's box centre has moved more than 15% of the frame width since the touch began, or the object has been `lost` for 1 second while a fingertip is still on its last box (pointing at it from a distance does not count) | No event |
+| `touching` to `held` | A fingertip is on the object's box and its box centre has moved more than 15% of the frame width since the touch began, or the object has been `lost` for 1 second while a fingertip is still on its last box (pointing at it from a distance does not count for either transition) | No event |
 | `held` to `idle` | No hand in view for 3 consecutive frames, or fingertips off the object for 3 consecutive frames | Publish `TouchEvent` with kind `release` |
 
 Rules that follow from the table:

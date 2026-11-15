@@ -85,6 +85,12 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 2 (pointing review P1 fix), Codex
+**Changed:** Required fingertip contact for the visible-object movement transition to held, matching the lost-object guard. A remote point can keep an object touching after camera-relative movement but cannot mark it held and transfer its name to an unrelated new detection at the hand. Updated SPEC.md section 4.6 to describe both contact requirements. Includes the P2 hand-landmarks documentation correction from `7c137a1`.
+**Tested:** The new movement/name-transfer regression failed before the fix; it and the companion grasp-to-held check pass after it. Full `pytest`: 392 passed, 2 skipped. `ruff check .` and `git diff --check` passed. `python -m app --fake vision` started all modules and scene processed FrameResult 5; the dashboard port was already occupied, and Grok was disabled without credentials. Real camera and live services remain untested.
+**Decisions:** User requested both fixes, a replacement PR, merge after validation, and closure of PR #31. No new imaging hardware or dependencies.
+**Teammates need to know:** This replaces PR #31; the shared spec now reflects the corrected held condition and actual message layout.
+
 ### 2026-11-14 20:35, Person 2 (PR #31 message-spec correction), Codex
 **Changed:** At the user's explicit request to fix review finding P2, moved `landmarks` from `FrameResult.objects` to `FrameResult.hands` in SPEC.md section 5. This corrects the documented location to match `Hand` and vision's output; it adds no field or runtime behavior.
 **Tested:** `pytest -q -p no:cacheprovider`: 390 passed, 2 skipped. Checked both documented entry rows against the dataclass fields; `landmarks` appears only on hands. `git diff --check` passed.
