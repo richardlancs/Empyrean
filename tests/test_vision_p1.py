@@ -83,6 +83,8 @@ def test_frame_result_and_detection_filters() -> None:
     assert result.objects == [TrackedObject(1, "bottle", 0.9, (10., 20., 110., 170.))]
     assert len(result.hands) == 1 and type(result.hands[0]) is Hand
     assert result.hands[0].side == "right"
+    assert len(result.hands[0].landmarks) == 21
+    assert result.hands[0].landmarks[8] == result.hands[0].index_tip
     assert detector.calls[0]["persist"] is True
     assert detector.calls[0]["tracker"] == "bytetrack.yaml"
     processor.close()
@@ -435,3 +437,26 @@ def test_capture_uses_own_explicit_webcam_instead_of_another_laptops_env(
     assert info["camera_index"] == 0
     assert info["items"] == ["keys"]
     assert (info["processed_width"], info["processed_height"]) == (640, 360)
+
+
+class OffFrameHands(FakeHands):
+    """Return a hand whose wrist and knuckles lie below the frame."""
+
+    def detect_for_video(self, image: Any, timestamp: int) -> Any:
+        """Return landmarks with the lower half outside the image."""
+        landmarks = [SimpleNamespace(x=0.4 + i * 0.01, y=1.1 - i * 0.02) for i in range(21)]
+        return SimpleNamespace(
+            hand_landmarks=[landmarks],
+            handedness=[[SimpleNamespace(category_name="Left")]],
+        )
+
+
+def test_landmarks_keep_off_frame_points_unclamped() -> None:
+    """Pointing needs true knuckle positions, so landmarks are not clamped to the frame."""
+    processor = VisionProcessor(FakeYOLO(), OffFrameHands(), FakeMP)
+    result = processor.process(np.zeros((720, 1280, 3), dtype=np.uint8), frame_id=0, captured_ts=1.0)
+    hand = result.hands[0]
+    assert hand.landmarks[0][1] > 360.0
+    assert hand.box[3] <= 360.0
+    assert all(0.0 <= value <= 360.0 for value in (hand.thumb_tip[1], hand.index_tip[1]))
+    processor.close()

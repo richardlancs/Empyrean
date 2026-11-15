@@ -157,7 +157,7 @@ def test_entry_fields_match_spec() -> None:
     """List entries inside messages have the fields section 5 lists inline."""
     expected = {
         TrackedObject: ["object_id", "class_label", "confidence", "box"],
-        Hand: ["side", "thumb_tip", "index_tip", "box"],
+        Hand: ["side", "thumb_tip", "index_tip", "box", "landmarks"],
         SceneObject: [
             "object_id",
             "class_label",
@@ -195,10 +195,18 @@ def test_list_fields_default_to_empty() -> None:
     assert b.objects == [] and b.hands == []
 
 
+def test_hand_landmarks_default_empty() -> None:
+    """Hands built without landmarks start with their own empty list."""
+    a = Hand("right", (1.0, 1.0), (2.0, 2.0), (0.0, 0.0, 3.0, 3.0))
+    b = Hand("left", (1.0, 1.0), (2.0, 2.0), (0.0, 0.0, 3.0, 3.0))
+    a.landmarks.append((5.0, 5.0))
+    assert b.landmarks == []
+
+
 def test_config_matches_spec_section_9() -> None:
     """config has every section 9 name with the spec's value and type, and nothing else."""
     spec = _spec_thresholds()
-    assert len(spec) == 34  # 27 original + 3 redesign + DEMO_DET_MIN_CONFIDENCE + MODE_SWITCH_TIMEOUT_SECONDS + 2 scene questions
+    assert len(spec) == 36  # 27 original + 3 redesign + DEMO_DET_MIN_CONFIDENCE + MODE_SWITCH_TIMEOUT_SECONDS + 2 scene questions + 2 pointing
     assert set(config.__all__) == set(spec)
     for name, value in spec.items():
         actual = getattr(config, name)

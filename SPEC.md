@@ -10,7 +10,7 @@ This file is the single source of truth for what the system does. `AGENTS.md` is
 
 ## 1. Goal
 
-A wearer picks things up off a table or shelf and asks what they are touching; a speaker says exactly what it is, down to the brand ("Heinz ketchup", not "bottle"). Since 2026-11-14 object names are spoken only in answer to a question (typed or spoken on the dashboard), at the user's request; the original automatic touch announcement remains available as an audio option (`announce_touches`). Separately, if the wearer walks toward stairs, a drop, a vehicle or an obstacle, an alarm interrupts everything else.
+A wearer points at things on a table or shelf with one or more fingers; a speaker says exactly what is being pointed at, down to the brand ("Heinz ketchup", not "bottle"). Names are spoken automatically when an object is pointed at (audio option `announce_touches`, on by default). Questions typed or spoken on the dashboard are answered independently. Separately, if the wearer walks toward stairs, a drop, a vehicle or an obstacle, an alarm interrupts everything else.
 
 ### In scope
 
@@ -100,7 +100,7 @@ Shared folders:
 2. For each processed frame, `vision/` publishes one `FrameResult`: the image, the tracked objects, and the fingertip positions.
 3. The scene database updates its list of objects. When an object is new and has been stable for 1 second, it sends a `NameRequest` with a crop of that object.
 4. The Grok namer replies with a `NameResult`. The scene database stores the name on the object.
-5. The touch detector compares fingertips with object boxes. On a touch it publishes a `TouchEvent`.
+5. The touch detector casts a ray from each extended finger. When one lands on an object it publishes a `TouchEvent`.
 6. The audio manager speaks the object's name through the JBL. The Tiger Data store logs the event. The dashboard highlights the object.
 7. In parallel, the hazard detector watches every `FrameResult`. On a hazard it publishes a `HazardEvent`, and the audio manager plays the alarm ahead of anything else.
 
@@ -126,7 +126,8 @@ Shared folders:
 ### 4.3 Hand tracking
 
 - MediaPipe Hands, up to 2 hands.
-- Only two landmarks matter: thumb tip (landmark 4) and index fingertip (landmark 8).
+- Report the thumb tip (landmark 4) and index fingertip (landmark 8) separately.
+- Also report all 21 landmarks in MediaPipe order, used for pointing (section 4.6).
 - Also report each hand's bounding box, taken from all 21 landmarks.
 
 ### 4.4 Scene database
@@ -160,15 +161,19 @@ Rules:
 
 ### 4.6 Touch detection
 
-A fingertip is "on" an object when the thumb tip or index fingertip of either hand lies inside the object's box after the box has been shrunk by 10% on every side. For `lost` objects, use the last known box.
+The trigger is **pointing**. The names `touch`, `touching` and `TouchEvent` are kept for compatibility and now mean "pointed at".
 
-If fingertips are on more than one object, pick the object whose box centre is nearest the fingertip, measured as a fraction of that box's diagonal.
+**Pointing.** Only the index, middle, ring and pinky fingers count; the thumb is ignored. A finger is extended when the distance from the wrist (landmark 0) to its tip is more than `POINT_EXTENDED_RATIO` times the distance from the wrist to its middle joint (PIP). Each extended finger casts a ray from its tip in the direction from its knuckle (MCP) to its tip. A finger whose knuckle-to-tip length is under `POINT_MIN_FINGER_PIXELS` (pointing toward the camera) casts no ray, because its direction is noise. An object is pointed at when a ray hits its box after the box has been shrunk by 10% on every side; a fingertip already inside the shrunk box counts as a hit. If a ray hits more than one box, the first box along the ray wins. One or more extended fingers are enough. For `lost` objects, use the last known box.
+
+**Fingertip contact.** A fingertip is "on" an object when the thumb tip or index fingertip lies inside the shrunk box. If fingertips are on more than one object, pick the object whose box centre is nearest the fingertip, measured as a fraction of that box's diagonal.
+
+**Which test applies.** For a hand that reports 21 landmarks, only pointing can start a touch: gripping an object with curled fingers does not announce it. Once an object is `touching` or `held`, pointing or fingertip contact keeps it so, so picking it up after pointing does not release it. For this, fingertips are matched only among objects already `touching` or `held`. A hand without landmarks falls back to fingertip contact for both.
 
 | Transition | Condition | Result |
 |---|---|---|
-| `idle` or `lost` to `touching` | Fingertip on the object for 2 consecutive processed frames (0.4 s) | Publish `TouchEvent` with kind `touch`. This triggers automatic object speech; independent questions also receive spoken answers |
-| `touching` to `idle` | No fingertip on the object for 3 consecutive processed frames (0.6 s) | Publish `TouchEvent` with kind `release`. Not spoken |
-| `touching` to `held` | The object's box centre has moved more than 15% of the frame width since the touch began, or the object has been `lost` for 1 second while a hand is still over its last box | No event |
+| `idle` or `lost` to `touching` | Pointed at for 2 consecutive processed frames (0.4 s) | Publish `TouchEvent` with kind `touch`. This triggers automatic object speech; independent questions also receive spoken answers |
+| `touching` to `idle` | Not pointed at and no fingertip on the object for 3 consecutive processed frames (0.6 s) | Publish `TouchEvent` with kind `release`. Not spoken |
+| `touching` to `held` | A fingertip is on the object's box and its box centre has moved more than 15% of the frame width since the touch began, or the object has been `lost` for 1 second while a fingertip is still on its last box (pointing at it from a distance does not count for either transition) | No event |
 | `held` to `idle` | No hand in view for 3 consecutive frames, or fingertips off the object for 3 consecutive frames | Publish `TouchEvent` with kind `release` |
 
 Rules that follow from the table:
@@ -201,12 +206,12 @@ Known limit: one webcam cannot measure distance. Tier B lags by 1 to 3 seconds a
 | Priority | Sound | Trigger |
 |---|---|---|
 | 1 (highest) | Alarm: three short 880 Hz beeps, then the spoken hazard ("Stop. Stairs.") | `HazardEvent` |
-| 2 | Spoken object name (only with `announce_touches`, off by default) | `TouchEvent` with kind `touch` |
+| 2 | Spoken object name when pointed at (on by default; `announce_touches=False` silences it) | `TouchEvent` with kind `touch` |
 | 3 | Spoken answer, including "You are touching Heinz ketchup." | `SpeakRequest` with priority `normal` |
 
 Rules:
 
-- Object speech is question-only by default: a `TouchEvent` or late `NameResult` is silent unless `AudioManager(announce_touches=True)`. The dashboard's question panel publishes the answer as a `SpeakRequest`.
+- Object speech is automatic by default: a `TouchEvent` with kind `touch`, or a late `NameResult` for it, is spoken. `AudioManager(announce_touches=False)` makes object speech question-only. The dashboard's question panel publishes answers as `SpeakRequest`.
 - An alarm cuts off whatever is playing and empties the queue.
 - The speech queue holds one item. A newer item replaces a waiting older one. Stale speech is worse than no speech.
 - Spoken hazard phrases: `stairs_down` is "Stop. Stairs.", `drop_off` is "Stop. Drop ahead.", `vehicle` is "Stop. Vehicle.", `obstacle` is "Stop. Obstacle."
@@ -315,7 +320,7 @@ These are the contract between modules. Field names, types and units are fixed.
 | `frame_id` | integer | Counts up from 0 |
 | `image` | 640 x 360 BGR image | The processed frame |
 | `objects` | list | One entry per tracked object: `object_id` (integer), `class_label` (text), `confidence` (0 to 1), `box` (`x1, y1, x2, y2`) |
-| `hands` | list | One entry per hand: `side` (`left`, `right` or `unknown`), `thumb_tip` (`x, y`), `index_tip` (`x, y`), `box` (`x1, y1, x2, y2`) |
+| `hands` | list | One entry per hand: `side` (`left`, `right` or `unknown`), `thumb_tip` (`x, y`), `index_tip` (`x, y`), `box` (`x1, y1, x2, y2`), `landmarks` (21 `x, y` points in MediaPipe order, or empty; not clamped, so points may lie outside the frame) |
 
 ### `SceneSnapshot` (scene to dashboard, once per processed frame)
 
@@ -531,6 +536,8 @@ All of these live in `config/`. Nothing below is hard-coded anywhere else.
 | `HELD_MOVE_FRACTION` | 0.15 | scene |
 | `HELD_LOST_SECONDS` | 1.0 | scene |
 | `HELD_MERGE_IOU` | 0.3 | scene |
+| `POINT_EXTENDED_RATIO` | 1.1 | scene |
+| `POINT_MIN_FINGER_PIXELS` | 15.0 | scene |
 | `NAME_CROP_PADDING` | 0.10 | scene |
 | `NAME_MAX_IN_FLIGHT` | 2 | namer |
 | `NAME_MIN_INTERVAL_SECONDS` | 1.0 | namer |

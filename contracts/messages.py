@@ -30,6 +30,7 @@ class Hand:
     thumb_tip: Point
     index_tip: Point
     box: Box
+    landmarks: list[Point] = field(default_factory=list)  # 21 MediaPipe points, or empty
 
 
 @dataclass

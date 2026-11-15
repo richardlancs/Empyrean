@@ -1,4 +1,4 @@
-"""Touch state machine. Compares fingertips with object boxes."""
+"""Touch state machine. An extended finger pointing at an object starts contact; pointing or a fingertip keeps it."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from config.thresholds import (
     TOUCH_EXIT_FRAMES,
 )
 from contracts.messages import Box, Hand, TouchEvent
+from scene.pointing import has_landmarks, pointed_ids
 
 
 @dataclass
@@ -58,11 +59,13 @@ class _Draft:
 
 def step_touch(tracks: list[TouchTrack], hands: list[Hand], ts: float) -> TouchStep:
     """Advance touch phases by one processed frame. Does not mutate the input tracks."""
-    on_ids = _on_ids(tracks, hands)
+    start_ids, keep_ids, tipped_ids = _contact_ids(tracks, hands)
     drafts: list[_Draft] = []
     updated = [replace(track) for track in tracks]
     for track in updated:
-        _advance(track, track.object_id in on_ids, hands, ts, drafts)
+        on_ids = start_ids if track.phase == "open" else keep_ids
+        over = track.object_id in tipped_ids
+        _advance(track, track.object_id in on_ids, over, hands, ts, drafts)
     dropped = _merge_held(updated, hands)
     dropped_ids = set(dropped)
     kept = [track for track in updated if track.object_id not in dropped_ids]
@@ -146,6 +149,27 @@ def _is_candidate(track: TouchTrack) -> bool:
     return track.state != "new" or track.phase in ("touching", "held")
 
 
+def _contact_ids(
+    tracks: list[TouchTrack],
+    hands: list[Hand],
+) -> tuple[set[int], set[int], set[int]]:
+    """Return ids that may start contact, ids that keep contact, and ids under a fingertip.
+
+    Hands with landmarks start contact only by pointing. Hands without landmarks
+    fall back to fingertip contact. A fingertip keeps an existing contact; it is
+    assigned only among objects already in contact, so an open neighbour cannot
+    take it.
+    """
+    candidates = [track for track in tracks if _is_candidate(track)]
+    legacy = [hand for hand in hands if not has_landmarks(hand)]
+    rich = [hand for hand in hands if has_landmarks(hand)]
+    boxes = [(track.object_id, track.box) for track in candidates]
+    start = _on_ids(tracks, legacy) | pointed_ids(boxes, rich)
+    in_contact = [track for track in tracks if track.phase in ("touching", "held")]
+    tipped = _on_ids(in_contact, hands)
+    return start, start | tipped, tipped
+
+
 def _on_ids(tracks: list[TouchTrack], hands: list[Hand]) -> set[int]:
     """Assign each fingertip to at most one candidate and return those ids."""
     candidates = [track for track in tracks if _is_candidate(track)]
@@ -225,11 +249,15 @@ def _moved_far(track: TouchTrack) -> bool:
 def _advance(
     track: TouchTrack,
     on: bool,
+    over: bool,
     hands: list[Hand],
     ts: float,
     drafts: list[_Draft],
 ) -> None:
-    """Apply one frame of the touch phase machine to a copied track."""
+    """Apply one frame of the touch phase machine to a copied track.
+
+    on: pointed at or fingertip on it. over: a fingertip is on its box.
+    """
     if track.state == "new" and track.phase == "open":
         _clear_episode(track)
         track.state = "new"
@@ -240,7 +268,7 @@ def _advance(
         return
 
     if track.phase == "touching":
-        _advance_touching(track, on, ts, drafts)
+        _advance_touching(track, on, over, ts, drafts)
         return
 
     if track.phase == "held":
@@ -269,11 +297,16 @@ def _advance_open(track: TouchTrack, on: bool, drafts: list[_Draft]) -> None:
 def _advance_touching(
     track: TouchTrack,
     on: bool,
+    over: bool,
     ts: float,
     drafts: list[_Draft],
 ) -> None:
-    """Move a touching episode to held, lost, or release."""
-    if on and track.detected and _moved_far(track):
+    """Move a touching episode to held, lost, or release.
+
+    Both held transitions require a fingertip over the box; a ray from across
+    the table keeps the touch but does not mean the object was picked up.
+    """
+    if over and track.detected and _moved_far(track):
         track.phase = "held"
         track.state = "held"
         track.off_frames = 0
@@ -282,7 +315,7 @@ def _advance_touching(
     if on and not track.detected:
         if track.lost_since_ts is None:
             track.lost_since_ts = ts
-        if ts - track.lost_since_ts >= HELD_LOST_SECONDS:
+        if over and ts - track.lost_since_ts >= HELD_LOST_SECONDS:
             track.phase = "held"
             track.state = "held"
         else:

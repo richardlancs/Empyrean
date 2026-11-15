@@ -18,6 +18,8 @@ TOUCH_EXIT_FRAMES = 3  # scene
 HELD_MOVE_FRACTION = 0.15  # scene
 HELD_LOST_SECONDS = 1.0  # scene
 HELD_MERGE_IOU = 0.3  # scene
+POINT_EXTENDED_RATIO = 1.1  # scene: finger extended when wrist-tip > ratio * wrist-pip
+POINT_MIN_FINGER_PIXELS = 15.0  # scene: shorter MCP-tip (foreshortened) casts no ray
 NAME_CROP_PADDING = 0.10  # scene
 NAME_MAX_IN_FLIGHT = 2  # namer
 NAME_MIN_INTERVAL_SECONDS = 1.0  # namer
@@ -65,6 +67,8 @@ __all__ = [
     "NAME_MAX_IN_FLIGHT",
     "NAME_MIN_INTERVAL_SECONDS",
     "NAME_TIMEOUT_SECONDS",
+    "POINT_EXTENDED_RATIO",
+    "POINT_MIN_FINGER_PIXELS",
     "PROCESS_FPS",
     "PROCESS_HEIGHT",
     "PROCESS_WIDTH",
