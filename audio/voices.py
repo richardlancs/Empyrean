@@ -1,7 +1,9 @@
 """Voice presets and the rule that matches each one to an installed voice.
 
-Five calm English presets backed by offline Piper neural voices, downloaded once
-into audio/voice_models/ by `python -m audio.fetch_voices`. Piper voices are
+Nine calm presets backed by offline Piper neural voices, downloaded once into
+audio/voice_models/ by `python -m audio.fetch_voices`: five English, then one each
+for Mandarin, Spanish, French and Hindi. Each preset belongs to one language
+(codes from contracts/languages.py). Piper voices are
 listed with ids like "piper.premium.en-GB.Cori": high-tier models count as
 premium and medium-tier as enhanced. A preset whose model is missing falls back
 to pyttsx3's compact Samantha (en-US), then to the system default voice. Both
@@ -16,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from contracts.languages import DEFAULT_LANGUAGE
+
 log = logging.getLogger("audio")
 
 Quality = Literal["premium", "enhanced", "compact", "fallback"]
@@ -28,8 +32,9 @@ class VoicePreset:
     key: str
     label: str
     voice_name: str  # name the speaker reports, without a trailing parenthetical
-    locale: str  # "en-US"; also the hook for languages later
+    locale: str  # "en-US"
     model: str = ""  # Piper model file stem, e.g. "en_GB-cori-high"
+    language: str = DEFAULT_LANGUAGE  # code from contracts.languages
 
 
 @dataclass(frozen=True)
@@ -45,19 +50,27 @@ class ResolvedVoice:
 # Medium models start speaking in about 50-100 ms on the demo Mac, high models
 # in 200-450 ms. Dataset licences (Piper model cards): Cori public domain (LibriVox), Alba
 # CC BY 4.0, Northern English male CC BY-SA 4.0, Lessac Blizzard 2013 licence,
-# Kristin per its model card. Model files are never committed.
+# Kristin, Huayan, Claude, Siwis and Priyamvada per their model cards. Model files
+# are never committed.
 PRESETS: tuple[VoicePreset, ...] = (
-    VoicePreset("alba", "Alba", "Alba", "en-GB", "en_GB-alba-medium"),
-    VoicePreset("kristin", "Kristin", "Kristin", "en-US", "en_US-kristin-medium"),
+    VoicePreset("alba", "Alba", "Alba", "en-GB", "en_GB-alba-medium", "en"),
+    VoicePreset("kristin", "Kristin", "Kristin", "en-US", "en_US-kristin-medium", "en"),
     VoicePreset(
         "northern",
         "Northern English",
         "Northern English",
         "en-GB",
         "en_GB-northern_english_male-medium",
+        "en",
     ),
-    VoicePreset("cori", "Cori", "Cori", "en-GB", "en_GB-cori-high"),
-    VoicePreset("lessac", "Lessac", "Lessac", "en-US", "en_US-lessac-high"),
+    VoicePreset("cori", "Cori", "Cori", "en-GB", "en_GB-cori-high", "en"),
+    VoicePreset("lessac", "Lessac", "Lessac", "en-US", "en_US-lessac-high", "en"),
+    VoicePreset("huayan", "Huayan", "Huayan", "zh-CN", "zh_CN-huayan-medium", "zh"),
+    VoicePreset("claude", "Claude", "Claude", "es-MX", "es_MX-claude-high", "es"),
+    VoicePreset("siwis", "Siwis", "Siwis", "fr-FR", "fr_FR-siwis-medium", "fr"),
+    VoicePreset(
+        "priyamvada", "Priyamvada", "Priyamvada", "hi-IN", "hi_IN-priyamvada-medium", "hi"
+    ),
 )
 DEFAULT_VOICE_KEY = "alba"  # medium tier: first audio in about 60 ms on the demo Mac
 VOICE_MODEL_DIR = Path(__file__).resolve().parent / "voice_models"
@@ -70,6 +83,24 @@ _QUALITY_RANK = {"premium": 0, "enhanced": 1, "compact": 2}
 def preset_for(key: str) -> VoicePreset | None:
     """Return the preset with this key, or None."""
     return next((p for p in PRESETS if p.key == key), None)
+
+
+def language_of(key: str) -> str:
+    """Return the language code of this preset, or the default language if unknown."""
+    preset = preset_for(key)
+    return preset.language if preset is not None else DEFAULT_LANGUAGE
+
+
+def default_voice_for(language: str) -> str:
+    """Return the first preset key of this language in menu order, else the default key."""
+    return next((p.key for p in PRESETS if p.language == language), DEFAULT_VOICE_KEY)
+
+
+def active_language(resolved: ResolvedVoice) -> str:
+    """Return the language speech really uses: the preset's, or English on a fallback voice."""
+    if resolved.quality == "fallback":
+        return DEFAULT_LANGUAGE
+    return language_of(resolved.key)
 
 
 def voice_quality(voice_id: str) -> Literal["premium", "enhanced", "compact"]:

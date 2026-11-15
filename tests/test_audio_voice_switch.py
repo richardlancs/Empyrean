@@ -27,7 +27,17 @@ from contracts import (
 )
 
 PREMIUM = {p.key: (piper_voice_id(p), p.voice_name) for p in PRESETS}
-KEYS = ["alba", "kristin", "northern", "cori", "lessac"]
+KEYS = [
+    "alba",
+    "kristin",
+    "northern",
+    "cori",
+    "lessac",
+    "huayan",
+    "claude",
+    "siwis",
+    "priyamvada",
+]
 SAMANTHA = ("com.apple.voice.compact.en-US.Samantha", "Samantha")
 
 

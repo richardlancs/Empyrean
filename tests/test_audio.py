@@ -300,8 +300,10 @@ def test_handlers_never_wait_on_speech(
 def test_every_hazard_type_has_its_phrase() -> None:
     """Each HazardEvent type in contracts maps to the phrase in SPEC.md 4.8."""
     types = set(get_args(get_type_hints(HazardEvent)["type"]))
-    assert set(HAZARD_PHRASES) == types
-    assert HAZARD_PHRASES == {
+    assert set(HAZARD_PHRASES) == {"en", "zh", "es", "fr", "hi"}
+    for phrases in HAZARD_PHRASES.values():
+        assert set(phrases) == types
+    assert HAZARD_PHRASES["en"] == {
         "stairs_down": "Stop. Stairs.",
         "drop_off": "Stop. Drop ahead.",
         "vehicle": "Stop. Vehicle.",

@@ -169,14 +169,14 @@ def test_voice_flag_falls_back_to_samantha(
     assert calls.index(("say", "Heinz ketchup")) > calls.index(("set", "voice", SAMANTHA_ID))
 
 
-def test_list_voices_prints_five_presets(
+def test_list_voices_prints_nine_presets(
     presets: tuple[StubEngine, dict[str, Any]], capsys: pytest.CaptureFixture[str]
 ) -> None:
     """--list-voices prints one line per preset, alba first, and speaks nothing."""
     engine, record = presets
     assert speak_test.main(["--list-voices"]) == 0
     lines = capsys.readouterr().out.strip().splitlines()
-    assert len(lines) == 5
+    assert len(lines) == 9
     assert lines[0].split()[0] == "alba"
     assert "piper.enhanced.en-GB.Alba" in lines[0] and "enhanced" in lines[0]
     assert "fallback" in lines[1] and SAMANTHA_ID in lines[1]  # kristin not downloaded
@@ -187,7 +187,7 @@ def test_list_voices_prints_five_presets(
 def test_all_speaks_each_preset_once(
     presets: tuple[StubEngine, dict[str, Any]],
 ) -> None:
-    """--all says one sample per preset, Alba first; missing models use Samantha."""
+    """--all says one sample per preset, Alba first; missing models use Samantha in English."""
     _, record = presets
     phrase_engines: list[StubEngine] = []
 
@@ -201,12 +201,11 @@ def test_all_speaks_each_preset_once(
     assert speak_test.main(["--all"]) == 0
     piper_said = _piper_texts(record)
     system_said = [text for e in phrase_engines for text in _said(e)]
-    assert piper_said == [
-        "This is Alba. Heinz ketchup. Stop. Stairs.",
-        "This is Cori. Heinz ketchup. Stop. Stairs.",
-    ]
-    assert len(system_said) == 3
+    assert piper_said == ["This is Alba. Stop. Stairs.", "This is Cori. Stop. Stairs."]
+    assert len(system_said) == 7
     assert "This is Kristin." in system_said[0]
+    # Missing non-English models fall back to Samantha, so the sample stays English.
+    assert system_said[-1] == "This is Priyamvada. Stop. Stairs."
 
 
 def test_voice_paths_report_no_engine(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -233,3 +232,17 @@ def test_text_required_without_list_or_all(monkeypatch: pytest.MonkeyPatch) -> N
     with pytest.raises(SystemExit) as exc:
         speak_test.main([])
     assert exc.value.code == 2
+
+
+def test_all_speaks_each_language_in_its_own_voice(
+    presets: tuple[StubEngine, dict[str, Any]], tmp_path: Path
+) -> None:
+    """With the Siwis and Huayan models present, their samples are French and Mandarin."""
+    _, record = presets
+    for model in ("fr_FR-siwis-medium", "zh_CN-huayan-medium"):
+        (tmp_path / f"{model}.onnx").write_bytes(b"")
+    sys.modules["pyttsx3"].init = lambda: StubEngine()  # type: ignore[attr-defined]
+    assert speak_test.main(["--all"]) == 0
+    piper_said = _piper_texts(record)
+    assert "Je suis Siwis. Stop. Escalier." in piper_said
+    assert "我是Huayan。停。楼梯。" in piper_said

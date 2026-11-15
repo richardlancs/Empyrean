@@ -17,7 +17,17 @@ from audio.voices import (
     startup_voice_key,
 )
 
-KEYS = ["alba", "kristin", "northern", "cori", "lessac"]
+KEYS = [
+    "alba",
+    "kristin",
+    "northern",
+    "cori",
+    "lessac",
+    "huayan",
+    "claude",
+    "siwis",
+    "priyamvada",
+]
 SAMANTHA = ("com.apple.voice.compact.en-US.Samantha", "Samantha")
 
 
@@ -31,8 +41,8 @@ def piper(key: str) -> tuple[str, str]:
 INSTALLED = [piper(key) for key in KEYS] + [SAMANTHA]
 
 
-def test_five_presets_in_order() -> None:
-    """The presets are alba, kristin, northern, cori and lessac, in that order."""
+def test_nine_presets_in_order() -> None:
+    """Five English presets come first, then Mandarin, Spanish, French and Hindi."""
     assert [p.key for p in PRESETS] == KEYS
     assert [p.label for p in PRESETS] == [
         "Alba",
@@ -40,7 +50,12 @@ def test_five_presets_in_order() -> None:
         "Northern English",
         "Cori",
         "Lessac",
+        "Huayan",
+        "Claude",
+        "Siwis",
+        "Priyamvada",
     ]
+    assert [p.language for p in PRESETS] == ["en"] * 5 + ["zh", "es", "fr", "hi"]
 
 
 def test_piper_ids_and_model_paths() -> None:

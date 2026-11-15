@@ -1,10 +1,10 @@
-"""Download the five Piper voice files into audio/voice_models/ (git-ignored).
+"""Download the nine Piper voice files into audio/voice_models/ (git-ignored).
 
 Run once per laptop, with internet, before the demo. After that speech is
 fully offline. Files come from the rhasspy/piper-voices repository on Hugging
 Face; a file that is already present is skipped.
 
-    python -m audio.fetch_voices          # all five voices
+    python -m audio.fetch_voices          # all nine voices
     python -m audio.fetch_voices cori     # one preset by key
 """
 
@@ -52,7 +52,7 @@ def fetch(model: str) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Download the requested presets' voices (all five by default)."""
+    """Download the requested presets' voices (all nine by default)."""
     keys = [p.key for p in PRESETS]
     parser = argparse.ArgumentParser(description="Download Piper voices for audio/.")
     parser.add_argument("keys", nargs="*", choices=keys, help="preset keys (default: all)")

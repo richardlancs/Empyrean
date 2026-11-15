@@ -11,6 +11,12 @@ Every bus handler only updates state under a lock and returns. Speech runs on
 one worker thread that owns the text-to-speech engine. The alarm beeps start on
 the hazard handler's own thread, so they never wait behind speech. A voice switch
 is applied by that worker between phrases, never mid-phrase.
+
+Languages: the active language is the confirmed voice's language, or English
+when a fallback voice stands in. Hazard phrases and the sample line come from
+audio/phrases.py. Touches in English speak the Grok name, else the class label;
+in another language they speak a NameResult.spoken_name in that language, else
+the translated class label. A spoken name in another language is never spoken.
 """
 
 from __future__ import annotations
@@ -25,11 +31,19 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from audio.backends import HybridSpeaker, LogSpeaker, load_alarm
+from audio.phrases import (
+    FALLBACK_HAZARD_PHRASES,
+    HAZARD_PHRASES,  # noqa: F401  re-exported: language -> hazard type -> phrase
+    hazard_phrase,
+    hazard_prerender,
+    sample_line,
+)
 from audio.voices import (
     DEFAULT_VOICE_KEY,
     FALLBACK_NAME,
     PRESETS,
     ResolvedVoice,
+    active_language,
     installed_keys,
     preset_for,
     resolve_voice,
@@ -46,19 +60,15 @@ from contracts import (
     VoiceChange,
     VoiceStatus,
 )
+from contracts.languages import DEFAULT_LANGUAGE, translate_label
 
 log = logging.getLogger("audio")
 
-# Spoken hazard phrases, SPEC.md section 4.8.
-HAZARD_PHRASES: dict[str, str] = {
-    "stairs_down": "Stop. Stairs.",
-    "drop_off": "Stop. Drop ahead.",
-    "vehicle": "Stop. Vehicle.",
-    "obstacle": "Stop. Obstacle.",
-}
-FALLBACK_HAZARD_PHRASE = "Stop."
-# Rendered ahead after every voice change, so a hazard phrase starts at once.
-HAZARD_PRERENDER: list[str] = [*HAZARD_PHRASES.values(), FALLBACK_HAZARD_PHRASE]
+# Spoken hazard phrases per language live in audio/phrases.py (SPEC.md section 4.8).
+# The English ones are rendered ahead after a switch to an English voice; every
+# voice change pre-renders its own language's set, so a hazard phrase starts at once.
+FALLBACK_HAZARD_PHRASE = FALLBACK_HAZARD_PHRASES[DEFAULT_LANGUAGE]
+HAZARD_PRERENDER: list[str] = hazard_prerender(DEFAULT_LANGUAGE)
 
 # Lower number wins, SPEC.md section 4.8.
 PRIORITY_ALARM = 1
@@ -73,6 +83,7 @@ KIND_BY_PRIORITY = {
 SPEECH_MODES = ("real", "fake", "unavailable")
 UNAVAILABLE_DETAIL = "No speech engine: the text was logged, not played"
 VOICE_MENU: dict[str, str] = {p.key: p.label for p in PRESETS}
+VOICE_LANGUAGES: dict[str, str] = {p.key: p.language for p in PRESETS}
 
 
 def speaker_mode(speaker: Any) -> str:
@@ -125,6 +136,7 @@ class _Item:
     speech_id: int = 0  # telemetry id, the same for every SpeechStatus of this item
     object_id: int | None = None
     source: str = ""
+    hazard_type: str = ""  # set on a hazard phrase, re-worded if the language changed
 
 
 @dataclass
@@ -132,7 +144,7 @@ class _Touch:
     """An object that is being touched right now."""
 
     received_at: float
-    spoke_label: bool  # True when the class label was used because no name was known
+    spoke_label: bool  # True when the (translated) class label was used: no name known
     late_name_done: bool = False
 
 
@@ -145,6 +157,7 @@ class _State:
     closed: bool = False
     touches: dict[int, _Touch] = field(default_factory=dict)
     names: dict[int, str] = field(default_factory=dict)
+    spoken_names: dict[int, tuple[str, str]] = field(default_factory=dict)  # (text, language)
     pending_voice: tuple[str, str | None] | None = None  # (preset key, request id)
 
 
@@ -196,6 +209,7 @@ class AudioManager:
         self._speech_failed = False
         self._startup_voice = voice if preset_for(voice) is not None else DEFAULT_VOICE_KEY
         self._active_voice: ResolvedVoice = resolve_voice(self._startup_voice, [])
+        self._language = active_language(self._active_voice)  # guarded by self._cond
         self._installed: list[str] = []
         self._thread = threading.Thread(
             target=self._run, name="audio-speech", daemon=True
@@ -210,8 +224,8 @@ class AudioManager:
             self._alarm.play()
         except Exception:
             log.exception("Alarm sound failed")
-        phrase = HAZARD_PHRASES.get(msg.type, FALLBACK_HAZARD_PHRASE)
         with self._cond:
+            phrase = hazard_phrase(msg.type, self._language)
             state = self._state
             if state.slot is not None:
                 self._status(state.slot, "interrupted", "Cut off by a hazard alarm")
@@ -224,6 +238,7 @@ class AudioManager:
                 now,
                 not_before=now + self._alarm.duration,
                 source="hazard",
+                hazard_type=msg.type,
             )
             self._status(state.slot, "queued")
             self._cond.notify_all()
@@ -239,14 +254,20 @@ class AudioManager:
             if msg.kind != "touch":
                 state.touches.pop(msg.object_id, None)
                 return
+            language = self._language
             # A NameResult can reach audio just before the TouchEvent that it beat.
-            name = msg.name.strip() or state.names.get(msg.object_id, "")
+            if language == DEFAULT_LANGUAGE:
+                name = msg.name.strip() or state.names.get(msg.object_id, "")
+                label = msg.class_label
+            else:  # only a spoken name in this language; never the English name
+                name = _spoken_in(state.spoken_names.get(msg.object_id), language)
+                label = translate_label(msg.class_label, language)
             now = self._clock()
             state.touches[msg.object_id] = _Touch(now, spoke_label=not name)
             self._offer(
                 self._new_item(
                     PRIORITY_TOUCH,
-                    name or msg.class_label,
+                    name or label,
                     state.generation,
                     now,
                     object_id=msg.object_id,
@@ -256,15 +277,21 @@ class AudioManager:
         self._flush()
 
     def on_name(self, msg: NameResult) -> None:
-        """Speak a late name while the object is still being touched."""
-        if not self._announce_touches:
+        """Speak a late name, in the active language only, while the object is still touched."""
+        if not self._announce_touches or not msg.ok:
             return
         name = msg.name.strip()
-        if not msg.ok or not name:
-            return
+        spoken = msg.spoken_name.strip()
         with self._cond:
             state = self._state
-            state.names[msg.object_id] = name
+            if name:
+                state.names[msg.object_id] = name
+            if spoken:
+                state.spoken_names[msg.object_id] = (spoken, msg.language)
+            if self._language != DEFAULT_LANGUAGE:
+                name = _spoken_in(state.spoken_names.get(msg.object_id), self._language)
+            if not name:
+                return
             touch = state.touches.get(msg.object_id)
             if touch is None or not touch.spoke_label or touch.late_name_done:
                 return
@@ -347,6 +374,7 @@ class AudioManager:
         not_before: float = 0.0,
         object_id: int | None = None,
         source: str = "",
+        hazard_type: str = "",
     ) -> _Item:
         """Build a queue item with its own telemetry id."""
         return _Item(
@@ -358,6 +386,7 @@ class AudioManager:
             speech_id=next(self._ids),
             object_id=object_id,
             source=source,
+            hazard_type=hazard_type,
         )
 
     def _status(self, item: _Item, status: str, detail: str = "") -> None:
@@ -417,6 +446,8 @@ class AudioManager:
                 requested_voice=requested_voice,
                 request_id=request_id,
                 detail=detail,
+                language=self._language,
+                voice_languages=dict(VOICE_LANGUAGES),
             )
         )
 
@@ -432,14 +463,16 @@ class AudioManager:
         set_voice = getattr(speaker, "set_voice", None)
         if set_voice is not None:
             set_voice(resolved.voice_id)
+        language = active_language(resolved)
         prepare = getattr(speaker, "prepare", None)
         if prepare is not None:
             try:  # returns at once: rendering happens on the speaker's own thread
-                prepare(list(HAZARD_PRERENDER))
+                prepare(hazard_prerender(language))
             except Exception:
                 log.exception("Pre-rendering the hazard phrases failed")
         with self._cond:
             self._active_voice = resolved
+            self._language = language
             self._installed = installed_keys(installed)
         if resolved.quality == "fallback":
             log.warning(
@@ -477,7 +510,7 @@ class AudioManager:
             self._offer(
                 self._new_item(
                     PRIORITY_ANSWER,
-                    f"This is {resolved.label}.",
+                    sample_line(resolved.label, self._language),
                     self._state.generation,
                     self._clock(),
                     source="audio",
@@ -618,6 +651,10 @@ class AudioManager:
                     self._status(item, "interrupted", "Cut off by a hazard alarm")
                 self._flush()
                 continue
+            if item.hazard_type:
+                # A switch applied while the beeps played: word it for the voice now loaded.
+                with self._cond:
+                    item.text = hazard_phrase(item.hazard_type, self._language)
             log.info(
                 "Speaking %r, %.0f ms after the event",
                 item.text,
@@ -653,6 +690,13 @@ class AudioManager:
                         self._speech_failed = False
                         self._module_status("active", "Speech engine recovered")
             self._flush()
+
+
+def _spoken_in(entry: tuple[str, str] | None, language: str) -> str:
+    """Return a stored spoken name if it is in language, else empty."""
+    if entry is None or entry[1] != language:
+        return ""
+    return entry[0]
 
 
 def _fallback_name(resolved: ResolvedVoice) -> str:

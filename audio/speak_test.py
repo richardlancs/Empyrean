@@ -3,7 +3,8 @@
 Speaks through the system's default audio output, offline, at SPEECH_RATE_WPM.
 Plain TEXT uses the pyttsx3 system voice. --voice, --all and --list-voices use
 the same speaker as the app (Piper neural voices, pyttsx3 for system voices), to
-check the five presets by ear.
+check the nine presets by ear. --all says each preset's sample line and stairs
+phrase in its own language, or in English when a fallback voice stands in.
 
 Setup, from the repository root, on macOS:
 
@@ -28,11 +29,18 @@ import sys
 from collections.abc import Sequence
 
 from audio.backends import HybridSpeaker
-from audio.voices import PRESETS, resolve_voice
+from audio.phrases import hazard_phrase, sample_line
+from audio.voices import PRESETS, ResolvedVoice, active_language, resolve_voice
 from config import SPEECH_RATE_WPM
 
 LOGGER = logging.getLogger("audio")
-SAMPLE_TEXT = "This is {label}. Heinz ketchup. Stop. Stairs."
+
+
+def sample_text(resolved: ResolvedVoice) -> str:
+    """Return the --all sample for a resolved preset, in the language it really speaks."""
+    language = active_language(resolved)
+    gap = "" if language == "zh" else " "  # Chinese sentences take no space between them
+    return f"{sample_line(resolved.label, language)}{gap}{hazard_phrase('stairs_down', language)}"
 
 
 def speak(text: str, voice_id: str | None = None, rate: int = SPEECH_RATE_WPM) -> None:
@@ -127,9 +135,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             for preset in PRESETS:
                 resolved = resolve_voice(preset.key, voices)
                 LOGGER.info("Speaking %s (%s)", preset.label, resolved.quality)
-                _say_preset(
-                    speaker, SAMPLE_TEXT.format(label=preset.label), resolved.voice_id
-                )
+                _say_preset(speaker, sample_text(resolved), resolved.voice_id)
             return 0
         resolved = resolve_voice(args.voice, voices) if args.voice else None
         LOGGER.info("Speaking: %s", text)
