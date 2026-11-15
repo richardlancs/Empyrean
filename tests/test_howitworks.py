@@ -57,7 +57,7 @@ def test_every_local_reference_exists() -> None:
     """Every script, stylesheet, image and import-map target is served."""
     html = _index()
     urls = re.findall(r'(?:src|href)="([^"#]+)"', html)
-    urls = [u for u in urls if u != "/"]
+    urls = [u for u in urls if u != "/" and not u.startswith("data:")]
     import_map = re.search(r'<script type="importmap">(.*?)</script>', html, re.S)
     assert import_map, "import map missing"
     for target in json.loads(import_map.group(1))["imports"].values():

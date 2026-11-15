@@ -1,6 +1,8 @@
 // Composition only: mounts the pipeline, then the 3D stage. The page is already
 // complete as static HTML; each part upgrades its own section and fails quietly.
 
+import { HOTSPOTS } from "./content.js";
+
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const byId = (id) => document.getElementById(id);
 
@@ -25,8 +27,18 @@ async function startStage() {
 
 async function start() {
   document.documentElement.dataset.js = "ready";
+  const pipeline = null;
   const stage = await startStage();
   window.__howStage = stage; // for browser checks only
+  if (stage) {
+    const { mountHotspots } = await import("./stage/hotspots.js");
+    window.__howSpots = await mountHotspots({
+      stage,
+      hotspots: HOTSPOTS,
+      panel: byId("hotspot-panel"),
+      onSeeStep: (stepId) => pipeline?.selectStep(stepId),
+    });
+  }
 }
 
 start();

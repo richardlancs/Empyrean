@@ -47,7 +47,7 @@ function glasses(THREE, palette) {
 function backpack(THREE, palette) {
   const group = new THREE.Group();
   group.add(mesh(THREE, new THREE.BoxGeometry(0.72, 0.86, 0.32), palette.muted));
-  group.add(at(mesh(THREE, new THREE.BoxGeometry(0.5, 0.34, 0.08), palette.line), 0, -0.14, 0.2));
+  group.add(at(mesh(THREE, new THREE.BoxGeometry(0.5, 0.34, 0.08), palette.line), 0, -0.14, -0.2));
   // The laptop, showing above the open top.
   group.add(at(mesh(THREE, new THREE.BoxGeometry(0.58, 0.2, 0.035), palette.paper, { roughness: 0.3, metalness: 0.4 }), 0, 0.5, 0));
   const strap = () => mesh(THREE, new THREE.BoxGeometry(0.07, 0.8, 0.03), palette.ink);
