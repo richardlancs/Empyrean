@@ -118,7 +118,7 @@ export const TOUCH_STEPS = deepFreeze([
   {
     id: "outputs",
     from: "audio",
-    to: ["audio"],
+    to: ["storage", "dashboard"],
     message: null,
     caption: "The speaker says the name, Tiger Data logs it and the dashboard highlights the object.",
   },

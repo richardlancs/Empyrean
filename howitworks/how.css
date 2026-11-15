@@ -123,7 +123,7 @@
 .pipe-edge.is-alarm { stroke: var(--color-danger); stroke-width: 4; opacity: 1; }
 .pipe-token rect { fill: var(--color-text); }
 .pipe-token.is-alarm rect { fill: var(--color-danger); }
-.pipe-token text { fill: var(--color-surface); font: 600 12px var(--font-mono); text-anchor: middle; dominant-baseline: central; }
+.pipe-token text { fill: var(--color-surface); font: 600 11.5px var(--font-mono); text-anchor: middle; dominant-baseline: central; }
 
 @media (prefers-reduced-motion: reduce) {
   .how-stage__poster, .how-stage__canvas, .hotspot, .hotspot::before, .hotspot__label { transition: none; }

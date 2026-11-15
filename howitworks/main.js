@@ -27,7 +27,14 @@ async function startStage() {
 
 async function start() {
   document.documentElement.dataset.js = "ready";
-  const pipeline = null;
+  let pipeline = null;
+  try {
+    const { mountPipeline } = await import("./pipeline/diagram.js");
+    pipeline = mountPipeline(byId("pipeline"), { reducedMotion });
+  } catch (error) {
+    console.warn("How it works: pipeline diagram unavailable, showing the list.", error);
+  }
+  window.__howPipeline = pipeline; // for browser checks only
   const stage = await startStage();
   window.__howStage = stage; // for browser checks only
   if (stage) {
