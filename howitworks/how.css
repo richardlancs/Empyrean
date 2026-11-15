@@ -110,12 +110,13 @@
 .how-pipeline__caption:empty { display: none; }
 
 /* Graph view: dots in a web. Hover or focus lights a dot's neighbours. */
-.web { touch-action: pan-y; user-select: none; }
+.web { touch-action: pan-x pan-y pinch-zoom; user-select: none; }
 .web-link { stroke: var(--color-border-control); stroke-width: 1.2; opacity: 0.45; transition: opacity 240ms var(--easing), stroke 240ms var(--easing), stroke-width 240ms var(--easing); }
 .web-link.is-active { stroke: var(--color-accent); stroke-width: 2.5; opacity: 1; }
 .web-link.is-alarm { stroke: var(--color-danger); stroke-width: 3; opacity: 1; }
 
-.web-node { cursor: grab; outline: none; transition: opacity 240ms var(--easing); }
+/* Dragging a node owns the gesture; the rest of the graph remains scrollable. */
+.web-node { touch-action: none; cursor: grab; outline: none; transition: opacity 240ms var(--easing); }
 .web-node:active { cursor: grabbing; }
 .web-node__dot { transform-box: fill-box; transform-origin: center; transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1); }
 .web-node__core { fill: var(--color-text-secondary); transition: fill 240ms var(--easing); }

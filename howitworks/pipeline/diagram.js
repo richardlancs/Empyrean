@@ -317,11 +317,13 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
       render(true);
     };
     let down = null;
+    let suppressClick = false;
     group.addEventListener("pointerenter", () => setHover(node.id));
     group.addEventListener("pointerleave", () => { if (!body.dragging) setHover(null); });
     group.addEventListener("focus", () => setHover(node.id));
     group.addEventListener("blur", () => setHover(null));
     group.addEventListener("pointerdown", (event) => {
+      suppressClick = false;
       down = { x: event.clientX, y: event.clientY, moved: false };
       group.setPointerCapture(event.pointerId);
     });
@@ -339,14 +341,19 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
     });
     const release = (event) => {
       if (!down) return;
-      const wasClick = !down.moved;
+      suppressClick = down.moved || event.type === "pointercancel";
       down = null;
       body.dragging = false; // the spring carries it home with a small bounce
       if (group.hasPointerCapture(event.pointerId)) group.releasePointerCapture(event.pointerId);
-      if (wasClick && event.type === "pointerup") jump();
     };
     group.addEventListener("pointerup", release);
     group.addEventListener("pointercancel", release);
+    // Click includes assistive-technology activation. Pointer release only
+    // finishes the drag, so a normal click cannot activate the node twice.
+    group.addEventListener("click", (event) => {
+      if (event.detail === 0 || !suppressClick) jump();
+      suppressClick = false;
+    });
     group.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();

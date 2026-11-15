@@ -85,6 +85,13 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 2 (How It Works review fixes), Codex
+**Changed:** Fixed PR #35's two accessibility findings at the user's explicit request. The graph now allows horizontal/vertical touch scrolling and pinch zoom outside draggable nodes. Nodes activate on click (including assistive technology), with drag/cancel suppression and no duplicate pointer activation.
+**Tested:** Python 3.11 `pytest -q`: 405 passed, 2 skipped. Headless Edge checks passed for semantic click, one activation per mouse click, Enter/Space, drag suppression, activation after a drag, horizontal touch scrolling at 360 px, and touch node dragging. `python -m app --fake vision` started all modules; `/`, `/api/state`, `/how-it-works/` and its diagram script returned HTTP 200. External Grok/database services were unavailable without local credentials. `git diff --check` passed.
+**Decisions:** User authorized fixing this PR and merging it; changes limited to howitworks/ and this log. No new dependencies.
+**Teammates need to know:** Both review findings are resolved; touch users can pan the graph by swiping its background and drag a node by starting on it.
+
+
 ### 2026-11-14, How It Works page (howitworks/), Claude Code
 **Authorization:** Richard confirmed all four teammates agreed to a new top-level `howitworks/` folder and to vendoring two browser libraries, three.js 0.187.0 and GSAP 3.15.1, under `howitworks/vendor/`. No Python dependency changed; nothing to reinstall.
 
