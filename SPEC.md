@@ -319,8 +319,8 @@ These are the contract between modules. Field names, types and units are fixed.
 | `ts` | number | Capture time |
 | `frame_id` | integer | Counts up from 0 |
 | `image` | 640 x 360 BGR image | The processed frame |
-| `objects` | list | One entry per tracked object: `object_id` (integer), `class_label` (text), `confidence` (0 to 1), `box` (`x1, y1, x2, y2`), `landmarks` (21 `x, y` points in MediaPipe order, or empty; not clamped, so points may lie outside the frame) |
-| `hands` | list | One entry per hand: `side` (`left`, `right` or `unknown`), `thumb_tip` (`x, y`), `index_tip` (`x, y`), `box` (`x1, y1, x2, y2`) |
+| `objects` | list | One entry per tracked object: `object_id` (integer), `class_label` (text), `confidence` (0 to 1), `box` (`x1, y1, x2, y2`) |
+| `hands` | list | One entry per hand: `side` (`left`, `right` or `unknown`), `thumb_tip` (`x, y`), `index_tip` (`x, y`), `box` (`x1, y1, x2, y2`), `landmarks` (21 `x, y` points in MediaPipe order, or empty; not clamped, so points may lie outside the frame) |
 
 ### `SceneSnapshot` (scene to dashboard, once per processed frame)
 
