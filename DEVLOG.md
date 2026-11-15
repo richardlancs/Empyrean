@@ -88,6 +88,20 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-15, PR #37 review and conflict resolution, Codex
+**Changed:** Reviewed the How It Works hover, keyboard, and pipeline-sidebar changes. Merged current main into the PR and resolved the DEVLOG-only conflict by preserving both entries. No product code changed during this review.
+**Tested:** Python 3.11 full suite: 589 passed, 2 skipped, including the documented fake-vision CLI startup test. Node How It Works tests: 16 passed. git diff --check passed.
+**Teammates need to know:** Review used an isolated worktree; the current p2-touch checkout and its uncommitted DEVLOG changes were preserved.
+
+### 2026-11-15, Person 4 (dashboard demo-toggle test race; PR #34 and #35 review), Claude Code
+**Changed:** Fixed the one test that failed on `main`, `tests/test_demo_toggle_dashboard.py::test_live_regular_demo_regular_through_the_engine`. It was a timing race in the test, not a dashboard bug. A trace on a Windows laptop showed: the switch request returned and the page showed "switching" at 1.187 s, fake vision confirmed demo at 1.500 s (its 0.3 s delay), and the test's "not yet confirmed" read only came back at 1.562 s. One local HTTP round trip took about 0.35 s. The fixture now gives fake vision a 2.0 s switch time, and the test also checks `state == "switching"` and `switching_to == "demo"` during the switch. `dashboard/services/detector_mode.py` already reports only what vision confirms; no product code changed.
+
+Reviewed PR #34 (Piper voices, five languages) and PR #35 (How it works page). Both had already been merged by the time the reviews finished. PR #34 comments list what is still open: team agreement on `piper-tts`, Person 3 sign-off on `namer/` and `storage/`, memory with every voice preloaded, and running `fetch_voices` plus one full JBL run on the demo laptop. PR #35's four `dashboard/` edits are fine: keyboard focus outlines and the high-contrast theme are untouched, the page loads only local files, has no console errors, has no horizontal scroll at 375 px, and its hazard copy says it is a prototype.
+
+**Tested:** The demo-toggle test file, 3 runs: 12 passed each time. Ruff clean. Full suite on this branch: 589 passed, 2 skipped, 0 failed. `python -m app --fake vision` starts and serves `/api/state` with the fake camera and detector active. For PR #34: `python -m audio` with and without Piper (Alba fetched in a throwaway venv). With Piper, speech started 0 ms after the event, against 0.9 to 1.5 s with pyttsx3.
+
+**Teammates need to know:** `tests/test_scene_questions.py::test_question_language_is_captured_when_asked` failed once in a full run on `main` and passed 3 of 3 times on its own. It looks flaky; owner of `scene/` questions, please check.
+
 ### 2026-11-15, How It Works page (hover parts, pipeline sidebar), Claude Code
 **Changed:** At Richard's request, after merging latest `main` (which already contains PR #35 and Person 2's pipeline fixes). The 3D kit no longer has marker buttons: pointing at a part makes that part grow, shows its name over it and its description in the side panel; clicking pins it and flies the camera in. Visually hidden buttons give keyboard and screen-reader users the same five parts. In the pipeline, the step counter moved to the right-hand end of the controls, and a new sidebar lists every module with a short description of the role it plays; pointing at a row lights that module in the web and the reverse, and clicking a row jumps to its step. Only `howitworks/` and its tests changed.
 
