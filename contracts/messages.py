@@ -83,6 +83,8 @@ class NameResult:
     object_id: int
     name: str  # at most 40 characters, empty if naming failed
     ok: bool  # False on timeout or error
+    spoken_name: str = ""  # the name in `language` when that is not English; else empty
+    language: str = ""  # code from contracts.languages that spoken_name is in; empty for none
 
 
 @dataclass
@@ -230,6 +232,8 @@ class VoiceStatus:
     requested_voice: str | None = None  # set when answering or refusing a VoiceChange
     request_id: str | None = None  # from the VoiceChange this answers, if any
     detail: str = ""  # why a switch failed, or which voice stands in
+    language: str = "en"  # language of the active voice; every spoken answer follows it
+    voice_languages: dict[str, str] = field(default_factory=dict)  # preset key -> language code
 
 
 @dataclass

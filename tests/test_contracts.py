@@ -88,7 +88,14 @@ def _all_messages() -> list[object]:
         NameRequest(
             ts=TS, object_id=3, class_label="bottle", crop_jpeg=b"\xff\xd8\xff\xd9"
         ),
-        NameResult(ts=TS, object_id=3, name="Heinz ketchup", ok=True),
+        NameResult(
+            ts=TS,
+            object_id=3,
+            name="Heinz ketchup",
+            ok=True,
+            spoken_name="亨氏番茄酱",
+            language="zh",
+        ),
         TouchEvent(
             ts=TS,
             object_id=3,
@@ -151,6 +158,8 @@ def _all_messages() -> list[object]:
             requested_voice="zoe",
             request_id="v1",
             detail="",
+            language="en",
+            voice_languages={"ava": "en", "zoe": "en"},
         ),
     ]
 
@@ -245,3 +254,21 @@ def test_voice_messages_default_to_empty() -> None:
     assert status.voices == {} and status.installed == [] and status.detail == ""
     assert config.SPEECH_RATE_WPM == 165
     assert config.VOICE_SWITCH_TIMEOUT_SECONDS == 10.0
+
+
+def test_language_vocabulary() -> None:
+    """Five languages, English default, and label translation falls back to English."""
+    from contracts.languages import (
+        LANGUAGE_NAMES_EN,
+        LANGUAGES,
+        known_language,
+        translate_label,
+    )
+
+    assert list(LANGUAGES) == ["en", "zh", "es", "fr", "hi"]
+    assert set(LANGUAGE_NAMES_EN) == set(LANGUAGES)
+    assert known_language("xx") == "en" and known_language("hi") == "hi"
+    assert translate_label("bottle", "es") == "botella"
+    assert translate_label("bottle", "en") == "bottle"
+    assert translate_label("unknown thing", "fr") == "unknown thing"
+    assert NameResult(ts=TS, object_id=1, name="cup", ok=True).spoken_name == ""

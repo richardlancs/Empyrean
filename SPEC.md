@@ -217,6 +217,7 @@ Rules:
 - Spoken hazard phrases: `stairs_down` is "Stop. Stairs.", `drop_off` is "Stop. Drop ahead.", `vehicle` is "Stop. Vehicle.", `obstacle` is "Stop. Obstacle."
 - Text to speech runs offline on the laptop so speech never waits on the network.
 - Speech uses one of five offline Piper neural voice presets at `SPEECH_RATE_WPM`: `alba` (Alba, default), `kristin` (Kristin), `northern` (Northern English), `cori` (Cori), `lessac` (Lessac). The model files are downloaded once per laptop with `python -m audio.fetch_voices` into the git-ignored `audio/voice_models/`; after that nothing touches the network. Piper high-tier models report quality `premium`, medium-tier `enhanced`. `AUDIO_VOICE` in `.env` picks the startup voice; an unknown value falls back to `alba`. A preset whose model is missing, or a laptop without Piper, speaks with pyttsx3 (Samantha where available) and reports `fallback`. Hazard phrases are pre-rendered in the active voice so they never wait on synthesis; an alarm stops Piper playback at once.
+- **Languages.** Each voice preset has a language: English (`alba`, `kristin`, `northern`, `cori`, `lessac`), Mandarin `huayan` (`zh`), Spanish `claude` (`es`, Mexican Spanish), French `siwis` (`fr`) and Hindi `priyamvada` (`hi`). The active language is the language of audio's confirmed voice, `VoiceStatus.language`; the dashboard's Language picker switches it by requesting that language's voice. In a non-English language: hazard phrases and the sample line come from fixed tables in `audio/`; an unnamed object's class label comes from `contracts/languages.py`; namer asks Grok for each name in English and the active language at once (`NameResult.spoken_name`) and answers scene questions in it; storage and the dashboard word their spoken answers from fixed tables. Translations are offline and fixed, so speech never waits on the network. A `spoken_name` in a language other than the active one is not spoken; the English name is.
 - A `VoiceChange` is applied between phrases on the speech worker, never mid-phrase and never ahead of a hazard. Audio answers with `VoiceStatus`, then says "This is <label>." at priority 3.
 - The alarm beeps are a pre-made sound file, not generated at run time.
 
@@ -350,6 +351,8 @@ These are the contract between modules. Field names, types and units are fixed.
 | `object_id` | integer | Object named |
 | `name` | text | At most 40 characters. Empty if naming failed |
 | `ok` | true or false | False on timeout or error |
+| `spoken_name` | text | The name in `language` when the active language is not English, else empty. `name` stays English for storage, search and the dashboard |
+| `language` | text | Language code `spoken_name` is in, or empty |
 
 ### `TouchEvent` (scene to audio, storage, dashboard)
 
@@ -448,6 +451,8 @@ The only confirmation of a voice switch. Published once at startup and after eve
 | `requested_voice` | text or empty | Set when answering or refusing a `VoiceChange` |
 | `request_id` | text or empty | From the `VoiceChange` this answers |
 | `detail` | text | Why a switch failed, or which voice stands in |
+| `language` | text | Language code of the active voice (`en`, `zh`, `es`, `fr`, `hi`); every spoken answer follows it |
+| `voice_languages` | map | Preset key to language code |
 
 ### `SceneQuestion` (dashboard to namer)
 
