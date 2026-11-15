@@ -93,6 +93,7 @@ The approved stack, repeated here so every log reader has it. Changes go through
 **Tested:** Python 3.11 `pytest -q`: 405 passed, 2 skipped. Headless Edge checks passed for semantic click, one activation per mouse click, Enter/Space, drag suppression, activation after a drag, horizontal touch scrolling at 360 px, and touch node dragging. `python -m app --fake vision` started all modules; `/`, `/api/state`, `/how-it-works/` and its diagram script returned HTTP 200. External Grok/database services were unavailable without local credentials. `git diff --check` passed.
 **Decisions:** User authorized fixing this PR and merging it; changes limited to howitworks/ and this log. No new dependencies.
 **Teammates need to know:** Both review findings are resolved; touch users can pan the graph by swiping its background and drag a node by starting on it.
+**Integration recheck:** Merged main at `5474e8e` after PR #34 landed during this session; preserved both DEVLOG entries in the only conflict. Combined Python 3.11 suite: 589 passed, 2 skipped. Fake-vision startup, HTTP routes, semantic/mouse/keyboard activation and mobile horizontal panning passed again against the combined app. Piper was unavailable locally, so startup used its system-voice fallback.
 
 
 ### 2026-11-14, How It Works page (howitworks/), Claude Code
