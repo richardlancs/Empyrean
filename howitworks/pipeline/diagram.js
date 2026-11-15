@@ -78,6 +78,7 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
   const diagramHost = root.querySelector("#pipeline-diagram");
   const caption = root.querySelector("#pipeline-caption");
   const title = root.querySelector("#pipeline-title");
+  const sidebar = root.querySelector("#pipeline-sidebar");
 
   // ----- model -----
   const degree = Object.fromEntries(NODES.map((node) => [node.id, 0]));
@@ -135,7 +136,84 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
   const view = button("", "ui-button ui-button--quiet");
   const count = document.createElement("span");
   count.className = "how-meta";
-  controlsHost.append(play, back, next, count, swap, view);
+  count.classList.add("how-pipeline__count");
+  controlsHost.append(play, back, next, swap, view, count);
+
+  // ----- sidebar: what each module does -----
+  // One row per module. The row for the module being pointed at (or, failing
+  // that, the one sending in the current step) is open and shows its role.
+  const sideItems = new Map();
+  const sideList = document.createElement("ul");
+  sideList.className = "how-sidebar__list";
+  for (const node of NODES) {
+    const item = document.createElement("li");
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "how-sidebar__item";
+    const dot = document.createElement("span");
+    dot.className = "how-sidebar__dot";
+    dot.setAttribute("aria-hidden", "true");
+    const name = document.createElement("span");
+    name.className = "how-sidebar__name";
+    name.textContent = node.label;
+    row.append(dot, name);
+    item.append(row);
+    sideList.append(item);
+    sideItems.set(node.id, { item, row });
+    row.addEventListener("pointerenter", () => setHover(node.id));
+    row.addEventListener("pointerleave", () => setHover(null));
+    row.addEventListener("focus", () => setHover(node.id));
+    row.addEventListener("blur", () => setHover(null));
+    row.addEventListener("click", () => jumpTo(node.id));
+  }
+  const sideTitle = document.createElement("h3");
+  sideTitle.className = "how-sidebar__title";
+  sideTitle.textContent = "What each part does";
+  // The description lives in one card under the list, so opening a module
+  // never moves the rows under the pointer.
+  const card = document.createElement("div");
+  card.className = "how-sidebar__card";
+  card.setAttribute("aria-live", "polite");
+  const cardName = document.createElement("p");
+  cardName.className = "how-sidebar__card-name";
+  const cardRole = document.createElement("p");
+  const cardTech = document.createElement("p");
+  cardTech.className = "how-meta";
+  card.append(cardName, cardRole, cardTech);
+  sidebar.replaceChildren(sideTitle, sideList, card);
+  sidebar.hidden = false;
+
+  let hoverId = null;
+  function syncSidebar() {
+    const step = active.steps[active.stepper.index];
+    const open = hoverId ?? step.from;
+    const lit = new Set([step.from, ...step.to]);
+    for (const [id, { item, row }] of sideItems) {
+      item.classList.toggle("is-open", id === open);
+      item.classList.toggle("is-active", lit.has(id));
+      row.setAttribute("aria-current", id === open ? "true" : "false");
+    }
+    const node = NODES.find((entry) => entry.id === open);
+    if (cardName.textContent !== node.label) {
+      cardName.textContent = node.label;
+      cardRole.textContent = node.role;
+      cardTech.textContent = `Built with: ${node.tech}`;
+      card.classList.remove("is-fresh");
+      void card.offsetWidth; // restart the entrance animation
+      card.classList.add("is-fresh");
+    }
+  }
+
+  /** Go to the first step that involves this module, switching sequence if needed. */
+  function jumpTo(id) {
+    const involves = (sequence) => sequence.steps.some((step) => step.from === id || step.to.includes(id));
+    if (!involves(active)) {
+      const other = Object.values(sequences).find((sequence) => sequence !== active && involves(sequence));
+      if (other) useSequence(other.name);
+    }
+    active.stepper.jumpToNode(id);
+    render(true);
+  }
 
   // ----- stepping -----
   const sequences = {};
@@ -186,6 +264,7 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
       tokens.push({ el, from: step.from, to, start: animate && !reducedMotion ? performance.now() : -Infinity });
     }
     caption.textContent = step.caption;
+    syncSidebar();
     count.textContent = `Step ${active.stepper.index + 1} of ${active.steps.length}`;
     // aria-disabled, not disabled: the button keeps keyboard focus at the ends.
     back.setAttribute("aria-disabled", active.stepper.index === 0 ? "true" : "false");
@@ -288,6 +367,8 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
 
   // ----- hover, focus, drag, click -----
   function setHover(id) {
+    hoverId = id;
+    syncSidebar();
     drawing.classList.toggle("has-hover", id !== null);
     for (const [nodeId, group] of nodeEls) {
       group.classList.toggle("is-hover", nodeId === id);
@@ -306,16 +387,7 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
   for (const node of NODES) {
     const group = nodeEls.get(node.id);
     const body = bodies.get(node.id);
-    const involves = (sequence) => sequence.steps.some((step) => step.from === node.id || step.to.includes(node.id));
-    const jump = () => {
-      // A module that plays no part in the current sequence opens the other one.
-      if (!involves(active)) {
-        const other = Object.values(sequences).find((sequence) => sequence !== active && involves(sequence));
-        if (other) useSequence(other.name);
-      }
-      active.stepper.jumpToNode(node.id);
-      render(true);
-    };
+    const jump = () => jumpTo(node.id);
     let down = null;
     let suppressClick = false;
     group.addEventListener("pointerenter", () => setHover(node.id));
@@ -411,6 +483,8 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
       for (const sequence of Object.values(sequences)) sequence.stepper.destroy();
       controlsHost.replaceChildren();
       drawing.remove();
+      sidebar.replaceChildren();
+      sidebar.hidden = true;
     },
   };
 }

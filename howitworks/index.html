@@ -43,14 +43,14 @@
 <main id="main" class="app-container how-main" tabindex="-1">
   <section class="how-intro" aria-labelledby="how-title">
     <h1 id="how-title">How it works</h1>
-    <p>A camera on a pair of sunglasses, a laptop in a backpack and a small speaker. Open each part to see what it does.</p>
+    <p>A camera on a pair of sunglasses, a laptop in a backpack and a small speaker. Point at each part to see what it does.</p>
   </section>
 
   <section id="stage" class="how-stage" aria-label="The parts of the kit">
     <div class="how-stage__view">
       <img id="stage-poster" class="how-stage__poster" src="./assets/poster.svg" alt="Sunglasses with a small camera, a backpack holding a laptop, and a portable speaker." width="1600" height="900">
       <div id="stage-canvas-host" class="how-stage__canvas"></div>
-      <p id="stage-hint" class="how-stage__hint" hidden>Drag to look around. Select a marker to learn more.</p>
+      <p id="stage-hint" class="how-stage__hint" hidden>Drag to look around. Point at a part to learn more.</p>
     </div>
     <aside id="hotspot-panel" class="how-panel" aria-label="Details" hidden></aside>
     <ul id="hotspot-list" class="how-list">
@@ -66,6 +66,7 @@
     <h2 id="pipeline-title">Follow one touch</h2>
     <p class="how-pipeline__lede">Small modules pass messages to each other. None of them calls another directly.</p>
     <div id="pipeline-controls" class="how-pipeline__controls"></div>
+    <div class="how-pipeline__body">
     <div id="pipeline-diagram" class="how-pipeline__diagram">
       <ol id="pipeline-static" class="how-pipeline__static">
           <li>The camera on the glasses streams video. Vision processes 5 frames every second.</li>
@@ -75,6 +76,8 @@
           <li>The wearer points. After 0.4 seconds on the same object, Scene announces the touch.</li>
           <li>The speaker says the name, Tiger Data logs it and the dashboard highlights the object.</li>
       </ol>
+    </div>
+    <aside id="pipeline-sidebar" class="how-sidebar" aria-label="What each module does" hidden></aside>
     </div>
     <p id="pipeline-caption" class="how-pipeline__caption" aria-live="polite"></p>
   </section>

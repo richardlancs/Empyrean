@@ -88,6 +88,11 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-15, PR #37 review and conflict resolution, Codex
+**Changed:** Reviewed the How It Works hover, keyboard, and pipeline-sidebar changes. Merged current main into the PR and resolved the DEVLOG-only conflict by preserving both entries. No product code changed during this review.
+**Tested:** Python 3.11 full suite: 589 passed, 2 skipped, including the documented fake-vision CLI startup test. Node How It Works tests: 16 passed. git diff --check passed.
+**Teammates need to know:** Review used an isolated worktree; the current p2-touch checkout and its uncommitted DEVLOG changes were preserved.
+
 ### 2026-11-15, Person 4 (dashboard demo-toggle test race; PR #34 and #35 review), Claude Code
 **Changed:** Fixed the one test that failed on `main`, `tests/test_demo_toggle_dashboard.py::test_live_regular_demo_regular_through_the_engine`. It was a timing race in the test, not a dashboard bug. A trace on a Windows laptop showed: the switch request returned and the page showed "switching" at 1.187 s, fake vision confirmed demo at 1.500 s (its 0.3 s delay), and the test's "not yet confirmed" read only came back at 1.562 s. One local HTTP round trip took about 0.35 s. The fixture now gives fake vision a 2.0 s switch time, and the test also checks `state == "switching"` and `switching_to == "demo"` during the switch. `dashboard/services/detector_mode.py` already reports only what vision confirms; no product code changed.
 
@@ -96,6 +101,13 @@ Reviewed PR #34 (Piper voices, five languages) and PR #35 (How it works page). B
 **Tested:** The demo-toggle test file, 3 runs: 12 passed each time. Ruff clean. Full suite on this branch: 589 passed, 2 skipped, 0 failed. `python -m app --fake vision` starts and serves `/api/state` with the fake camera and detector active. For PR #34: `python -m audio` with and without Piper (Alba fetched in a throwaway venv). With Piper, speech started 0 ms after the event, against 0.9 to 1.5 s with pyttsx3.
 
 **Teammates need to know:** `tests/test_scene_questions.py::test_question_language_is_captured_when_asked` failed once in a full run on `main` and passed 3 of 3 times on its own. It looks flaky; owner of `scene/` questions, please check.
+
+### 2026-11-15, How It Works page (hover parts, pipeline sidebar), Claude Code
+**Changed:** At Richard's request, after merging latest `main` (which already contains PR #35 and Person 2's pipeline fixes). The 3D kit no longer has marker buttons: pointing at a part makes that part grow, shows its name over it and its description in the side panel; clicking pins it and flies the camera in. Visually hidden buttons give keyboard and screen-reader users the same five parts. In the pipeline, the step counter moved to the right-hand end of the controls, and a new sidebar lists every module with a short description of the role it plays; pointing at a row lights that module in the web and the reverse, and clicking a row jumps to its step. Only `howitworks/` and its tests changed.
+
+**Tested:** `pytest`: 590 passed, 1 skipped; `node --test tests/howitworks_js/` 16 passed. Chromium checks on the development server: hovering camera, speaker and pointing each grows only that part and shows its label and description; click pins and flies in; Esc returns home; keyboard focus and Enter do the same; sidebar hover, click and web hover stay in step. Found and fixed during testing: an accordion version of the sidebar moved rows under the pointer and flickered, so descriptions now show in one fixed card.
+
+**Teammates need to know:** With the stand-in shapes, the speaker sits in front of the backpack from the starting view, so pointing at that spot picks the speaker; orbit to reach the laptop. Not tested on a touch screen.
 
 ### 2026-11-14, Person 2 (How It Works review fixes), Codex
 **Changed:** Fixed PR #35's two accessibility findings at the user's explicit request. The graph now allows horizontal/vertical touch scrolling and pinch zoom outside draggable nodes. Nodes activate on click (including assistive technology), with drag/cancel suppression and no duplicate pointer activation.
