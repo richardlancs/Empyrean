@@ -1,6 +1,5 @@
 // User-enabled microphone sessions. Final utterances submit once; normal browser
 // session endings restart listening until the user turns the microphone off.
-export const VOICE_PHASES = Object.freeze(["unsupported", "idle", "listening", "paused", "transcript", "error"]);
 export const UNSUPPORTED_MESSAGE = "Voice input isn't supported in this browser. Type your question instead.";
 export const PRIVACY_NOTE = "Voice input uses your browser's speech service, which may send audio to it.";
 export const VOICE_ERROR_MESSAGES = Object.freeze({

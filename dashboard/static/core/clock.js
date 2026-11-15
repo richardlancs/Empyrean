@@ -33,9 +33,3 @@ export function formatClockTime(ts, locale = undefined) {
   if (typeof ts !== "number" || !Number.isFinite(ts)) return "";
   return new Date(ts * 1000).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
-
-/** ISO string for a <time datetime> attribute; "" for null. */
-export function isoTime(ts) {
-  if (typeof ts !== "number" || !Number.isFinite(ts)) return "";
-  return new Date(ts * 1000).toISOString();
-}
