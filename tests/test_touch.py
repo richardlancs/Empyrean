@@ -3,6 +3,8 @@
 import math
 from dataclasses import replace
 
+from pointing_helpers import gripping_hand, pointing_hand
+
 from config.thresholds import (
     BOX_SHRINK_FRACTION,
     HELD_LOST_SECONDS,
@@ -542,3 +544,71 @@ def test_release_on_removal_only_for_objects_in_contact() -> None:
     held_event = release_on_removal(held, [], 9.0)
     assert held_event is not None and held_event.kind == "release"
     assert release_on_removal(idle, [], 9.0) is None
+
+
+_POINT_AT_BOTTLE = pointing_hand(wrist=(400.0, 340.0), toward=(160.0, 170.0))
+_POINT_AWAY = pointing_hand(wrist=(400.0, 340.0), toward=(600.0, 340.0))
+_GRIP_BOTTLE = gripping_hand(wrist=(160.0, 250.0))  # thumb and index tips land inside _BOTTLE
+
+
+def _kinds_over(track: TouchTrack, frames: list[list[Hand]]) -> tuple[list[str], TouchTrack]:
+    """Run one hand list per frame and return every event kind plus the final track."""
+    kinds: list[str] = []
+    current = track
+    for index, hands in enumerate(frames):
+        step = step_touch([current], hands, 1.0 + index * 0.2)
+        kinds.extend(event.kind for event in step.events)
+        current = step.tracks[0]
+    return kinds, current
+
+
+def test_pointing_for_enter_frames_announces_once() -> None:
+    kinds, track = _kinds_over(_track(), [[_POINT_AT_BOTTLE]] * 10)
+    assert kinds == ["touch"]
+    assert track.state == "touching"
+
+
+def test_single_frame_point_does_not_announce() -> None:
+    frames = [[_POINT_AT_BOTTLE], [_POINT_AWAY]] * 4
+    kinds, _ = _kinds_over(_track(), frames)
+    assert kinds == []
+
+
+def test_stop_pointing_releases_after_exit_frames() -> None:
+    frames = [[_POINT_AT_BOTTLE]] * TOUCH_ENTER_FRAMES + [[_POINT_AWAY]] * TOUCH_EXIT_FRAMES
+    kinds, track = _kinds_over(_track(), frames)
+    assert kinds == ["touch", "release"]
+    assert track.state == "idle"
+
+
+def test_repoint_announces_again() -> None:
+    frames = (
+        [[_POINT_AT_BOTTLE]] * TOUCH_ENTER_FRAMES
+        + [[_POINT_AWAY]] * TOUCH_EXIT_FRAMES
+        + [[_POINT_AT_BOTTLE]] * TOUCH_ENTER_FRAMES
+    )
+    kinds, _ = _kinds_over(_track(), frames)
+    assert kinds == ["touch", "release", "touch"]
+
+
+def test_grasp_without_pointing_does_not_announce() -> None:
+    kinds, track = _kinds_over(_track(), [[_GRIP_BOTTLE]] * 10)
+    assert kinds == []
+    assert track.state == "idle"
+
+
+def test_grasp_keeps_pointed_object_touching() -> None:
+    frames = [[_POINT_AT_BOTTLE]] * TOUCH_ENTER_FRAMES + [[_GRIP_BOTTLE]] * 5
+    kinds, track = _kinds_over(_track(), frames)
+    assert kinds == ["touch"]
+    assert track.state == "touching"
+
+
+def test_new_object_cannot_be_pointed_at() -> None:
+    kinds, _ = _kinds_over(_track(state="new"), [[_POINT_AT_BOTTLE]] * 5)
+    assert kinds == []
+
+
+def test_legacy_hand_without_landmarks_still_touches() -> None:
+    kinds, _ = _kinds_over(_track(), [[_hand(_TIP)]] * TOUCH_ENTER_FRAMES)
+    assert kinds == ["touch"]

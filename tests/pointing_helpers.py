@@ -41,12 +41,6 @@ def pointing_hand(
     )
 
 
-def curled_hand_with_tips(thumb: Point, index: Point, wrist: Point) -> Hand:
-    """Build a gripping hand: all fingers curled, tips forced to the given points."""
-    hand = pointing_hand(wrist, (wrist[0], wrist[1] - 100.0), extended=())
-    points = list(hand.landmarks)
-    points[4] = thumb
-    points[8] = index
-    xs = [p[0] for p in points]
-    ys = [p[1] for p in points]
-    return Hand(hand.side, thumb, index, (min(xs), min(ys), max(xs), max(ys)), points)
+def gripping_hand(wrist: Point) -> Hand:
+    """Build a gripping hand: every finger curled, tips folded back near the wrist."""
+    return pointing_hand(wrist, (wrist[0], wrist[1] - 100.0), extended=())

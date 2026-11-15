@@ -1,4 +1,4 @@
-"""Touch state machine. Compares fingertips with object boxes."""
+"""Touch state machine. An extended finger pointing at an object starts contact; pointing or a fingertip keeps it."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from config.thresholds import (
     TOUCH_EXIT_FRAMES,
 )
 from contracts.messages import Box, Hand, TouchEvent
+from scene.pointing import has_landmarks, pointed_ids
 
 
 @dataclass
@@ -58,10 +59,11 @@ class _Draft:
 
 def step_touch(tracks: list[TouchTrack], hands: list[Hand], ts: float) -> TouchStep:
     """Advance touch phases by one processed frame. Does not mutate the input tracks."""
-    on_ids = _on_ids(tracks, hands)
+    start_ids, keep_ids = _contact_ids(tracks, hands)
     drafts: list[_Draft] = []
     updated = [replace(track) for track in tracks]
     for track in updated:
+        on_ids = start_ids if track.phase == "open" else keep_ids
         _advance(track, track.object_id in on_ids, hands, ts, drafts)
     dropped = _merge_held(updated, hands)
     dropped_ids = set(dropped)
@@ -144,6 +146,20 @@ def _iou(a: Box, b: Box) -> float:
 def _is_candidate(track: TouchTrack) -> bool:
     """Return whether a fingertip is allowed to land on this track."""
     return track.state != "new" or track.phase in ("touching", "held")
+
+
+def _contact_ids(tracks: list[TouchTrack], hands: list[Hand]) -> tuple[set[int], set[int]]:
+    """Return ids that may start contact and ids that keep an open contact going.
+
+    Hands with landmarks start contact only by pointing. Hands without landmarks
+    fall back to fingertip contact. Any fingertip keeps an existing contact.
+    """
+    candidates = [track for track in tracks if _is_candidate(track)]
+    legacy = [hand for hand in hands if not has_landmarks(hand)]
+    rich = [hand for hand in hands if has_landmarks(hand)]
+    boxes = [(track.object_id, track.box) for track in candidates]
+    start = _on_ids(tracks, legacy) | pointed_ids(boxes, rich)
+    return start, start | _on_ids(tracks, hands)
 
 
 def _on_ids(tracks: list[TouchTrack], hands: list[Hand]) -> set[int]:
