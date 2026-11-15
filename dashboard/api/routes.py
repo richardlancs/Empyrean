@@ -24,6 +24,7 @@ from dashboard.api.schemas import (
     QuestionStatus,
     VoiceRequest,
 )
+from dashboard.assets import page_html
 from dashboard.services.container import DashboardServices
 from dashboard.services.detector_mode import ModeRejected
 from dashboard.services.last_seen import QueryRejected
@@ -33,6 +34,7 @@ from dashboard.video import BOUNDARY, OverlayOptions, mjpeg_stream
 
 LOGGER = logging.getLogger("dashboard")
 INDEX_PATH = Path(__file__).resolve().parents[1] / "index.html"
+LANDING_PATH = Path(__file__).resolve().parents[1] / "landing.html"
 NO_STORE = {"Cache-Control": "no-store"}
 
 Flag = Annotated[int, Query(ge=0, le=1)]
@@ -50,9 +52,14 @@ def build_router(services: DashboardServices) -> APIRouter:
     last_seen, thumbnails = services.last_seen, services.thumbnails
 
     @router.get("/", response_class=HTMLResponse)
+    async def landing() -> HTMLResponse:
+        """Introduce Empyrean with one action leading directly to the dashboard."""
+        return HTMLResponse(page_html(LANDING_PATH), headers=NO_STORE)
+
+    @router.get("/dashboard", response_class=HTMLResponse)
     async def index() -> HTMLResponse:
-        """Serve the page's entry document."""
-        return HTMLResponse(INDEX_PATH.read_text(encoding="utf-8"), headers=NO_STORE)
+        """Serve the dashboard with a consistent version of every browser module."""
+        return HTMLResponse(page_html(INDEX_PATH, modules=True), headers=NO_STORE)
 
     @router.get("/video")
     async def video_stream(

@@ -81,8 +81,13 @@ def test_switch_to_demo_loads_off_the_frame_path_then_swaps_between_frames() -> 
     assert back.object_id not in {first.object_id, demo_obj.object_id}  # no reused id, no stale name
 
 
-def test_a_superseded_load_is_cached_not_installed_and_reused_later() -> None:
+def test_a_superseded_load_is_cached_not_installed_and_reused_later(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Regular requested while Demo loads: stay Regular; a later Demo request swaps at once."""
+    # The synthetic candidate has no checkpoint stamp; a real laptop's installed
+    # model must not invalidate this test's cached synthetic detector.
+    monkeypatch.setattr("vision.vision.TRAINED_DEMO_WEIGHTS", tmp_path / "demo.pt")
     gate = threading.Event()
     loads: list[int] = []
 

@@ -21,13 +21,13 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from config import DASHBOARD_PORT
 from contracts.languages import DEFAULT_LANGUAGE
 from dashboard import bus_adapter
 from dashboard.api.realtime import ClientHub, build_realtime_router
 from dashboard.api.routes import INDEX_PATH, build_router
+from dashboard.assets import ASSET_PREFIX, RevalidatedStaticFiles
 from dashboard.services.container import DashboardServices
 from dashboard.services.detector_mode import DetectorModeService
 from dashboard.services.heartbeat import Heartbeat
@@ -234,10 +234,11 @@ def _build_app(services: DashboardServices) -> FastAPI:
     app.include_router(build_router(services))
     app.include_router(build_realtime_router(hub))
     if STATIC_DIR.is_dir():
-        app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+        app.mount(ASSET_PREFIX, RevalidatedStaticFiles(directory=STATIC_DIR), name="assets")
+        app.mount("/static", RevalidatedStaticFiles(directory=STATIC_DIR), name="static")
     if HOW_DIR.is_dir():
         # The static How It Works page (howitworks/): no engine data, no routes.
-        app.mount("/how-it-works", StaticFiles(directory=HOW_DIR, html=True), name="how-it-works")
+        app.mount("/how-it-works", RevalidatedStaticFiles(directory=HOW_DIR, html=True), name="how-it-works")
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_request: Request, exc: RequestValidationError) -> JSONResponse:

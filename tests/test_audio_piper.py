@@ -20,7 +20,7 @@ import pytest
 from audio import backends, voices
 from audio.audio import AudioManager
 from config import SPEECH_RATE_WPM
-from contracts import HazardEvent, SpeechStatus, VoiceChange, VoiceStatus
+from contracts import HazardEvent, ModuleStatus, SpeechStatus, VoiceChange, VoiceStatus
 
 SAMANTHA = ("com.apple.voice.compact.en-US.Samantha", "Samantha")
 SAMPLES = 100  # samples per fake sentence at 22050 Hz
@@ -612,8 +612,9 @@ def test_new_request_supersedes_loading_voice(
         manager.stop()
 
 
+@pytest.mark.parametrize("alarm_mode", ["fake", "unavailable"])
 def test_startup_model_load_keeps_system_hazard_voice_available(
-    fake_piper: Any, system: Any, models: Path
+    fake_piper: Any, system: Any, models: Path, alarm_mode: str
 ) -> None:
     """Startup loading also leaves the worker able to speak hazards using the fallback."""
     entered, release = threading.Event(), threading.Event()
@@ -627,16 +628,25 @@ def test_startup_model_load_keeps_system_hazard_voice_available(
     fake_piper.PiperVoice.load = staticmethod(gated_load)
     speaker = backends.HybridSpeaker(preload=False)
     published: list[Any] = []
-    alarm = types.SimpleNamespace(mode="fake", duration=0.0, play=lambda: None, close=lambda: None)
+    alarm = types.SimpleNamespace(mode=alarm_mode, duration=0.0, play=lambda: None, close=lambda: None)
     manager = AudioManager(lambda: speaker, alarm, publish=published.append)
     try:
         assert entered.wait(2)
+        assert wait_for(lambda: any(isinstance(m, ModuleStatus) for m in published))
+        startup = next(m for m in published if isinstance(m, ModuleStatus))
+        assert "loading Alba" in startup.detail
+        assert "not installed" not in startup.detail
+        assert next(m for m in published if isinstance(m, VoiceStatus)).state == "switching"
         manager.on_hazard(HazardEvent(time.time(), "stairs_down", "yolo", 1.0))
         assert wait_for(lambda: system.instances[0].said == ["Stop. Stairs."])
         release.set()
         assert wait_for(lambda: any(
             isinstance(m, VoiceStatus) and m.quality == "enhanced" for m in published
         ))
+        health = [m for m in published if isinstance(m, ModuleStatus)][-1]
+        assert health.status == ("active" if alarm_mode == "fake" else "degraded")
+        assert "loading" not in health.detail and "not installed" not in health.detail
+        assert ("alarm beeps unavailable" in health.detail) == (alarm_mode == "unavailable")
         assert not any(isinstance(m, SpeechStatus) and m.source == "audio" for m in published)
     finally:
         release.set()

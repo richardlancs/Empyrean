@@ -509,6 +509,7 @@ class AudioManager:
             self._flush()
             return
         with self._cond:
+            self._report_output_status(speaker, resolved)
             self._voice_status(
                 "active",
                 requested_voice=switch.key,
@@ -625,45 +626,56 @@ class AudioManager:
 
     def _report_ready(self, speaker: Speaker) -> None:
         """Set the startup voice and publish what this manager can really play."""
-        alarm_ok = getattr(self._alarm, "mode", "fake") != "unavailable"
-        lists_voices = getattr(speaker, "installed_voices", None) is not None
+        loading_voice = False
         try:
             resolved: ResolvedVoice | None = self._apply_voice(speaker, self._startup_voice)
         except VoiceLoading as loading:
             # The system fallback remains usable while the startup model loads.
             self._defer_voice(_VoiceSwitch(self._startup_voice, None, sample=False), loading.ready)
             resolved = self._active_voice
+            loading_voice = True
         except Exception:
             log.exception("Setting the startup voice failed; using the system voice")
             resolved = None
         with self._cond:
-            if self._mode == "real":
-                status, detail = "active", "Speech engine ready"
-            elif self._mode == "fake":
-                status, detail = "active", "Fake audio: speech is printed, not played"
-            else:
-                status = "degraded"
-                detail = "Text to speech could not start; speech is logged only"
-            if not alarm_ok:
-                status = "degraded"
-                detail += "; alarm beeps unavailable (hazards are still spoken)"
-            # Only a speaker that can list voices can say a preset is missing.
-            if (
-                resolved is not None
-                and resolved.quality == "fallback"
-                and lists_voices
-                and self._mode != "unavailable"
-            ):
-                status = "degraded"
-                detail += (
-                    f"; Voice {resolved.label} is not installed; "
-                    f"using {_fallback_name(resolved)} instead"
-                )
+            self._report_output_status(speaker, resolved, loading=loading_voice)
             self._voice_status(
-                "active", detail=_voice_detail(resolved) if resolved is not None else ""
+                "switching" if loading_voice else "active",
+                requested_voice=self._startup_voice if loading_voice else None,
+                detail=(
+                    f"Loading {resolved.label}; using the system voice while it loads"
+                    if loading_voice and resolved is not None
+                    else _voice_detail(resolved) if resolved is not None else ""
+                ),
             )
-            self._module_status(status, detail)
         self._flush()
+
+    def _report_output_status(
+        self, speaker: Speaker, resolved: ResolvedVoice | None, *, loading: bool = False
+    ) -> None:
+        """Refresh audio health after startup or a voice change; caller holds the lock."""
+        if self._mode == "real":
+            status, detail = "active", "Speech engine ready"
+        elif self._mode == "fake":
+            status, detail = "active", "Fake audio: speech is printed, not played"
+        else:
+            status, detail = "degraded", "Text to speech could not start; speech is logged only"
+        if getattr(self._alarm, "mode", "fake") == "unavailable":
+            status = "degraded"
+            detail += "; alarm beeps unavailable (hazards are still spoken)"
+        if loading and resolved is not None:
+            if status == "active":
+                status = "starting"
+            detail += f"; loading {resolved.label}; system voice available meanwhile"
+        elif (
+            resolved is not None
+            and resolved.quality == "fallback"
+            and getattr(speaker, "installed_voices", None) is not None
+            and self._mode != "unavailable"
+        ):
+            status = "degraded"
+            detail += f"; {_voice_detail(resolved)}"
+        self._module_status(status, detail)
 
     def _run(self) -> None:
         """Speech worker: speak one item at a time until stopped."""

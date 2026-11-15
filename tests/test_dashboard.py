@@ -70,9 +70,9 @@ def test_page_has_button_and_both_areas(
     "Latest warning" and "Recent events" are now "Warnings" and "Recent activity".
     """
     client, _ = client_and_state
-    page = client.get("/")
+    page = client.get("/dashboard")
     assert page.status_code == 200
-    assert '<div id="app">' in page.text and "/static/app.js" in page.text
+    assert '<div id="app">' in page.text and "/app.js" in page.text
     served = {"/": page.text}
     for path in (
         "/static/app.js",

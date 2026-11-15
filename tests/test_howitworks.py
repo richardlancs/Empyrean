@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import contracts.messages as messages
+from contracts import messages
 from tests.howitworks_server import HOW_DIR, ROOT, build_dev_app
 
 BASE = "/how-it-works/"
@@ -58,7 +58,7 @@ def test_every_local_reference_exists() -> None:
     html = _index()
     urls = re.findall(r'(?:src|href)="([^"#]+)"', html)
     urls = [u for u in urls if u != "/" and not u.startswith("data:")]
-    import_map = re.search(r'<script type="importmap">(.*?)</script>', html, re.S)
+    import_map = re.search(r'<script type="importmap">(.*?)</script>', html, re.DOTALL)
     assert import_map, "import map missing"
     for target in json.loads(import_map.group(1))["imports"].values():
         urls.append(target + "index.js" if target.endswith("/gsap/") else target)
@@ -120,7 +120,7 @@ def test_message_names_exist_in_contracts() -> None:
 def test_fallback_list_is_in_html() -> None:
     """The five explanations are in the document before any script runs."""
     html = _index()
-    block = re.search(r'<ul id="hotspot-list".*?</ul>', html, re.S)
+    block = re.search(r'<ul id="hotspot-list".*?</ul>', html, re.DOTALL)
     assert block
     assert block.group(0).count("<li") == 5
 
