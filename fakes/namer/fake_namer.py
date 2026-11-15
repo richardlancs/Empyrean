@@ -6,6 +6,8 @@ Publishes: NameResult (SPEC.md section 5), one per NameRequest, after a random
 300 to 900 ms delay on a background worker thread. Names come from a lookup on
 class_label; every 10th uncached request fails with ok=False and an empty name.
 Successful names are cached by object_id, so an object is named once.
+When audio's VoiceStatus says the language is not English, each NameResult also
+carries spoken_name = the class label translated with contracts.languages.
 """
 
 from __future__ import annotations
@@ -18,7 +20,8 @@ from collections.abc import Callable
 from typing import Any
 
 from config import NAME_MAX_CHARS
-from contracts import NameRequest, NameResult, SceneQuestion, SpeakRequest
+from contracts import NameRequest, NameResult, SceneQuestion, SpeakRequest, VoiceStatus
+from contracts.languages import DEFAULT_LANGUAGE, known_language, translate_label
 
 FAKE_NAMES: dict[str, str] = {
     "bottle": "Heinz ketchup",
@@ -28,6 +31,13 @@ FAKE_NAMES: dict[str, str] = {
     "bowl": "Kellogg's cereal bowl",
 }
 FAIL_EVERY = 10
+DEMO_ANSWERS: dict[str, str] = {
+    "en": "Demo answer: your keys are to your right.",
+    "zh": "演示回答：你的钥匙在你的右边。",
+    "es": "Respuesta de demostración: tus llaves están a tu derecha.",
+    "fr": "Réponse de démonstration : tes clés sont à ta droite.",
+    "hi": "डेमो जवाब: आपकी चाबियाँ आपके दाईं ओर हैं।",
+}
 
 Publish = Callable[[object], None]
 
@@ -48,25 +58,31 @@ class FakeNamer:
         self._cache: dict[int, str] = {}
         self._count = 0
         self._lock = threading.Lock()
-        self._queue: queue.Queue[NameRequest | None] = queue.Queue()
+        self._language = DEFAULT_LANGUAGE
+        self._queue: queue.Queue[tuple[NameRequest, str] | None] = queue.Queue()
         self._thread = threading.Thread(
             target=self._run, name="fake-namer", daemon=True
         )
         self._thread.start()
 
     def on_name_request(self, msg: NameRequest) -> None:
-        """Queue a request and return immediately."""
-        self._queue.put(msg)
+        """Queue a request with the language active now, and return immediately."""
+        with self._lock:
+            language = self._language
+        self._queue.put((msg, language))
+
+    def on_voice_status(self, msg: VoiceStatus) -> None:
+        """Remember the active spoken language and return."""
+        language = known_language(getattr(msg, "language", None))
+        with self._lock:
+            self._language = language
 
     def on_question(self, msg: SceneQuestion) -> None:
         """Publish a clearly scripted scene answer without using Grok."""
+        with self._lock:
+            language = self._language
         self._publish(
-            SpeakRequest(
-                time.time(),
-                "Demo answer: your keys are to your right.",
-                "normal",
-                "namer",
-            )
+            SpeakRequest(time.time(), DEMO_ANSWERS[language], "normal", "namer")
         )
 
     def stop(self, timeout: float = 2.0) -> None:
@@ -77,18 +93,27 @@ class FakeNamer:
     def _run(self) -> None:
         """Worker loop: answer requests one at a time."""
         while True:
-            msg = self._queue.get()
-            if msg is None:
+            item = self._queue.get()
+            if item is None:
                 return
-            self._publish(self._answer(msg))
+            self._publish(self._answer(*item))
 
-    def _answer(self, msg: NameRequest) -> NameResult:
+    def _answer(self, msg: NameRequest, language: str = DEFAULT_LANGUAGE) -> NameResult:
         """Build the NameResult for one request, sleeping on this worker only."""
+        spoken = ""
+        if language != DEFAULT_LANGUAGE:
+            spoken = translate_label(msg.class_label, language)[:NAME_MAX_CHARS]
+        spoken_language = language if spoken else ""
         with self._lock:
             cached = self._cache.get(msg.object_id)
         if cached is not None:
             return NameResult(
-                ts=time.time(), object_id=msg.object_id, name=cached, ok=True
+                ts=time.time(),
+                object_id=msg.object_id,
+                name=cached,
+                ok=True,
+                spoken_name=spoken,
+                language=spoken_language,
             )
 
         time.sleep(self._rng.uniform(*self._delay_range))
@@ -101,7 +126,14 @@ class FakeNamer:
                 )
             name = FAKE_NAMES.get(msg.class_label, msg.class_label)[:NAME_MAX_CHARS]
             self._cache[msg.object_id] = name
-        return NameResult(ts=time.time(), object_id=msg.object_id, name=name, ok=True)
+        return NameResult(
+            ts=time.time(),
+            object_id=msg.object_id,
+            name=name,
+            ok=True,
+            spoken_name=spoken,
+            language=spoken_language,
+        )
 
 
 def register(bus: Any) -> FakeNamer:
@@ -109,6 +141,7 @@ def register(bus: Any) -> FakeNamer:
     namer = FakeNamer(bus.publish)
     bus.subscribe(NameRequest, namer.on_name_request)
     bus.subscribe(SceneQuestion, namer.on_question)
+    bus.subscribe(VoiceStatus, namer.on_voice_status)
     return namer
 
 

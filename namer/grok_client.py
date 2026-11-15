@@ -11,6 +11,7 @@ import httpx
 from dotenv import load_dotenv
 
 import config
+from contracts.languages import DEFAULT_LANGUAGE, LANGUAGE_NAMES_EN
 
 log = logging.getLogger("namer")
 
@@ -29,6 +30,16 @@ INSTRUCTION = (
     "the plain object name, for example 'laptop' or 'water bottle'. At most 5 words. "
     "No sentences."
 )
+
+
+def second_line_request(language: str) -> str:
+    """Prompt sentence asking for the name again in language; empty for English."""
+    if language == DEFAULT_LANGUAGE or language not in LANGUAGE_NAMES_EN:
+        return ""
+    return (
+        f"Then, on a second line, write the same name in {LANGUAGE_NAMES_EN[language]}."
+    )
+
 
 _env_loaded = False
 
@@ -49,8 +60,10 @@ def _require_env(name: str) -> str:
     return value
 
 
-def build_payload(model: str, jpeg: bytes, class_label: str) -> dict[str, Any]:
-    """Build the Responses API request body for one crop."""
+def build_payload(
+    model: str, jpeg: bytes, class_label: str, language: str = DEFAULT_LANGUAGE
+) -> dict[str, Any]:
+    """Build the Responses API request body for one crop, bilingual when not English."""
     data_url = "data:image/jpeg;base64," + base64.b64encode(jpeg).decode("ascii")
     hint = (
         "Several objects may be visible in this crop. Your target is the object described "
@@ -60,6 +73,10 @@ def build_payload(model: str, jpeg: bytes, class_label: str) -> dict[str, Any]:
         "the detector label. "
         f"Target detector label: {class_label}."
     )
+    text = f"{INSTRUCTION} {hint}"
+    extra = second_line_request(language)
+    if extra:
+        text = f"{text} {extra}"
     return {
         "model": model,
         "store": False,
@@ -71,7 +88,7 @@ def build_payload(model: str, jpeg: bytes, class_label: str) -> dict[str, Any]:
                 "role": "user",
                 "content": [
                     {"type": "input_image", "image_url": data_url, "detail": "high"},
-                    {"type": "input_text", "text": f"{INSTRUCTION} {hint}"},
+                    {"type": "input_text", "text": text},
                 ],
             }
         ],
@@ -98,14 +115,19 @@ def parse_reply(data: Any) -> str:
     return "".join(parts)
 
 
-async def name_crop(client: httpx.AsyncClient, jpeg: bytes, class_label: str) -> str:
+async def name_crop(
+    client: httpx.AsyncClient,
+    jpeg: bytes,
+    class_label: str,
+    language: str = DEFAULT_LANGUAGE,
+) -> str:
     """Ask Grok to name the product in one JPEG crop and return its raw reply text."""
     _load_env_once()
     api_key = _require_env("GROK_API_KEY")
     model = _require_env("GROK_MODEL")
     response = await client.post(
         GROK_RESPONSES_URL,
-        json=build_payload(model, jpeg, class_label),
+        json=build_payload(model, jpeg, class_label, language),
         headers={"Authorization": f"Bearer {api_key}"},
         timeout=config.NAME_TIMEOUT_SECONDS,
     )

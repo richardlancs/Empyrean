@@ -16,9 +16,10 @@ import numpy as np
 import pytest
 
 import config
-from contracts import NameRequest, NameResult
-from namer.grok_client import INSTRUCTION
-from namer.namer import Namer, clean_name, jpeg_area
+from contracts import NameRequest, NameResult, VoiceStatus
+from contracts.languages import LANGUAGE_NAMES_EN
+from namer.grok_client import INSTRUCTION, build_payload
+from namer.namer import Namer, clean_name, jpeg_area, split_reply
 
 Handler = Callable[[httpx.Request], Awaitable[httpx.Response]]
 
@@ -397,3 +398,187 @@ def test_failed_call_is_timed_too() -> None:
     [timing] = list(namer.timings)
     assert (timing.object_id, timing.ok) == (300, False)
     assert timing.api_s >= 0 and timing.queued_s >= 0
+
+
+# ---- languages ---------------------------------------------------------------
+
+
+def voice_status(language: str) -> VoiceStatus:
+    return VoiceStatus(
+        ts=time.time(),
+        state="active",
+        active_voice="x",
+        label="X",
+        quality="enhanced",
+        language=language,
+    )
+
+
+def prompt_text(req: httpx.Request) -> str:
+    return json.loads(req.content)["input"][0]["content"][1]["text"]
+
+
+def test_prompt_asks_for_second_line_only_outside_english() -> None:
+    """English prompt is unchanged; another language appends the second-line request."""
+    english = build_payload("m", b"x", "bottle")["input"][0]["content"][1]["text"]
+    assert (
+        english
+        == build_payload("m", b"x", "bottle", "en")["input"][0]["content"][1]["text"]
+    )
+    assert "second line" not in english
+    spanish = build_payload("m", b"x", "bottle", "es")["input"][0]["content"][1]["text"]
+    assert spanish == (
+        f"{english} Then, on a second line, write the same name in Spanish."
+    )
+    hindi = build_payload("m", b"x", "bottle", "hi")["input"][0]["content"][1]["text"]
+    assert hindi.endswith(f"write the same name in {LANGUAGE_NAMES_EN['hi']}.")
+
+
+def test_split_reply_two_lines_one_line_and_english() -> None:
+    """First line is the English name, second the spoken name; English is untouched."""
+    assert split_reply("Heinz ketchup\nkétchup Heinz", "es") == (
+        "Heinz ketchup",
+        "kétchup Heinz",
+    )
+    assert split_reply(' "Diet Coke can."\n\n  "lata de Diet Coke."  ', "es") == (
+        "Diet Coke can",
+        "lata de Diet Coke",
+    )
+    assert split_reply("water bottle\nSpanish: botella de agua", "es") == (
+        "water bottle",
+        "botella de agua",
+    )
+    assert split_reply("English: cup\nMandarin Chinese: 杯子", "zh") == ("cup", "杯子")
+    assert split_reply("laptop", "fr") == ("laptop", "")
+    long = "x" * 60
+    assert split_reply(f"cup\n{long}", "hi") == ("cup", "x" * config.NAME_MAX_CHARS)
+    # English keeps today's behaviour: the whole reply is one cleaned name.
+    assert split_reply("Heinz\nketchup", "en") == (clean_name("Heinz\nketchup"), "")
+
+
+def test_english_result_has_no_spoken_name() -> None:
+    async def handler(_req: httpx.Request) -> httpx.Response:
+        return reply("Heinz ketchup")
+
+    out = Collector()
+    namer = make_namer(handler, out)
+    try:
+        namer.on_name_request(request(1))
+        [result] = out.wait_for(1)
+    finally:
+        namer.stop(timeout=5)
+    assert (result.name, result.spoken_name, result.language) == (
+        "Heinz ketchup",
+        "",
+        "",
+    )
+
+
+def test_bilingual_reply_and_request_time_language() -> None:
+    """The language is captured when the request arrives, not when Grok answers."""
+    prompts: list[str] = []
+    release = threading.Event()
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        prompts.append(prompt_text(req))
+        await asyncio.to_thread(release.wait, 2)
+        return reply("Heinz ketchup\nkétchup Heinz")
+
+    out = Collector()
+    namer = make_namer(handler, out)
+    try:
+        namer.on_voice_status(voice_status("es"))
+        namer.on_name_request(request(1))
+        namer.on_voice_status(voice_status("fr"))  # switch while the call is open
+        assert namer.language == "fr"
+        release.set()
+        [result] = out.wait_for(1)
+    finally:
+        release.set()
+        namer.stop(timeout=5)
+    assert "in Spanish." in prompts[0]
+    assert (result.name, result.spoken_name, result.language) == (
+        "Heinz ketchup",
+        "kétchup Heinz",
+        "es",
+    )
+
+
+def test_one_line_reply_gives_empty_spoken_name() -> None:
+    async def handler(_req: httpx.Request) -> httpx.Response:
+        return reply("bottle")
+
+    out = Collector()
+    namer = make_namer(handler, out)
+    try:
+        namer.on_voice_status(voice_status("hi"))
+        namer.on_name_request(request(1))
+        [result] = out.wait_for(1)
+    finally:
+        namer.stop(timeout=5)
+    assert (result.ok, result.name, result.spoken_name, result.language) == (
+        True,
+        "bottle",
+        "",
+        "",
+    )
+
+
+def test_cached_spoken_name_only_reused_in_its_language() -> None:
+    calls = 0
+
+    async def handler(_req: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return reply("Heinz ketchup\nkétchup Heinz")
+
+    out = Collector()
+    namer = make_namer(handler, out)
+    try:
+        namer.on_voice_status(voice_status("es"))
+        namer.on_name_request(request(1))
+        out.wait_for(1)
+        namer.on_name_request(request(1))
+        out.wait_for(2)
+        namer.on_voice_status(voice_status("en"))
+        namer.on_name_request(request(1))
+        results = out.wait_for(3)
+    finally:
+        namer.stop(timeout=5)
+    assert calls == 1
+    assert [(r.spoken_name, r.language) for r in results] == [
+        ("kétchup Heinz", "es"),
+        ("kétchup Heinz", "es"),
+        ("", ""),
+    ]
+
+
+def test_unknown_language_and_default_are_english() -> None:
+    namer = Namer(Collector(), autostart=False)
+    assert namer.language == "en"
+    namer.on_voice_status(voice_status("de"))
+    assert namer.language == "en"
+
+
+def test_voice_status_handler_does_not_block() -> None:
+    """The handler only sets a field, even while a Grok call is in flight."""
+    entered = threading.Event()
+    release = threading.Event()
+
+    async def handler(_req: httpx.Request) -> httpx.Response:
+        entered.set()
+        await asyncio.to_thread(release.wait, 2)
+        return reply("cup")
+
+    out = Collector()
+    namer = make_namer(handler, out)
+    try:
+        namer.on_name_request(request(1))
+        assert entered.wait(2)
+        start = time.perf_counter()
+        for code in ("zh", "es", "fr", "hi", "en") * 20:
+            namer.on_voice_status(voice_status(code))
+        assert time.perf_counter() - start < 0.05
+    finally:
+        release.set()
+        namer.stop(timeout=5)
