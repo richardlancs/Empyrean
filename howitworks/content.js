@@ -57,7 +57,7 @@ export const HOTSPOTS = deepFreeze([
   {
     id: "hazard",
     label: "Hazard watch",
-    does: "Checks every frame for things worth a warning, on its own path.",
+    does: "Watches the camera feed for things worth a warning, on its own path.",
     builtWith: "YOLO classes plus a Grok vision check",
     number: "Alarm within 0.5 seconds (fast tier) or 3 seconds",
     stepId: "hazard-frame",

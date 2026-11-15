@@ -88,7 +88,16 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
       svg("rect", { x: x - NODE_W / 2, y: y - NODE_H / 2, width: NODE_W, height: NODE_H, rx: 10 }),
       svg("text", { x, y }, node.label),
     );
-    const jump = () => active.stepper.jumpToNode(node.id);
+    const involves = (sequence) => sequence.steps.some((step) => step.from === node.id || step.to.includes(node.id));
+    const jump = () => {
+      // A node that plays no part in the current sequence opens the other one.
+      if (!involves(active)) {
+        const other = Object.values(sequences).find((sequence) => sequence !== active && involves(sequence));
+        if (other) useSequence(other.name);
+      }
+      active.stepper.jumpToNode(node.id);
+      render(true);
+    };
     group.addEventListener("click", jump);
     group.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -102,7 +111,6 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
 
   // ----- controls -----
   const play = button("Play", "ui-button");
-  play.setAttribute("aria-pressed", "false");
   const back = button("Back");
   const next = button("Next");
   const swap = button("What about hazards?");
@@ -122,7 +130,6 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
         onChange: () => render(true),
         onPlayingChange: (playing) => {
           play.textContent = playing ? "Pause" : "Play";
-          play.setAttribute("aria-pressed", playing ? "true" : "false");
         },
       }),
     };
@@ -179,8 +186,14 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
     }
     caption.textContent = step.caption;
     count.textContent = `Step ${active.stepper.index + 1} of ${active.steps.length}`;
-    back.disabled = active.stepper.index === 0;
-    next.disabled = active.stepper.index === active.steps.length - 1;
+    // aria-disabled, not disabled: the button keeps keyboard focus at the ends.
+    back.setAttribute("aria-disabled", active.stepper.index === 0 ? "true" : "false");
+    next.setAttribute("aria-disabled", active.stepper.index === active.steps.length - 1 ? "true" : "false");
+    // On a narrow screen the drawing scrolls sideways: keep the sender in view.
+    if (diagramHost.scrollWidth > diagramHost.clientWidth) {
+      const centre = (POSITIONS[step.from][0] / 1100) * diagramHost.scrollWidth;
+      diagramHost.scrollLeft = Math.max(0, centre - diagramHost.clientWidth / 2);
+    }
   }
 
   function useSequence(name) {

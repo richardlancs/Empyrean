@@ -58,13 +58,13 @@
         <li><h3>Pointing</h3><p>Works out which object the wearer's finger is pointing at.</p><p class="how-meta">Built with: A ray from the extended finger and a small state machine</p><p class="how-meta">Speech starts within 1 second</p></li>
         <li><h3>Laptop</h3><p>Runs everything as one program, names objects and keeps a history.</p><p class="how-meta">Built with: Python message bus, Grok vision, Tiger Data</p><p class="how-meta">A name is stored within 2 seconds of an object settling</p></li>
         <li><h3>Speaker</h3><p>Says the object's name. The alarm interrupts everything else.</p><p class="how-meta">Built with: pyttsx3 offline speech, pygame alarm tone, JBL Go 3</p><p class="how-meta">The alarm always outranks speech</p></li>
-        <li><h3>Hazard watch</h3><p>Checks every frame for things worth a warning, on its own path.</p><p class="how-meta">Built with: YOLO classes plus a Grok vision check</p><p class="how-meta">Alarm within 0.5 seconds (fast tier) or 3 seconds</p></li>
+        <li><h3>Hazard watch</h3><p>Watches the camera feed for things worth a warning, on its own path.</p><p class="how-meta">Built with: YOLO classes plus a Grok vision check</p><p class="how-meta">Alarm within 0.5 seconds (fast tier) or 3 seconds</p></li>
     </ul>
   </section>
 
   <section id="pipeline" class="how-pipeline" aria-labelledby="pipeline-title">
     <h2 id="pipeline-title">Follow one touch</h2>
-    <p class="how-pipeline__lede">Seven small modules pass messages to each other. None of them calls another directly.</p>
+    <p class="how-pipeline__lede">Small modules pass messages to each other. None of them calls another directly.</p>
     <div id="pipeline-controls" class="how-pipeline__controls"></div>
     <div id="pipeline-diagram" class="how-pipeline__diagram">
       <ol id="pipeline-static" class="how-pipeline__static">

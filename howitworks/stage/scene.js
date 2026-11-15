@@ -64,6 +64,7 @@ export async function createStage(host, { reducedMotion = false, onFallback = ()
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(...HOME_VIEW.target);
   controls.enablePan = false;
+  controls.enableZoom = false; // the wheel scrolls the page, not the model
   controls.enableDamping = !reducedMotion;
   controls.minDistance = 1.6;
   controls.maxDistance = 7;

@@ -16,8 +16,6 @@ async function startStage() {
       onFallback: (name) => console.warn(`How it works: using the simple ${name} model.`),
     });
     section.classList.add("has-stage");
-    byId("hotspot-list").hidden = true;
-    byId("stage-hint").hidden = false;
     return stage;
   } catch (error) {
     console.warn("How it works: 3D view unavailable, showing the plain version.", error);
@@ -38,13 +36,20 @@ async function start() {
   const stage = await startStage();
   window.__howStage = stage; // for browser checks only
   if (stage) {
-    const { mountHotspots } = await import("./stage/hotspots.js");
-    window.__howSpots = await mountHotspots({
-      stage,
-      hotspots: HOTSPOTS,
-      panel: byId("hotspot-panel"),
-      onSeeStep: (stepId) => pipeline?.selectStep(stepId),
-    });
+    try {
+      const { mountHotspots } = await import("./stage/hotspots.js");
+      window.__howSpots = await mountHotspots({
+        stage,
+        hotspots: HOTSPOTS,
+        panel: byId("hotspot-panel"),
+        onSeeStep: (stepId) => pipeline?.selectStep(stepId),
+      });
+      // Only now do the markers carry the explanations, so the plain list can go.
+      byId("hotspot-list").hidden = true;
+      byId("stage-hint").hidden = false;
+    } catch (error) {
+      console.warn("How it works: markers unavailable, keeping the plain list.", error);
+    }
   }
 }
 

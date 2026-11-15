@@ -22,7 +22,7 @@
 }
 .how-stage__poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 400ms var(--easing); }
 .how-stage__canvas { position: absolute; inset: 0; opacity: 0; transition: opacity 400ms var(--easing); }
-.how-stage__canvas canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.how-stage__canvas canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
 .how-stage__canvas canvas:active { cursor: grabbing; }
 .how-stage__labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .how-stage.has-stage .how-stage__poster { opacity: 0; pointer-events: none; }
@@ -103,7 +103,8 @@
   padding: var(--space-2);
   overflow-x: auto;
 }
-.how-pipeline__diagram svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.how-pipeline__diagram svg { display: block; width: 100%; min-width: 860px; height: auto; }
+.how-pipeline__controls [aria-disabled="true"] { opacity: 0.5; cursor: default; }
 .how-pipeline__static { margin: 0; padding-left: var(--space-3); display: grid; gap: var(--space-1); }
 .how-pipeline__caption { margin: 0; min-height: 3em; font-size: 18px; max-width: 70ch; }
 .how-pipeline__caption:empty { display: none; }
@@ -113,7 +114,7 @@
 .pipe-node text { fill: var(--color-text); font: 600 15px var(--font-sans); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
 .pipe-node:hover rect { stroke: var(--color-accent); }
 .pipe-node:focus-visible { outline: none; }
-.pipe-node:focus-visible rect { stroke: var(--color-accent); stroke-width: 4; }
+.pipe-node:focus-visible rect { stroke: var(--color-text); stroke-width: 4; }
 .pipe-node.is-active rect { fill: var(--color-accent); stroke: var(--color-accent); }
 .pipe-node.is-active text { fill: var(--color-on-accent); }
 .pipe-node.is-alarm rect { fill: var(--color-danger); stroke: var(--color-danger); }

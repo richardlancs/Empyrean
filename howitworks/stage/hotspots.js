@@ -45,6 +45,8 @@ export async function mountHotspots({ stage, hotspots, panel, onSeeStep = () => 
     heading.focus({ preventScroll: true });
   }
 
+  let returnFocus = true;
+
   function onChange(current, previous) {
     for (const [id, button] of buttons) {
       button.setAttribute("aria-expanded", id === current ? "true" : "false");
@@ -57,7 +59,7 @@ export async function mountHotspots({ stage, hotspots, panel, onSeeStep = () => 
       panel.hidden = true;
       panel.replaceChildren();
       stage.flyTo(HOME_VIEW);
-      buttons.get(previous)?.focus({ preventScroll: true });
+      if (returnFocus) buttons.get(previous)?.focus({ preventScroll: true });
     }
   }
 
@@ -82,8 +84,14 @@ export async function mountHotspots({ stage, hotspots, panel, onSeeStep = () => 
   }
 
   // Esc closes; so does a click (not a drag) on empty canvas.
+  // Focus goes back to the marker only when the person is still in the stage;
+  // someone reading further down the page keeps their place.
+  const region = panel.parentElement;
   const onKey = (event) => {
-    if (event.key === "Escape" && selection.current) selection.close();
+    if (event.key !== "Escape" || !selection.current) return;
+    returnFocus = region.contains(document.activeElement);
+    selection.close();
+    returnFocus = true;
   };
   document.addEventListener("keydown", onKey);
   let downAt = null;
