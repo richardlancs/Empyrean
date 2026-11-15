@@ -13,8 +13,8 @@
 .how-stage__view {
   position: relative;
   aspect-ratio: 16 / 9;
-  max-height: 68vh;
   width: 100%;
+  min-height: 280px;
   background: var(--color-surface-sunken);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius);
