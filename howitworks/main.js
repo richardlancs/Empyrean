@@ -23,7 +23,16 @@ async function startStage() {
   }
 }
 
+/** A short tap on phones that support it; silent everywhere else. */
+function wireHaptics() {
+  if (reducedMotion || typeof navigator.vibrate !== "function") return;
+  document.addEventListener("click", (event) => {
+    if (event.target.closest?.(".ui-button, .hotspot, .web-node")) navigator.vibrate(8);
+  });
+}
+
 async function start() {
+  wireHaptics();
   document.documentElement.dataset.js = "ready";
   let pipeline = null;
   try {
