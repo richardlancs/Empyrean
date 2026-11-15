@@ -6,7 +6,7 @@ import logging
 import os
 from typing import Any
 
-from storage._deps import HazardEvent, LastSeenQuery, TouchEvent
+from storage._deps import HazardEvent, LastSeenQuery, TouchEvent, VoiceStatus
 from storage.writer import Store
 
 log = logging.getLogger("storage")
@@ -28,4 +28,5 @@ def register(bus: Any) -> Store:
     bus.subscribe(TouchEvent, store.on_touch_event)
     bus.subscribe(HazardEvent, store.on_hazard_event)
     bus.subscribe(LastSeenQuery, store.on_last_seen_query)
+    bus.subscribe(VoiceStatus, store.on_voice_status)
     return store

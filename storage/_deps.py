@@ -10,9 +10,12 @@ from contracts import (
     ModuleStatus,
     SpeakRequest,
     TouchEvent,
+    VoiceStatus,
 )
+from contracts.languages import DEFAULT_LANGUAGE, known_language, translate_label
 
 __all__ = [
+    "DEFAULT_LANGUAGE",
     "PROCESS_HEIGHT",
     "PROCESS_WIDTH",
     "HazardEvent",
@@ -21,4 +24,7 @@ __all__ = [
     "ModuleStatus",
     "SpeakRequest",
     "TouchEvent",
+    "VoiceStatus",
+    "known_language",
+    "translate_label",
 ]

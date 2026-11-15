@@ -13,9 +13,19 @@ from typing import Any
 import psycopg
 import pytest
 
+from contracts import LastSeenResult, VoiceStatus
+from contracts.languages import LANGUAGES
 from storage import db
 from storage._deps import HazardEvent, LastSeenQuery, SpeakRequest, TouchEvent
-from storage.last_seen import NOT_SEEN, UNAVAILABLE, format_answer
+from storage.last_seen import (
+    NOT_SEEN,
+    NOT_SEEN_BY_LANGUAGE,
+    UNAVAILABLE,
+    UNAVAILABLE_BY_LANGUAGE,
+    format_answer,
+    not_seen,
+    unavailable,
+)
 from storage.writer import QUEUE_MAX_ITEMS, Store
 
 UNREACHABLE_URL = "postgresql://127.0.0.1:1/x"
@@ -254,3 +264,181 @@ def test_live_round_trip() -> None:
             assert format_answer(row, time.time()).startswith(f"{name}, just now")
         finally:
             conn.execute("DELETE FROM touch_events WHERE session_id = %s", (session,))
+
+
+# 6. languages ------------------------------------------------------------
+
+def _voice(language: str) -> VoiceStatus:
+    """Build a VoiceStatus for a voice of the given language."""
+    return VoiceStatus(ts=NOW, state="active", active_voice="x", label="X",
+                       quality="compact", language=language)
+
+
+# Expected sentences per language: (age bucket answers, neighbour answers).
+_AGE_CASES = [(0, "now"), (60, "one_min"), (240, "min"), (3600, "one_hour"), (7300, "hour")]
+_EXPECTED_AGES: dict[str, dict[str, str]] = {
+    "en": {"now": "just now", "one_min": "1 minute ago", "min": "4 minutes ago",
+           "one_hour": "1 hour ago", "hour": "2 hours ago"},
+    "zh": {"now": "刚才", "one_min": "1分钟前", "min": "4分钟前",
+           "one_hour": "1小时前", "hour": "2小时前"},
+    "es": {"now": "hace un momento", "one_min": "hace 1 minuto", "min": "hace 4 minutos",
+           "one_hour": "hace 1 hora", "hour": "hace 2 horas"},
+    "fr": {"now": "à l'instant", "one_min": "il y a 1 minute", "min": "il y a 4 minutes",
+           "one_hour": "il y a 1 heure", "hour": "il y a 2 heures"},
+    "hi": {"now": "अभी-अभी", "one_min": "1 मिनट पहले", "min": "4 मिनट पहले",
+           "one_hour": "1 घंटा पहले", "hour": "2 घंटे पहले"},
+}
+# Neighbours cup / cup, bowl / cup, bowl, spoon around the bottle, 4 minutes ago.
+_EXPECTED_FULL: dict[str, list[str]] = {
+    "en": ["bottle, 4 minutes ago, next to cup.",
+           "bottle, 4 minutes ago, next to cup and bowl.",
+           "bottle, 4 minutes ago, next to cup, bowl and spoon."],
+    "zh": ["瓶子，4分钟前，在杯子旁边。",
+           "瓶子，4分钟前，在杯子和碗旁边。",
+           "瓶子，4分钟前，在杯子、碗和勺子旁边。"],
+    "es": ["botella, hace 4 minutos, junto a taza.",
+           "botella, hace 4 minutos, junto a taza y cuenco.",
+           "botella, hace 4 minutos, junto a taza, cuenco y cuchara."],
+    "fr": ["bouteille, il y a 4 minutes, à côté de tasse.",
+           "bouteille, il y a 4 minutes, à côté de tasse et bol.",
+           "bouteille, il y a 4 minutes, à côté de tasse, bol et cuillère."],
+    "hi": ["बोतल, 4 मिनट पहले, कप के पास।",
+           "बोतल, 4 मिनट पहले, कप और कटोरा के पास।",
+           "बोतल, 4 मिनट पहले, कप, कटोरा और चम्मच के पास।"],
+}
+_END = {"en": ".", "zh": "。", "es": ".", "fr": ".", "hi": "।"}
+_SEP = {"en": ", ", "zh": "，", "es": ", ", "fr": ", ", "hi": ", "}
+
+
+def test_every_language_has_every_template() -> None:
+    """The tables cover exactly the five contract languages."""
+    assert set(NOT_SEEN_BY_LANGUAGE) == set(LANGUAGES) == set(UNAVAILABLE_BY_LANGUAGE)
+    assert set(_EXPECTED_AGES) == set(LANGUAGES)
+
+
+@pytest.mark.parametrize("lang", list(LANGUAGES))
+@pytest.mark.parametrize(("age", "bucket"), _AGE_CASES)
+def test_time_phrase_in_every_language(lang: str, age: float, bucket: str) -> None:
+    """Each age bucket in each language; a brand name is spoken as stored."""
+    expected = f"Heinz ketchup{_SEP[lang]}{_EXPECTED_AGES[lang][bucket]}{_END[lang]}"
+    assert format_answer(_row(age), NOW, lang) == expected
+
+
+@pytest.mark.parametrize("lang", list(LANGUAGES))
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_class_label_and_neighbours_in_every_language(lang: str, count: int) -> None:
+    """Class labels (object and neighbours) are translated and joined per language."""
+    row = _row(240, name="", neighbours=["cup", "bowl", "spoon"][:count])
+    assert format_answer(row, NOW, lang) == _EXPECTED_FULL[lang][count - 1]
+
+
+def test_fixed_sentences_in_every_language() -> None:
+    """Not-seen and unavailable in every language; English is the SPEC wording."""
+    assert not_seen("en") == NOT_SEEN == "I have not seen that."
+    assert unavailable("en") == UNAVAILABLE == "Touch history is unavailable right now."
+    assert not_seen("zh") == "我没有见过它。"
+    assert not_seen("es") == "No lo he visto."
+    assert not_seen("fr") == "Je ne l'ai pas vu."
+    assert not_seen("hi") == "मैंने वह नहीं देखा।"
+    assert unavailable("zh") == "暂时无法查看触摸记录。"
+    assert unavailable("es") == "El historial de toques no está disponible ahora."
+    assert unavailable("fr") == "L'historique des contacts est indisponible pour le moment."
+    assert unavailable("hi") == "छूने का इतिहास अभी उपलब्ध नहीं है।"
+    for lang in LANGUAGES:
+        assert format_answer(None, NOW, lang) == not_seen(lang)
+    assert format_answer(None, NOW, "de") == NOT_SEEN  # unknown code falls back to English
+
+
+def test_english_default_is_unchanged() -> None:
+    """Omitting the language and passing "en" give the same SPEC sentence."""
+    row = _row(240, neighbours=["mug", "cereal box"])
+    expected = "Heinz ketchup, 4 minutes ago, next to mug and cereal box."
+    assert format_answer(row, NOW) == format_answer(row, NOW, "en") == expected
+
+
+class _Conn:
+    """A connection the store treats as open."""
+
+    closed = False
+    broken = False
+
+    def close(self) -> None:
+        """Do nothing."""
+
+
+def test_language_is_captured_when_query_arrives(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A query asked in Spanish is answered in Spanish even if French arrives before it runs."""
+    monkeypatch.setattr(db, "connect", lambda url: _Conn())
+    monkeypatch.setattr(db, "ensure_schema", lambda conn: None)
+    rows: dict[str, dict[str, Any] | None] = {
+        "ketchup": {"ts": time.time() - 240, "name": "", "class_label": "bottle",
+                    "neighbours": ["cup"]},
+        "nothing": None,
+    }
+    monkeypatch.setattr(db, "last_seen", lambda conn, text: rows[text])
+    published: list[Any] = []
+    store = Store(published.append, UNREACHABLE_URL, start=False)
+    assert store.language == "en"  # English until the first VoiceStatus
+    store.on_voice_status(_voice("es"))
+    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="ketchup", request_id="a"))
+    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="nothing", request_id="b"))
+    store.on_voice_status(_voice("fr"))
+    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="nothing", request_id="c"))
+    store.on_voice_status(_voice("xx"))  # unknown code -> English
+    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="nothing", request_id="d"))
+    store.start()
+    try:
+        assert _wait_for(lambda: len(published) == 8)
+    finally:
+        store.stop()
+    spoken = [m.text for m in published if isinstance(m, SpeakRequest)]
+    results = {m.request_id: m for m in published if isinstance(m, LastSeenResult)}
+    assert spoken == ["botella, hace 4 minutos, junto a taza.", "No lo he visto.",
+                      "Je ne l'ai pas vu.", NOT_SEEN]
+    assert [results[k].answer for k in "abcd"] == spoken  # exactly what was spoken
+    assert [results[k].status for k in "abcd"] == ["found", "not_found", "not_found",
+                                                   "not_found"]
+    assert results["a"].label == "bottle"  # the stored value, not translated
+
+
+def test_unavailable_answer_follows_language() -> None:
+    """With no database the unavailable sentence is in the query's language."""
+    published: list[Any] = []
+    store = Store(published.append, None, start=False)
+    store.on_voice_status(_voice("hi"))
+    store.on_last_seen_query(LastSeenQuery(ts=NOW, text="ketchup", request_id="h"))
+    store.start()
+    try:
+        assert _wait_for(lambda: len(published) == 2)
+    finally:
+        store.stop()
+    assert [m.answer if isinstance(m, LastSeenResult) else m.text for m in published] == [
+        "छूने का इतिहास अभी उपलब्ध नहीं है।"] * 2
+
+
+def test_voice_status_handler_only_sets_a_field() -> None:
+    """The handler returns at once and publishes and queues nothing."""
+    published: list[Any] = []
+    store = Store(published.append, None, start=False)
+    t0 = time.perf_counter()
+    store.on_voice_status(_voice("zh"))
+    assert time.perf_counter() - t0 < 0.005
+    assert store.language == "zh" and published == [] and store._queue.empty()
+
+
+def test_fake_store_answers_in_the_voice_language() -> None:
+    """The fake follows VoiceStatus too, and stays English by default."""
+    from fakes.storage.fake_store import FakeStore
+
+    published: list[Any] = []
+    fake = FakeStore(published.append)
+    fake.on_touch_event(TouchEvent(ts=time.time() - 240, object_id=1, class_label="bottle",
+                                   name="", kind="touch", box=(0.0, 0.0, 1.0, 1.0),
+                                   neighbours=["cup"]))
+    fake.on_last_seen_query(LastSeenQuery(ts=NOW, text="bottle"))
+    fake.on_voice_status(_voice("fr"))
+    fake.on_last_seen_query(LastSeenQuery(ts=NOW, text="bottle"))
+    fake.on_last_seen_query(LastSeenQuery(ts=NOW, text="umbrella"))
+    assert [m.text for m in published] == ["bottle, 4 minutes ago, next to cup.",
+                                           "bouteille, il y a 4 minutes, à côté de tasse.",
+                                           "Je ne l'ai pas vu."]

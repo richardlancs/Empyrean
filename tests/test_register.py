@@ -23,6 +23,7 @@ from contracts import (
     SceneQuestion,
     SpeakRequest,
     TouchEvent,
+    VoiceStatus,
 )
 from fakes.namer import fake_namer
 from fakes.storage import fake_store
@@ -168,7 +169,7 @@ def _hazard() -> HazardEvent:
 
 
 def test_storage_register_subscribes_three_handlers(fake_db: FakeDb) -> None:
-    """register returns a Store whose three handlers are subscribed to the contract classes."""
+    """register returns a Store whose four handlers are subscribed to the contract classes."""
     bus = TestBus()
     store = storage.register(bus)
     try:
@@ -177,6 +178,7 @@ def test_storage_register_subscribes_three_handlers(fake_db: FakeDb) -> None:
             TouchEvent: [store.on_touch_event],
             HazardEvent: [store.on_hazard_event],
             LastSeenQuery: [store.on_last_seen_query],
+            VoiceStatus: [store.on_voice_status],
         }
     finally:
         store.stop()
@@ -275,6 +277,7 @@ def test_namer_register_subscribes_name_request() -> None:
             NameRequest: [namer.on_name_request],
             FrameResult: [namer.questions.on_frame],
             SceneQuestion: [namer.questions.on_question],
+            VoiceStatus: [namer.on_voice_status, namer.questions.on_voice_status],
         }
     finally:
         namer.stop(timeout=2.0)
@@ -287,7 +290,7 @@ def test_fake_store_register_matches_storage() -> None:
     """fakes.storage registers the same three types and answers a query with SpeakRequest."""
     bus = TestBus()
     store = fake_store.register(bus)
-    assert set(bus.subscribers) == {TouchEvent, HazardEvent, LastSeenQuery}
+    assert set(bus.subscribers) == {TouchEvent, HazardEvent, LastSeenQuery, VoiceStatus}
     bus.publish(
         TouchEvent(
             ts=time.time() - 240,
@@ -314,7 +317,7 @@ def test_fake_namer_register_matches_namer() -> None:
     bus = TestBus()
     namer = fake_namer.register(bus)
     try:
-        assert set(bus.subscribers) == {NameRequest, SceneQuestion}
+        assert set(bus.subscribers) == {NameRequest, SceneQuestion, VoiceStatus}
         bus.publish(
             NameRequest(ts=NOW, object_id=3, class_label="bottle", crop_jpeg=b"")
         )

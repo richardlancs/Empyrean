@@ -12,14 +12,17 @@ from typing import Any
 
 from storage import db
 from storage._deps import (
+    DEFAULT_LANGUAGE,
     HazardEvent,
     LastSeenQuery,
     LastSeenResult,
     ModuleStatus,
     SpeakRequest,
     TouchEvent,
+    VoiceStatus,
+    known_language,
 )
-from storage.last_seen import NOT_SEEN, UNAVAILABLE, format_answer
+from storage.last_seen import format_answer, not_seen, unavailable
 
 log = logging.getLogger("storage")
 
@@ -58,6 +61,7 @@ class Store:
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
         self._dropped = 0
+        self._language = DEFAULT_LANGUAGE  # from audio's last VoiceStatus
         self._written = 0
         self._full_warned = False
         self._down_warned = False
@@ -82,6 +86,12 @@ class Store:
         """Number of rows written successfully."""
         with self._lock:
             return self._written
+
+    @property
+    def language(self) -> str:
+        """Language code of audio's confirmed voice; answers are worded in it."""
+        with self._lock:
+            return self._language
 
     def start(self) -> None:
         """Start the worker thread if it is not running."""
@@ -137,14 +147,22 @@ class Store:
             return
         self._enqueue(("hazard", row))
 
+    def on_voice_status(self, status: VoiceStatus) -> None:
+        """Bus handler: remember the active voice's language; only sets a field."""
+        language = known_language(getattr(status, "language", None))
+        with self._lock:
+            self._language = language
+
     def on_last_seen_query(self, query: LastSeenQuery) -> None:
         """Bus handler: queue a last-seen lookup; the answer is published as a SpeakRequest.
 
         A query with a request_id also gets a LastSeenResult with the same id.
+        The answer's language is captured here, when the query arrives.
         """
         text = str(getattr(query, "text", "") or "")
         request_id = getattr(query, "request_id", None)
-        self._enqueue(("query", (text, None if request_id is None else str(request_id))))
+        rid = None if request_id is None else str(request_id)
+        self._enqueue(("query", (text, rid, self.language)))
 
     def _enqueue(self, item: tuple[str, Any]) -> None:
         """Put without blocking; count and drop when the queue is full."""
@@ -229,31 +247,37 @@ class Store:
         with self._lock:
             self._written += 1
 
-    def _answer(self, payload: tuple[str, str | None] | str) -> None:
+    def _answer(
+        self, payload: tuple[str, str | None, str] | tuple[str, str | None] | str
+    ) -> None:
         """Run a last-seen query and publish the spoken answer.
 
         "I have not seen that." is said only when the query ran and matched
         nothing. A database outage or failed query says "Touch history is
         unavailable right now." When the query had a request_id, a
         LastSeenResult follows carrying the same sentence the wearer heard.
+        Every sentence is in the language captured when the query arrived.
         """
-        text, request_id = payload if isinstance(payload, tuple) else (payload, None)
-        answer = NOT_SEEN
+        if isinstance(payload, str):
+            payload = (payload, None)
+        text, request_id = payload[0], payload[1]
+        language = payload[2] if len(payload) > 2 else DEFAULT_LANGUAGE
+        answer = not_seen(language)
         status = "not_found"
         row: dict[str, Any] | None = None
         text = text.strip()
         conn = self._connection() if text else None
         if text and conn is None:
             status = "unavailable"
-            answer = UNAVAILABLE
+            answer = unavailable(language)
         if conn is not None:
             try:
                 row = db.last_seen(conn, text)
-                answer = format_answer(row, time.time())
-                status = "found" if answer != NOT_SEEN else "not_found"
+                answer = format_answer(row, time.time(), language)
+                status = "found" if answer != not_seen(language) else "not_found"
             except Exception as exc:  # noqa: BLE001
                 self._on_db_error(exc)
-                answer = UNAVAILABLE
+                answer = unavailable(language)
                 status = "unavailable"
                 row = None
         try:
