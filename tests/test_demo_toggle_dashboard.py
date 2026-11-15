@@ -183,7 +183,9 @@ def _run(monkeypatch: pytest.MonkeyPatch, outcome: str) -> Iterator[tuple[Any, i
     original = dashboard_server.Dashboard.serve
     monkeypatch.setattr(dashboard_server.Dashboard, "serve", lambda self, host="127.0.0.1", port_=port: original(self, host, port))
     monkeypatch.setenv("FAKE_DEMO_DETECTOR", outcome)
-    monkeypatch.setenv("FAKE_DETECTOR_SWITCH_SECONDS", "0.3")
+    # Long enough that the "not yet confirmed" read cannot lose the race: one local
+    # HTTP round trip took about 0.35 s on a Windows laptop, longer than 0.3 s.
+    monkeypatch.setenv("FAKE_DETECTOR_SWITCH_SECONDS", "2.0")
     monkeypatch.delenv("TIGER_DATABASE_URL", raising=False)
     running = app_main.start(fakes=["vision", "namer", "storage", "audio"])
     try:
@@ -231,7 +233,9 @@ def test_live_regular_demo_regular_through_the_engine(app_ok: tuple[Any, int]) -
     assert before["detector"]["active_mode"] == "actual" and before["detector"]["fake"] is True
     reply = httpx.post(f"http://127.0.0.1:{port}/api/mode", json={"mode": "demo"})
     assert reply.status_code == 202
-    assert _state(port)["detector"]["active_mode"] == "actual"  # not yet confirmed
+    pending = _state(port)["detector"]
+    assert pending["active_mode"] == "actual"  # not yet confirmed
+    assert pending["state"] == "switching" and pending["switching_to"] == "demo"
     after = _wait(lambda: (s := _state(port)) and s["detector"]["active_mode"] == "demo" and s, 5)
     assert after["detector"]["state"] == "active" and after["detector"]["demo_kind"] == "fake"
     assert "No detector" in after["detector"]["detector"]  # never called the trained model
