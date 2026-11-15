@@ -491,6 +491,65 @@ export function selectDetector(snapshot, local = { sending: null, error: null })
 }
 
 // ---------------------------------------------------------------------------
+// Voice picker. Audio's VoiceStatus is the truth: the picker shows a voice as
+// chosen only after audio confirms it; a request in flight, a switch in progress,
+// a failure or a lost connection each say so in words.
+
+/**
+ * View model for the voice picker.
+ * local = { sending, error, at } for this page's own request only: sending is the voice key
+ * asked for, error a refusal message, at the voice updated_ts when it was refused.
+ * Returns { options: [{ key, label, text }], value, locked, statusText, tone }.
+ */
+export function selectVoice(snapshot, local = { sending: null, error: null }) {
+  const state = snapshot?.state ?? null;
+  const connected = snapshot?.connection === "connected";
+  const v = state?.voice ?? null;
+  const base = { options: [], value: null, locked: true, statusText: "", tone: "neutral" };
+  if (!state) return { ...base, statusText: "Waiting for the dashboard to connect." };
+  if (!state.capabilities?.voice_switch || !v) {
+    return { ...base, statusText: "Choosing a voice is not available on this server." };
+  }
+  const options = (Array.isArray(v.options) ? v.options : [])
+    .filter((o) => o && typeof o.key === "string")
+    .map((o) => {
+      const label = o.label || o.key;
+      return { key: o.key, label, text: o.installed === false ? `${label} (not installed)` : label };
+    });
+  const labelOf = (key) => options.find((o) => o.key === key)?.label || key;
+  if (v.state === "unknown" || !v.active_voice) {
+    return { ...base, options, statusText: v.message || "Audio has not reported a voice." };
+  }
+
+  const active = v.label || labelOf(v.active_voice);
+  const confirmed = v.quality === "fallback" ? `Voice: ${active} (fallback voice)` : `Voice: ${active}`;
+  const vm = { options, value: v.active_voice, locked: false, statusText: confirmed, tone: "ok" };
+  if (!connected) {
+    return {
+      ...vm,
+      locked: true,
+      tone: "neutral",
+      statusText: `Disconnected. ${active} was the voice when the page lost its connection; switching resumes after it reconnects.`,
+    };
+  }
+  if (v.state === "switching") {
+    const target = v.switching_to ? labelOf(v.switching_to) : "another voice";
+    return { ...vm, locked: true, tone: "busy", statusText: `Switching to ${target}…` };
+  }
+  if (local?.sending) {
+    return { ...vm, locked: true, tone: "busy", statusText: `Asking to switch to ${labelOf(local.sending)}…` };
+  }
+  if (v.state === "failed") {
+    return { ...vm, tone: "error", statusText: v.message || `The last voice switch did not finish. Still using ${active}.` };
+  }
+  // This page's refused request, until audio reports anything newer.
+  if (local?.error && (local.at ?? null) === (v.updated_ts ?? null)) {
+    return { ...vm, tone: "error", statusText: `${local.error} Still using ${active}.` };
+  }
+  return vm;
+}
+
+// ---------------------------------------------------------------------------
 // Pip, the camera companion. Pose and help text come only from confirmed state:
 // the camera view model, the detector view model (vision's DetectorStatus), the
 // current touch and the warning. Pip never claims listening, recognition or sound.

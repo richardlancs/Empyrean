@@ -769,6 +769,37 @@
   .experience-segment[aria-busy="true"] .experience-segment-mark::before { animation: none; border-right-color: currentColor; border-style: dotted; }
 }
 
+/* ---- Voice picker (calmer voices) ----
+ * A native select so five voices fit at 320 px. It always shows the voice audio
+ * confirmed; a switch in progress is said in the status line, and a locked select
+ * stays focusable (aria-disabled). */
+.experience-voice { margin-block: 0 var(--x-s1); display: grid; gap: 4px; }
+.experience-voice-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.experience-voice-label { font-weight: 700; }
+.experience-voice-select {
+  min-height: 44px;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 14rem;
+  padding: 0 10px;
+  border: var(--x-control-w) solid var(--x-control);
+  border-radius: 10px;
+  background: var(--x-surface);
+  color: var(--x-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.experience-voice-select:focus-visible { outline: 3px solid var(--x-focus); outline-offset: 2px; }
+.experience-voice-select[aria-disabled="true"] { cursor: not-allowed; color: var(--x-muted); }
+.experience-voice-select[aria-busy="true"] { box-shadow: inset 0 0 0 2px var(--x-primary); }
+.experience-voice-status { margin: 0; font-size: var(--text-small, 0.9375rem); font-weight: 600; }
+.experience-voice[data-tone="error"] .experience-voice-status { color: var(--x-danger); }
+.experience-voice[data-tone="error"] .experience-voice-status::before { content: "⚠ "; }
+@media (max-width: 30em) {
+  .experience-voice-select { flex: 1 1 0; }
+}
+
 /* ---- Pip, the camera companion (feature/pip-companion) ----
  * Pip sits in the state row, its feet on the picture's top edge: the row reserves
  * its height, so Pip never covers the picture, the labels or any control.
