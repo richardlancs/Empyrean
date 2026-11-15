@@ -90,6 +90,12 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-15, Person 2 (landing page typography), Codex
+**Changed:** Preserved the hero title and Empyrean wordmark fonts; set all supporting landing-page text, including section headings, figure/step numbers and SVG labels, to Trebuchet MS with local sans-serif fallbacks. Kept existing colors, spacing and responsive layout.
+**Tested:** Full Python 3.11 suite: 594 passed, 2 skipped, one existing FastAPI/httpx deprecation warning; includes the `python -m app --fake vision` startup smoke test. Browser checks at 1280 px and 390 px confirmed font inheritance and no horizontal overflow; visually checked the mobile hero, steps and footer. `git diff --check` passed.
+**Decisions:** User explicitly authorized the Person 2 exception for Person 4's landing-page folder and a direct push to main. No downloaded fonts or dependencies.
+**Teammates need to know:** Change prepared in an isolated worktree so existing local dashboard and walkthrough edits stay untouched.
+
 ### 2026-11-15 01:15, Person 2 (dashboard camera actions and navigation), Codex
 **Changed:** Added the requested red Demo alert button immediately beside Full screen in the camera card. It calls the existing POST /api/simulate-alert action, prevents duplicate clicks while pending, reports success/errors, and stays visually red under the existing focus/hover button styles. Made the dashboard and walkthrough's top-left Empyrean brand a keyboard-accessible link to the landing page. The landing page keeps its single Open Empyrean action. No backend, audio, message contracts or model behavior changed.
 **Tested:** Full pytest: 594 passed, 2 skipped; Ruff clean; git diff --check clean. Live browser verified adjacent Demo alert / Full screen buttons, red background with white text while focused, a simulated warning and activity entry after clicking, and the brand link returning to / followed by Open Empyrean returning to /dashboard. Screenshot: ignored scratch/local-dashboard/camera-actions-final.jpg.
