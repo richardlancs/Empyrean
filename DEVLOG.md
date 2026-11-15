@@ -18,6 +18,8 @@ Copy this template. Keep it short. Never include keys or connection strings.
 
 ## Needs attention
 
+- **Person 1 (latest-main launch, 2026-11-14):** On main 94abe6e, pytest fails tests/test_demo_toggle_vision.py::test_a_superseded_load_is_cached_not_installed_and_reused_later: cached demo remains actual on the later request. Run used the existing local demo checkpoint assets. 363 passed, 1 skipped. No vision code changed.
+
 - **TEAM PRIORITY — demo recognition remains failing (all four, 2026-11-14):** read `demotraining.md`. Person 1 owns watch/water bottle; Person 2 charger/toothpaste; Person 3 keys/phone; Person 4 headphones/toothbrush. Each person must collect separate training/evaluation sessions and train a full eight-class candidate using the frozen bootstrap plus their additions. Current live result: toothpaste works, watch is often classified charger, actual charger is sometimes absent. Headphones/keys also remain inconsistent. The model is experimental, not demo-ready.
 
 
@@ -84,6 +86,20 @@ The approved stack, repeated here so every log reader has it. Changes go through
 | Hardware | Logitech USB webcam, laptop, JBL Go 3 over Bluetooth |
 
 ## Entries
+
+### 2026-11-14 19:10, Person 2 (local checkout cleanup), Codex
+**Changed:** Committed the existing latest-main launch notes so the active worktree is clean. This is an archive-only documentation commit on 94abe6e; runtime files, local credentials and model assets are unchanged. Preserved capture corrections separately under `archive/cleanup-2026-11-14/local-capture-records`. Repository-wide cleanup records and rollback ZIPs/Git bundle are in `../repository-backups/hackumass-20261114-190224/`.
+**Tested:** Latest-main pytest: 363 passed, 1 skipped, existing cached-demo-toggle failure reproduced. GET /api/state returned HTTP 200. The previous feature checkout passed 212 tests with 1 skipped; 140 capture images/boxes and 40 provenance hashes validated.
+**Decisions:** Keep this worktree running and preserve its launch notes under `archive/cleanup-2026-11-14/live-launch-notes`. Leave main at the tested starting revision rather than merge experiments during cleanup. Retire fully merged branches and archive unique closed-PR branches before deleting their branch refs.
+**Teammates need to know:** The active app remains in `hackumass-voice-main`; the primary `hackumass` checkout will track main. The existing vision test needs Person 1 review; this cleanup does not change its behavior.
+
+
+
+### 2026-11-14, Person 2 (latest-main localhost launch), Codex
+**Changed:** Fetched origin/main and switched the clean hackumass-voice-main worktree to detached commit 94abe6e. Started the real app hidden in the background using the existing Python virtual environment, local model assets and local environment settings. Preserved the original checkout and its uncommitted work. No application source changes.
+**Tested:** GET / returned HTTP 200. GET /api/state reports real camera frames at 5 FPS, active scene, audio ready and Tiger Data connected. Full pytest: 363 passed, 1 skipped, 1 failed (vision demo cached-toggle regression; recorded under Needs attention).
+**Decisions:** Used a separate clean worktree to run the newest main without disturbing concurrent work.
+**Teammates need to know:** Dashboard http://localhost:8000; launch logs in scratch/localhost-main.stdout.log and scratch/localhost-main.stderr.log in the launch worktree. Person 1 should review the failing vision test.
 
 ### 2026-11-14, Merge latest main (d861971, 39d9e0c) into `integration/main-voice-pip` for PR #27, Claude Code
 **Changed:** Resolved the conflicts between main's independent Grok scene questions and #27's layered dashboard. The user chose: main's behaviour, #27's code. Only "Where/When did I last touch/see X?" goes to storage, as before (a correlated `LastSeenQuery`). Every other question, including "Where are my keys?" and "Find my phone", is published as `SceneQuestion`; namer answers it and speaks the answer, and `QuestionService` shows it (`answered_by: "namer"`) without speaking it again. Only one scene question is outstanding at a time, so namer's next `SpeakRequest` belongs to it; a second one meanwhile gets namer's own "Please wait…" sentence. If namer is not running, or does not answer within `LAST_SEEN_TIMEOUT_SECONDS`, the question is unavailable, and a late namer answer is not attributed to the next question. The dashboard now subscribes to `SpeakRequest`. Audio announces touches by default again (main). Kept #27's `SpeechStatus`/`ModuleStatus`/`ModeChange`/`DetectorStatus` and added main's `SceneQuestion` in `contracts/`. `SPEC.md` 4.9 now has #27's panel paragraph with a new routing table, followed by main's 4.9.1. Removed the local scene/touch phrase answers (`scene_answer`, help sentence).
