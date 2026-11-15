@@ -18,6 +18,8 @@ import {
   selectSpeech,
   selectTouchCard,
   selectVoice,
+  selectLanguage,
+  languageRequestVoice,
   videoUrl,
 } from "./selectors.js";
 import { createVoiceSwitch } from "./voice-switch.js";
@@ -100,12 +102,15 @@ export function mountExperience(ctx) {
         onDetector: (mode) => chooseDetector(mode),
       })
     : null;
-  // The voice picker sits right under the Regular | Demo control in the camera card.
+  // The language and voice pickers sit right under the Regular | Demo control in the camera card.
   const voiceMount = document.createElement("div");
   voiceMount.className = "experience-voice-mount";
   const detectorMount = roots.camera?.querySelector(".experience-detector-mount") ?? null;
   if (detectorMount) detectorMount.after(voiceMount);
-  const voiceSwitch = detectorMount ? createVoiceSwitch(voiceMount, { onChoose: (key) => chooseVoice(key) }) : null;
+  const voiceSwitch = detectorMount ? createVoiceSwitch(voiceMount, {
+        onChoose: (key) => chooseVoice(key),
+        onChooseLanguage: (code) => chooseLanguage(code),
+      }) : null;
   const objectList = roots.objects
     ? createObjectList(roots.objects, {
         onSelect(id) {
@@ -166,10 +171,27 @@ export function mountExperience(ctx) {
    * confirmed voice until audio's VoiceStatus answers. Outcomes are read out by the
    * picker's own status line.
    */
-  async function chooseVoice(key) {
+  function chooseVoice(key) {
     const vm = selectVoice(snapshot, voiceLocal);
     if (vm.locked || voiceLocal.sending || vm.value === key) return;
-    voiceLocal = { sending: key, error: null, requestId: null, at: null };
+    return requestVoice(key, null);
+  }
+
+  /**
+   * Ask audio for a language: the same request as the Voice select, for that
+   * language's first voice. Choosing the confirmed language sends nothing.
+   */
+  function chooseLanguage(code) {
+    const vm = selectLanguage(snapshot, voiceLocal);
+    if (vm.locked || voiceLocal.sending || vm.value === code) return;
+    const key = languageRequestVoice(snapshot, code);
+    if (!key) return;
+    return requestVoice(key, code);
+  }
+
+  /** POST one voice request; `language` is the code when the language picker asked. */
+  async function requestVoice(key, language) {
+    voiceLocal = { sending: key, error: null, requestId: null, at: null, language };
     render();
     try {
       const reply = await ctx.request("/api/voice", { method: "POST", body: { voice: key } });
@@ -266,7 +288,7 @@ export function mountExperience(ctx) {
     const detectorVm = selectDetector(snapshot, detectorLocal);
     cameraPanel?.updateDetector(detectorVm);
     cameraPanel?.updatePip(selectPip(snapshot, cam, detectorVm, selectCurrentTouch(snapshot.state)));
-    voiceSwitch?.update(selectVoice(snapshot, voiceLocal));
+    voiceSwitch?.update(selectVoice(snapshot, voiceLocal), selectLanguage(snapshot, voiceLocal));
     objectList?.update(selectObjects(snapshot, prefs, nowMs));
     announceEvents(nowMs);
   }

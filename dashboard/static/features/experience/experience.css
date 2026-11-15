@@ -775,7 +775,9 @@
  * stays focusable (aria-disabled). */
 .experience-voice { margin-block: 0 var(--x-s1); display: grid; gap: 4px; }
 .experience-voice-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
-.experience-voice-label { font-weight: 700; }
+.experience-voice-label { font-weight: 700; min-width: 5.5rem; }
+/* Language sits above Voice; hidden when the server lists no languages. */
+.experience-language-row[hidden] { display: none; }
 .experience-voice-select {
   min-height: 44px;
   min-width: 0;
