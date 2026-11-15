@@ -139,20 +139,20 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
   count.classList.add("how-pipeline__count");
   controlsHost.append(play, back, next, swap, view, count);
 
-  // ----- sidebar: what each module does -----
-  // One row per module. The row for the module being pointed at (or, failing
-  // that, the one sending in the current step) is open and shows its role.
+  // ----- module index and description below the full-width diagram -----
   const sideItems = new Map();
-  const sideList = document.createElement("ul");
+  const sideList = document.createElement("ol");
   sideList.className = "how-sidebar__list";
-  for (const node of NODES) {
+  for (const [index, node] of NODES.entries()) {
     const item = document.createElement("li");
     const row = document.createElement("button");
     row.type = "button";
     row.className = "how-sidebar__item";
+    row.setAttribute("aria-controls", "pipeline-module-detail");
     const dot = document.createElement("span");
     dot.className = "how-sidebar__dot";
     dot.setAttribute("aria-hidden", "true");
+    dot.textContent = String(index + 1).padStart(2, "0");
     const name = document.createElement("span");
     name.className = "how-sidebar__name";
     name.textContent = node.label;
@@ -169,24 +169,34 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
   const sideTitle = document.createElement("h3");
   sideTitle.className = "how-sidebar__title";
   sideTitle.textContent = "What each part does";
-  // The description lives in one card under the list, so opening a module
-  // never moves the rows under the pointer.
-  const card = document.createElement("div");
+  const sideBody = document.createElement("div");
+  sideBody.className = "how-sidebar__body";
+  const indexNav = document.createElement("nav");
+  indexNav.setAttribute("aria-label", "Module index");
+  indexNav.append(sideList);
+  const card = document.createElement("article");
+  card.id = "pipeline-module-detail";
   card.className = "how-sidebar__card";
+  card.setAttribute("aria-labelledby", "pipeline-module-name");
   card.setAttribute("aria-live", "polite");
-  const cardName = document.createElement("p");
+  const cardName = document.createElement("h4");
+  cardName.id = "pipeline-module-name";
   cardName.className = "how-sidebar__card-name";
   const cardRole = document.createElement("p");
+  cardRole.className = "how-sidebar__card-role";
+  const cardDescription = document.createElement("p");
   const cardTech = document.createElement("p");
   cardTech.className = "how-meta";
-  card.append(cardName, cardRole, cardTech);
-  sidebar.replaceChildren(sideTitle, sideList, card);
+  card.append(cardName, cardRole, cardDescription, cardTech);
+  sideBody.append(indexNav, card);
+  sidebar.replaceChildren(sideTitle, sideBody);
   sidebar.hidden = false;
 
   let hoverId = null;
+  let selectedId = null;
   function syncSidebar() {
     const step = active.steps[active.stepper.index];
-    const open = hoverId ?? step.from;
+    const open = hoverId ?? selectedId ?? step.from;
     const lit = new Set([step.from, ...step.to]);
     for (const [id, { item, row }] of sideItems) {
       item.classList.toggle("is-open", id === open);
@@ -197,6 +207,7 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
     if (cardName.textContent !== node.label) {
       cardName.textContent = node.label;
       cardRole.textContent = node.role;
+      cardDescription.textContent = node.description;
       cardTech.textContent = `Built with: ${node.tech}`;
       card.classList.remove("is-fresh");
       void card.offsetWidth; // restart the entrance animation
@@ -212,6 +223,7 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
       if (other) useSequence(other.name);
     }
     active.stepper.jumpToNode(id);
+    selectedId = id;
     render(true);
   }
 
@@ -223,7 +235,10 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
       steps,
       stepper: createStepper({
         steps,
-        onChange: () => render(true),
+        onChange: () => {
+          selectedId = null;
+          render(true);
+        },
         onPlayingChange: (playing) => { play.textContent = playing ? "Pause" : "Play"; },
       }),
     };
@@ -236,6 +251,7 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
   function useSequence(name) {
     if (active.name !== name) {
       active.stepper.pause();
+      selectedId = null;
       active = sequences[name];
     }
     title.textContent = name === "hazard" ? "The hazard path" : "Follow one touch";
@@ -466,6 +482,7 @@ export function mountPipeline(root, { reducedMotion = false } = {}) {
       for (const sequence of Object.values(sequences)) {
         const index = sequence.steps.findIndex((step) => step.id === stepId);
         if (index < 0) continue;
+        selectedId = null;
         useSequence(sequence.name);
         sequence.stepper.goTo(index);
         render(true);

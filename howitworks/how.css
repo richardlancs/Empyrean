@@ -2,7 +2,7 @@
 
 .how-main { padding-block: var(--space-4) var(--space-8); display: grid; gap: var(--space-6); }
 .how-intro h1 { margin: 0 0 var(--space-1); font-size: clamp(28px, 4vw, 40px); }
-.how-intro p, .how-pipeline__lede, .how-built p { margin: 0; max-width: 62ch; color: var(--color-text-secondary); }
+.how-intro p, .how-pipeline__lede { margin: 0; max-width: 62ch; color: var(--color-text-secondary); }
 .how-main h2 { margin: 0 0 var(--space-1); }
 .app-header__tools a { text-decoration: none; }
 .app-footer { padding-block: var(--space-3); color: var(--color-text-secondary); border-top: var(--rule-width) solid var(--color-rule); }
@@ -83,15 +83,13 @@
 /* The step counter sits apart, at the right-hand end of the controls. */
 .how-pipeline__count { margin-left: auto; padding: var(--space-half) var(--space-2); border-radius: var(--radius); background: var(--color-surface-sunken); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-.how-pipeline__body { display: grid; gap: var(--space-2); align-items: start; }
-@media (min-width: 960px) {
-  .how-pipeline__body { grid-template-columns: minmax(0, 1fr) var(--info-column); }
-}
+.how-pipeline__body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); align-items: start; }
 
-/* Sidebar: one row per module; the open row shows the role it plays. */
-.how-sidebar { background: var(--color-surface); border: var(--border-width) solid var(--color-border); border-radius: var(--radius); padding: var(--space-2); }
+/* Module index at left, expanded description at right; both follow the diagram. */
+.how-sidebar { background: var(--color-surface); border: var(--border-width) solid var(--color-border); border-radius: var(--radius); padding: var(--space-3); }
 .how-sidebar[hidden] { display: none; }
-.how-sidebar__title { margin: 0 0 var(--space-1); font-size: 16px; color: var(--color-text-secondary); }
+.how-sidebar__title { margin: 0 0 var(--space-3); font-size: 22px; }
+.how-sidebar__body { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
 .how-sidebar__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .how-sidebar__item {
   width: 100%; min-height: 40px; padding: var(--space-half) var(--space-1);
@@ -104,13 +102,22 @@
 .how-sidebar__item:hover .how-sidebar__name { transform: translateX(4px); }
 .how-sidebar__item:active .how-sidebar__name { transform: translateX(1px); }
 .how-sidebar__name { transition: transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1); }
-.how-sidebar__dot { width: 12px; height: 12px; flex: none; border-radius: var(--radius-circle); background: var(--color-text-secondary); transition: background-color var(--duration) var(--easing), transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1); }
-.is-active > .how-sidebar__item .how-sidebar__dot { background: var(--color-accent); }
+.how-sidebar__dot { width: 2ch; flex: none; font: 500 13px var(--font-mono); color: var(--color-text-secondary); transition: color var(--duration) var(--easing); }
+.is-active > .how-sidebar__item .how-sidebar__dot { color: var(--color-accent-text); font-weight: 700; }
 .is-open > .how-sidebar__item { background: var(--color-accent-soft); color: var(--color-accent-text); }
-.is-open > .how-sidebar__item .how-sidebar__dot { transform: scale(1.35); background: var(--color-accent); }
-.how-sidebar__card { margin-top: var(--space-2); padding: var(--space-2); min-height: 9.5em; border-radius: var(--radius); background: var(--color-accent-soft); }
-.how-sidebar__card p { margin: 0 0 var(--space-half); font-size: 15px; }
-.how-sidebar__card p.how-sidebar__card-name { font-weight: 700; font-size: 17px; color: var(--color-accent-text); }
+.is-open > .how-sidebar__item .how-sidebar__dot { color: var(--color-accent-text); font-weight: 700; }
+.how-sidebar__card { padding: var(--space-3); min-height: 320px; border-radius: var(--radius); background: var(--color-accent-soft); }
+.how-sidebar__card p { margin: 0 0 var(--space-2); max-width: 75ch; font-size: 16px; line-height: 1.7; }
+.how-sidebar__card p:last-child { margin-bottom: 0; }
+.how-sidebar__card .how-sidebar__card-name { margin: 0 0 var(--space-2); font-weight: 700; font-size: 28px; color: var(--color-accent-text); }
+.how-sidebar__card .how-sidebar__card-role { font-size: 19px; line-height: 1.5; }
+.how-sidebar__card .how-meta { font-size: 14px; }
+@media (max-width: 700px) {
+  .how-sidebar { padding: var(--space-2); }
+  .how-sidebar__body { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+  .how-sidebar__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .how-sidebar__card { min-height: 0; padding: var(--space-2); }
+}
 @keyframes how-card-in { from { opacity: 0; transform: translateY(6px); } }
 .how-sidebar__card.is-fresh > * { animation: how-card-in 260ms var(--easing) both; }
 .how-pipeline__diagram {
@@ -178,6 +185,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .how-stage__poster, .how-stage__canvas, .part-label { transition: none; }
+  .how-sidebar__card.is-fresh > * { animation: none; }
 }
 
 /* The panel heading takes focus when a marker opens; it is not a control. */
