@@ -85,6 +85,13 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14, Person 4 (HackUMass poster), Claude Code
+**Changed:** Added Person 4's one-page Canva poster as `docs/HackUmass Media.pdf` ("Empyrean - To See Without Sight": idea, problem, setup, dashboard demo, workflow, tech stack, team members and test evidence). Its embedded title and author were left over from an older Canva design, so both, including the XMP copy, were set to "Empyrean - HackUMass Media" and "Team Push2Prod". The page itself is unchanged.
+
+**Tested:** Docs only, no code. Checked the PDF still has one 1440 x 810 page with the same text, and that no old title or author text remains anywhere in the file.
+
+**Teammates need to know:** The poster lists all four team members' full names, and this repository is public. Say so if anyone would rather it was not published.
+
 ### 2026-11-14 20:40, Person 2 (dashboard, cross-folder authorization), Codex
 **Changed:** With the user's explicit dashboard ownership override, changed the mic toggle to keep listening across questions, auto-submit final transcripts to the existing question API, and pause for pending answers and reported speaker activity. Merged current touch and question/response into one panel with a History disclosure. Removed the separate find panel, tightened the camera/activity column, simplified the header, and added a local Empyrean SVG logo. Kept the existing Grok question route and message contracts.
 **Tested:** Node UI unit suite (71 passed), dashboard/UI pytest subset (76 passed), Ruff clean. Standalone dashboard preview on port 8012 rendered; DOM measurement found 16 px between camera and activity. Full pytest: 362 passed, 1 skipped, 1 detector-switch timing test failed; that test passed alone. Full suite excluding that known race: 362 passed, 1 skipped, 1 deselected.
