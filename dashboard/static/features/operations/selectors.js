@@ -432,12 +432,6 @@ export class HistoryModel {
   }
 }
 
-export const FILTERS = [
-  { id: "all", label: "All" },
-  { id: "touch", label: "Touch" },
-  { id: "hazard", label: "Warning" },
-];
-
 function signature(e) {
   return [e.kind, e.kind === "hazard" ? e.type : e.text, e.simulated ? 1 : 0].join("|");
 }

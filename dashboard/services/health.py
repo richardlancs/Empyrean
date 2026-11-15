@@ -18,15 +18,6 @@ from typing import Any
 from config import CAMERA_STALE_SECONDS, NAME_TIMEOUT_SECONDS, PROCESS_FPS
 from contracts import FrameResult, ModuleStatus, NameRequest, NameResult, SceneSnapshot
 
-# Diagnostics keys the page shows, and the module folder each one describes.
-MODULE_FOR_ENTRY = {
-    "camera": "vision",
-    "scene": "scene",
-    "naming": "namer",
-    "storage": "storage",
-    "audio": "audio",
-    "hazard": "hazard",
-}
 FPS_WINDOW_FRAMES = PROCESS_FPS * 3  # measure the rate over about three seconds
 CAMERA_OFFLINE_SECONDS = CAMERA_STALE_SECONDS * 5  # stale this long reads as stopped
 STARTUP_GRACE_SECONDS = 10.0  # a started module may take this long to show evidence
@@ -131,19 +122,6 @@ class HealthMonitor:
             self._reported[msg.module] = _Reported(msg.status, mode, msg.detail, msg.ts, now)
 
     # Read side.
-
-    def scene_age(self) -> float | None:
-        """Seconds since the newest scene, by arrival and by capture time; None if none yet.
-
-        The larger of the two is returned, so a snapshot that arrived just now
-        but describes an old frame still counts as old.
-        """
-        now = self._clock()
-        with self._lock:
-            received_at, scene_ts = self._scene_received_at, self._scene_ts
-        if received_at is None or scene_ts is None:
-            return None
-        return max(now - received_at, now - scene_ts, 0.0)
 
     def not_started(self, module: str) -> bool:
         """True when app/ said this module folder is not running in this launch."""
