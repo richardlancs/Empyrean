@@ -128,3 +128,11 @@
 @media (prefers-reduced-motion: reduce) {
   .how-stage__poster, .how-stage__canvas, .hotspot, .hotspot::before, .hotspot__label { transition: none; }
 }
+
+/* The panel heading takes focus when a marker opens; it is not a control. */
+.how-panel h3:focus { outline: none; }
+#pipeline-title:focus { outline: none; }
+
+@media (max-width: 600px) {
+  .how-stage__hint { display: none; }
+}

@@ -90,7 +90,11 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 **Changed:** New static page for judges: a 3D model of the kit with five markers that open short explanations, and a step-through of the message pipeline. Design in `docs/superpowers/specs/2026-11-14-how-it-works-design.md`, plan in `docs/superpowers/plans/2026-11-14-how-it-works.md`. Development server that needs no engine: `uvicorn tests.howitworks_server:app --port 8010`, then open `/how-it-works/`.
 
-**Tested:** see the closing entry for this branch.
+**Tested:** Full `pytest` on the branch: 402 passed, 1 skipped (live DB), existing Starlette/httpx warning. `tests/test_howitworks.py` (10 tests) covers the route, local references, no remote URLs, banned copy, file sizes, and message names against `contracts/`; it also runs 15 `node --test` unit tests for the content, hotspot selection and stepper. Browser checks with Playwright against the development server: 3D stage renders and orbits; with WebGL disabled the poster, the five explanations and the pipeline remain; reduced motion keeps the camera still; every marker opens by keyboard, Esc closes and returns focus; overlapping clicks leave one panel open; all six pipeline steps and the hazard path play; no horizontal overflow at 360 px; high-contrast theme applies; the page makes no request outside localhost.
+
+**Not done yet:** The 3D parts are simple stand-in shapes until generated models are added (`howitworks/assets/models/` plus `manifest.json`). The page is not yet linked from or served by the real dashboard: that needs three small edits in `dashboard/` and is waiting on Person 4's agreement. Until then it is only reachable through the development server. `python -m app --fake vision` was not re-run because no engine or dashboard file changed.
+
+**Teammates need to know:** Nothing to reinstall. Port 8010 was in use on the build machine, so checks ran on 8765.
 
 ### 2026-11-14 20:40, Person 2 (dashboard, cross-folder authorization), Codex
 **Changed:** With the user's explicit dashboard ownership override, changed the mic toggle to keep listening across questions, auto-submit final transcripts to the existing question API, and pause for pending answers and reported speaker activity. Merged current touch and question/response into one panel with a History disclosure. Removed the separate find panel, tightened the camera/activity column, simplified the header, and added a local Empyrean SVG logo. Kept the existing Grok question route and message contracts.
