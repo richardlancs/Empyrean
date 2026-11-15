@@ -83,3 +83,11 @@ class ModeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     mode: Literal["actual", "demo"]
+
+
+class VoiceRequest(BaseModel):
+    """POST /api/voice body: {"voice": "<preset key>"}; the service checks the key."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    voice: str = Field(min_length=1, max_length=40)

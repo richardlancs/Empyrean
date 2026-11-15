@@ -22,11 +22,13 @@ from dashboard.api.schemas import (
     ModeRequest,
     QuestionRequest,
     QuestionStatus,
+    VoiceRequest,
 )
 from dashboard.services.container import DashboardServices
 from dashboard.services.detector_mode import ModeRejected
 from dashboard.services.last_seen import QueryRejected
 from dashboard.services.questions import QuestionRejected
+from dashboard.services.voice_choice import VoiceRejected
 from dashboard.video import BOUNDARY, OverlayOptions, mjpeg_stream
 
 LOGGER = logging.getLogger("dashboard")
@@ -166,6 +168,36 @@ def build_router(services: DashboardServices) -> APIRouter:
     async def get_mode() -> dict[str, Any]:
         """Return the detector state as vision last reported it."""
         return services.detector_mode.view()
+
+    @router.post(
+        "/api/voice",
+        responses={
+            202: {"description": "Switch requested"},
+            409: {"model": ErrorBody},
+            422: {"model": ErrorBody},
+            503: {"model": ErrorBody},
+        },
+    )
+    async def set_voice(body: VoiceRequest) -> Any:
+        """Ask audio to switch the spoken voice to a listed preset key.
+
+        202 means only "requested": the page shows the new voice as active after
+        audio confirms it with VoiceStatus. 200 means it is already active.
+        """
+        try:
+            reply = services.voice.request(body.voice)
+        except VoiceRejected as exc:
+            return _error(exc.status_code, exc.message)
+        LOGGER.info("Voice switch to %s requested from the dashboard", body.voice)
+        return JSONResponse(
+            {**reply, "voice_view": services.voice.view()},
+            status_code=202 if reply["state"] == "switching" else 200,
+        )
+
+    @router.get("/api/voice")
+    async def get_voice() -> dict[str, Any]:
+        """Return the voice state as audio last reported it."""
+        return services.voice.view()
 
     @router.get(
         "/api/objects/{object_id}/thumbnail",

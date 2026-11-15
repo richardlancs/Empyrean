@@ -22,6 +22,7 @@ from contracts import (
     SpeakRequest,
     SpeechStatus,
     TouchEvent,
+    VoiceStatus,
 )
 from dashboard.services.container import DashboardServices
 
@@ -54,3 +55,5 @@ def connect(bus: Any, services: DashboardServices) -> None:
     bus.subscribe(SpeakRequest, services.questions.on_answer)
     # Regular/Demo: vision's DetectorStatus is the only confirmation of a switch.
     bus.subscribe(DetectorStatus, services.detector_mode.on_status)
+    # Voice picker: audio's VoiceStatus is the only confirmation of a switch.
+    bus.subscribe(VoiceStatus, services.voice.on_status)
