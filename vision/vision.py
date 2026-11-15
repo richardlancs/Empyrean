@@ -136,7 +136,7 @@ def tracked_hands(result: Any) -> list[Hand]:
             label = str(getattr(category, "category_name", "")).lower()
             # Handedness is returned for selfie/mirrored frames; our camera isn't mirrored.
             side = {"left": "right", "right": "left"}.get(label, "unknown")
-        hands.append(Hand(side, points[4], points[8], box))
+        hands.append(Hand(side, points[4], points[8], box, landmarks=points))
     return hands
 
 

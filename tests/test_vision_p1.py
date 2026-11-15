@@ -83,6 +83,8 @@ def test_frame_result_and_detection_filters() -> None:
     assert result.objects == [TrackedObject(1, "bottle", 0.9, (10., 20., 110., 170.))]
     assert len(result.hands) == 1 and type(result.hands[0]) is Hand
     assert result.hands[0].side == "right"
+    assert len(result.hands[0].landmarks) == 21
+    assert result.hands[0].landmarks[8] == result.hands[0].index_tip
     assert detector.calls[0]["persist"] is True
     assert detector.calls[0]["tracker"] == "bytetrack.yaml"
     processor.close()
