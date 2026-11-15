@@ -891,3 +891,19 @@
   .pip-perch__art { animation: none !important; transition: none !important; transform: none !important; }
   .pip-bubble:not([hidden]) { animation: none; }
 }
+
+/* The touch and question mounts share one conversation surface. */
+.app-conversation .experience-touch {
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  padding: var(--space-2) var(--space-3) 0;
+}
+.app-conversation .experience-touch-hero { gap: var(--space-1); }
+.app-conversation .experience-touch-name,
+.app-conversation .experience-touch[data-touch="none"] .experience-touch-name {
+  font-size: 1.25rem;
+  margin: 0;
+}
+.app-conversation .experience-touch-thumb { width: 48px; height: 48px; }
+.app-conversation .experience-subheading { font-size: var(--text-small); color: var(--color-text-secondary); }

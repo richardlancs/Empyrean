@@ -25,7 +25,7 @@ export const FEATURES = Object.freeze([
     name: "experience",
     url: "/static/features/experience/index.js",
     exportName: "mountExperience",
-    areas: Object.freeze(["touch", "camera", "objects", "find"]),
+    areas: Object.freeze(["touch", "camera", "objects"]),
   }),
   Object.freeze({
     name: "operations",

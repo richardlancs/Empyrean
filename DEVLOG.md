@@ -85,6 +85,12 @@ The approved stack, repeated here so every log reader has it. Changes go through
 
 ## Entries
 
+### 2026-11-14 20:40, Person 2 (dashboard, cross-folder authorization), Codex
+**Changed:** With the user's explicit dashboard ownership override, changed the mic toggle to keep listening across questions, auto-submit final transcripts to the existing question API, and pause for pending answers and reported speaker activity. Merged current touch and question/response into one panel with a History disclosure. Removed the separate find panel, tightened the camera/activity column, simplified the header, and added a local Empyrean SVG logo. Kept the existing Grok question route and message contracts.
+**Tested:** Node UI unit suite (71 passed), dashboard/UI pytest subset (76 passed), Ruff clean. Standalone dashboard preview on port 8012 rendered; DOM measurement found 16 px between camera and activity. Full pytest: 362 passed, 1 skipped, 1 detector-switch timing test failed; that test passed alone. Full suite excluding that known race: 362 passed, 1 skipped, 1 deselected.
+**Decisions:** Left SPEC.md unchanged because shared-file edits require all four to agree. Its section 4.9 still describes one-utterance/manual Ask and needs a team update. The old app on port 8000 serves another checkout; this branch's preview is on 8012.
+**Teammates need to know:** Pull this branch to the demo checkout and restart/refresh its app before checking the new UI. Browser speech recognition still requires a supporting browser and permission; Chrome is the reliable option observed earlier. Review the shared spec wording together.
+
 ### 2026-11-14, Person 2 (pointing review P1 fix), Codex
 **Changed:** Required fingertip contact for the visible-object movement transition to held, matching the lost-object guard. A remote point can keep an object touching after camera-relative movement but cannot mark it held and transfer its name to an unrelated new detection at the hand. Updated SPEC.md section 4.6 to describe both contact requirements. Includes the P2 hand-landmarks documentation correction from `7c137a1`.
 **Tested:** The new movement/name-transfer regression failed before the fix; it and the companion grasp-to-held check pass after it. Full `pytest`: 392 passed, 2 skipped. `ruff check .` and `git diff --check` passed. `python -m app --fake vision` started all modules and scene processed FrameResult 5; the dashboard port was already occupied, and Grok was disabled without credentials. Real camera and live services remain untested.

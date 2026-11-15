@@ -1,4 +1,4 @@
-// Questions feature: ask by typing or one spoken utterance, see the answer.
+// Questions feature: typed questions or automatic questions while the mic is on.
 //
 // Mount contract
 // --------------
@@ -26,6 +26,7 @@ import { createQuestionController } from "./controller.js";
 import { announcementFor, announcementKey, isFinal, selectAvailability, selectConnectionNote, selectRecent } from "./model.js";
 import { createQuestionsPanel } from "./panel.js";
 import { createVoiceInput, defaultRecognition } from "./voice.js";
+import { createPlaybackPause } from "./playback.js";
 
 /** Mount the questions panel into ctx.roots.questions; returns a cleanup function. */
 export function mountQuestions(ctx, options = {}) {
@@ -44,9 +45,7 @@ export function mountQuestions(ctx, options = {}) {
 
   const panel = createQuestionsPanel(root, {
     onAsk: (text) => ask(text),
-    onExample: (text) => ask(text),
-    onMic: () => voice.toggle(),
-    onCancelVoice: () => voice.cancel(),
+    onMic: () => { if (voice.enabled || selectAvailability(snapshot.state).canAsk) voice.toggle(); },
   });
 
   const controller = createQuestionController({
@@ -57,31 +56,38 @@ export function mountQuestions(ctx, options = {}) {
       if (isFinal(view.record) && view.record.question_id === controller.trackedId && view.phase !== "error") {
         announce(announcementFor(view.record), { key: announcementKey(view.record) });
       }
+      playback.update(view, snapshot.state, snapshot.connection);
       render();
     },
   });
 
   const voice = createVoiceInput({
     Recognition,
+    ...timers,
     onChange: () => render(),
-    onTranscript: (text) => panel.fillInput(text),
+    onTranscript: (text) => {
+      panel.fillInput(text, { focus: false });
+      ask(text);
+    },
   });
+
+  const playback = createPlaybackPause({ ...timers, onChange: (paused) => voice.setPaused(paused) });
 
   function ask(text) {
     if (!selectAvailability(snapshot.state).canAsk) return;
-    if (controller.view.phase === "submitting") return;
-    voice.cancel(); // never leave a microphone open behind a question
-    voice.reset();
+    if (["submitting", "looking_up"].includes(controller.view.phase)) return;
     controller.ask(text);
   }
 
   function onKeydown(event) {
-    if (event.key === "Escape" && voice.listening) {
+    if (event.key === "Escape" && voice.enabled) {
       event.preventDefault();
       voice.cancel();
     }
   }
   root.addEventListener("keydown", onKeydown);
+  const onPageHide = () => voice.stop();
+  win.addEventListener?.("pagehide", onPageHide);
 
   function render() {
     if (disposed) return;
@@ -97,6 +103,8 @@ export function mountQuestions(ctx, options = {}) {
   const unsubscribe = ctx.subscribe((next) => {
     snapshot = next || snapshot;
     controller.receiveState(snapshot.state);
+    playback.update(controller.view, snapshot.state, snapshot.connection);
+    if (!selectAvailability(snapshot.state).canAsk && voice.enabled) voice.stop();
     render();
   });
   render();
@@ -105,6 +113,8 @@ export function mountQuestions(ctx, options = {}) {
     if (disposed) return;
     disposed = true;
     root.removeEventListener("keydown", onKeydown);
+    win.removeEventListener?.("pagehide", onPageHide);
+    playback.destroy();
     voice.destroy();
     controller.dispose();
     if (typeof unsubscribe === "function") unsubscribe();
