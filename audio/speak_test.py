@@ -1,16 +1,19 @@
-"""Standalone pyttsx3 speech test; no bus, alarm or hazard is involved.
+"""Standalone speech test; no bus, alarm or hazard is involved.
 
 Speaks through the system's default audio output, offline, at SPEECH_RATE_WPM.
-It can also list the five voice presets and play each one, to check them by ear.
+Plain TEXT uses the pyttsx3 system voice. --voice, --all and --list-voices use
+the same speaker as the app (Piper neural voices, pyttsx3 for system voices), to
+check the five presets by ear.
 
 Setup, from the repository root, on macOS:
 
     .venv/bin/python -m pip install -r audio/requirements.txt
+    .venv/bin/python -m audio.fetch_voices    # once, with internet
 
 Run:
 
     .venv/bin/python -m audio.speak_test "Heinz ketchup"
-    .venv/bin/python -m audio.speak_test --voice jamie "Heinz ketchup"
+    .venv/bin/python -m audio.speak_test --voice alba "Heinz ketchup"
     .venv/bin/python -m audio.speak_test --list-voices
     .venv/bin/python -m audio.speak_test --all
 
@@ -23,6 +26,7 @@ import argparse
 import logging
 from collections.abc import Sequence
 
+from audio.backends import HybridSpeaker
 from audio.voices import PRESETS, resolve_voice
 from config import SPEECH_RATE_WPM
 
@@ -45,18 +49,21 @@ def speak(text: str, voice_id: str | None = None, rate: int = SPEECH_RATE_WPM) -
         engine.stop()
 
 
-def installed_voices() -> list[tuple[str, str]]:
-    """Return the (voice_id, name) pairs pyttsx3 can see."""
-    import pyttsx3
+def _never() -> bool:
+    """A should_stop that never stops: the test speaks each phrase to the end."""
+    return False
 
-    engine = pyttsx3.init()
-    return [(str(v.id), str(v.name)) for v in engine.getProperty("voices") or []]
+
+def _say_preset(speaker: HybridSpeaker, text: str, voice_id: str | None) -> None:
+    """Switch the app's speaker to voice_id and say text to the end."""
+    speaker.set_voice(voice_id)
+    speaker.say(text, _never)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Parse the command line, then speak, list or play the presets; return an exit code."""
     parser = argparse.ArgumentParser(
-        description="Speak with pyttsx3 and check voice presets."
+        description="Speak with pyttsx3 or Piper and check voice presets."
     )
     choice = parser.add_mutually_exclusive_group()
     choice.add_argument(
@@ -78,18 +85,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not text and not (args.list_voices or args.all):
         parser.error("Please supply a sentence that is not empty.")
 
+    uses_presets = bool(args.voice or args.all or args.list_voices)
+    if not uses_presets:
+        try:
+            import pyttsx3  # noqa: F401
+        except ImportError:
+            LOGGER.error(
+                "pyttsx3 is missing. Install audio/requirements.txt with Python 3.11."
+            )
+            return 1
+        try:
+            LOGGER.info("Speaking: %s", text)
+            speak(text)
+        except Exception:
+            LOGGER.exception("Audio test failed")
+            return 1
+        return 0
+
     try:
-        import pyttsx3  # noqa: F401
-    except ImportError:
-        LOGGER.error(
-            "pyttsx3 is missing. Install audio/requirements.txt with Python 3.11."
+        speaker = HybridSpeaker()
+    except Exception:
+        LOGGER.exception(
+            "No speech engine. Install audio/requirements.txt with Python 3.11 "
+            "and run python -m audio.fetch_voices."
         )
         return 1
 
     try:
-        voices = (
-            installed_voices() if (args.voice or args.all or args.list_voices) else []
-        )
+        voices = speaker.installed_voices()
         if args.list_voices:
             for preset in PRESETS:
                 resolved = resolve_voice(preset.key, voices)
@@ -103,11 +126,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             for preset in PRESETS:
                 resolved = resolve_voice(preset.key, voices)
                 LOGGER.info("Speaking %s (%s)", preset.label, resolved.quality)
-                speak(SAMPLE_TEXT.format(label=preset.label), resolved.voice_id)
+                _say_preset(
+                    speaker, SAMPLE_TEXT.format(label=preset.label), resolved.voice_id
+                )
             return 0
-        voice_id = resolve_voice(args.voice, voices).voice_id if args.voice else None
+        resolved = resolve_voice(args.voice, voices) if args.voice else None
         LOGGER.info("Speaking: %s", text)
-        speak(text, voice_id)
+        _say_preset(speaker, text, resolved.voice_id if resolved else None)
     except Exception:
         LOGGER.exception("Audio test failed")
         return 1

@@ -1,25 +1,29 @@
-"""Smoke tests for audio/speak_test.py. No speaker or pyttsx3 needed.
+"""Smoke tests for audio/speak_test.py. No speaker, pyttsx3 or Piper needed.
 
-pyttsx3 is replaced with a stub module, so these run on any machine. The audio
-manager's own tests are in tests/test_audio.py.
+pyttsx3 is replaced with a stub module, and piper and pygame with the fakes from
+tests/test_audio_piper.py (or hidden), so these run on any machine and play
+nothing. The audio manager's own tests are in tests/test_audio.py.
 """
 
 from __future__ import annotations
 
 import sys
 import types
+from collections.abc import Callable
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from test_audio_piper import install_fake_piper, new_record
 
-from audio import speak_test
+from audio import backends, speak_test, voices
 from config import SPEECH_RATE_WPM
 
+SAMANTHA_ID = "com.apple.voice.compact.en-US.Samantha"
 VOICES = [
-    SimpleNamespace(id="com.apple.voice.premium.en-US.Ava", name="Ava (Premium)"),
-    SimpleNamespace(id="com.apple.voice.premium.en-GB.Jamie", name="Jamie"),
-    SimpleNamespace(id="com.apple.voice.compact.en-US.Samantha", name="Samantha"),
+    SimpleNamespace(id="com.apple.voice.compact.en-GB.Daniel", name="Daniel"),
+    SimpleNamespace(id=SAMANTHA_ID, name="Samantha"),
 ]
 
 
@@ -30,6 +34,9 @@ class StubEngine:
         """Start with no calls; fail makes runAndWait raise."""
         self.calls: list[tuple[str, ...]] = []
         self._fail = fail
+
+    def connect(self, topic: str, callback: Callable[..., None]) -> None:
+        """Accept the started-word callback Pyttsx3Speaker connects."""
 
     def setProperty(self, name: str, value: Any) -> None:
         """Record a property set."""
@@ -104,43 +111,109 @@ def _said(engine: StubEngine) -> list[str]:
     return [call[1] for call in engine.calls if call[0] == "say"]
 
 
-def test_voice_flag_sets_voice_and_rate(monkeypatch: pytest.MonkeyPatch) -> None:
-    """--voice jamie sets Jamie's id and the calm rate before speaking."""
+@pytest.fixture
+def presets(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> tuple[StubEngine, dict[str, Any]]:
+    """Stub pyttsx3, fake piper and pygame, with only the alba and cori models present."""
     engine = StubEngine()
     _stub_pyttsx3(monkeypatch, engine)
-    assert speak_test.main(["--voice", "jamie", "Heinz ketchup"]) == 0
-    assert ("set", "voice", "com.apple.voice.premium.en-GB.Jamie") in engine.calls
-    assert ("set", "rate", SPEECH_RATE_WPM) in engine.calls
-    assert _said(engine) == ["Heinz ketchup"]
-    assert engine.calls.index(("say", "Heinz ketchup")) > engine.calls.index(
-        ("set", "voice", "com.apple.voice.premium.en-GB.Jamie")
-    )
+    monkeypatch.setattr(backends, "_init_com_for_thread", lambda: None)
+    record = new_record()
+    install_fake_piper(monkeypatch, record)
+    monkeypatch.setattr(voices, "VOICE_MODEL_DIR", tmp_path)
+    for model in ("en_GB-alba-medium", "en_GB-cori-high"):
+        (tmp_path / f"{model}.onnx").write_bytes(b"")
+    return engine, record
 
 
-def test_list_voices_prints_five_presets(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+def _piper_texts(record: dict[str, Any]) -> list[str]:
+    """Return the texts handed to the fake Piper voice."""
+    return [text for _, text, _ in record["synth"]]
+
+
+def test_voice_flag_speaks_with_piper(
+    presets: tuple[StubEngine, dict[str, Any]],
 ) -> None:
-    """--list-voices prints one line per preset, ava first, and speaks nothing."""
-    engine = StubEngine()
-    _stub_pyttsx3(monkeypatch, engine)
-    assert speak_test.main(["--list-voices"]) == 0
-    lines = capsys.readouterr().out.strip().splitlines()
-    assert len(lines) == 5
-    assert lines[0].split()[0] == "ava"
-    assert "com.apple.voice.premium.en-US.Ava" in lines[0] and "premium" in lines[0]
-    assert "fallback" in lines[1]  # zoe is not installed in the stub
+    """--voice cori loads Cori's model and speaks through Piper at the calm rate."""
+    engine, record = presets
+    assert speak_test.main(["--voice", "cori", "Heinz ketchup"]) == 0
+    assert record["loads"] == ["en_GB-cori-high.onnx"]
+    assert _piper_texts(record) == ["Heinz ketchup"]
+    assert record["synth"][0][2].length_scale == pytest.approx(180 / SPEECH_RATE_WPM)
+    assert record["channels"]
     assert _said(engine) == []
 
 
-def test_all_speaks_each_preset_once(monkeypatch: pytest.MonkeyPatch) -> None:
-    """--all says one sample per preset, Ava first."""
-    engine = StubEngine()
-    _stub_pyttsx3(monkeypatch, engine)
+def test_voice_flag_falls_back_to_samantha(
+    presets: tuple[StubEngine, dict[str, Any]],
+) -> None:
+    """--voice lessac without its model speaks with Samantha at the calm rate."""
+    _, record = presets
+    phrase_engines: list[StubEngine] = []
+
+    def init() -> StubEngine:
+        """Build a fresh engine per phrase, like the real pyttsx3."""
+        engine = StubEngine()
+        phrase_engines.append(engine)
+        return engine
+
+    sys.modules["pyttsx3"].init = init  # type: ignore[attr-defined]
+    assert speak_test.main(["--voice", "lessac", "Heinz ketchup"]) == 0
+    assert _piper_texts(record) == []
+    spoken = [e for e in phrase_engines if _said(e)]
+    assert len(spoken) == 1
+    calls = spoken[0].calls
+    assert ("set", "voice", SAMANTHA_ID) in calls
+    assert ("set", "rate", SPEECH_RATE_WPM) in calls
+    assert calls.index(("say", "Heinz ketchup")) > calls.index(("set", "voice", SAMANTHA_ID))
+
+
+def test_list_voices_prints_five_presets(
+    presets: tuple[StubEngine, dict[str, Any]], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--list-voices prints one line per preset, alba first, and speaks nothing."""
+    engine, record = presets
+    assert speak_test.main(["--list-voices"]) == 0
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert len(lines) == 5
+    assert lines[0].split()[0] == "alba"
+    assert "piper.enhanced.en-GB.Alba" in lines[0] and "enhanced" in lines[0]
+    assert "fallback" in lines[1] and SAMANTHA_ID in lines[1]  # kristin not downloaded
+    assert "piper.premium.en-GB.Cori" in lines[3] and "premium" in lines[3]
+    assert _said(engine) == [] and record["synth"] == []
+
+
+def test_all_speaks_each_preset_once(
+    presets: tuple[StubEngine, dict[str, Any]],
+) -> None:
+    """--all says one sample per preset, Alba first; missing models use Samantha."""
+    _, record = presets
+    phrase_engines: list[StubEngine] = []
+
+    def init() -> StubEngine:
+        """Build a fresh engine per phrase."""
+        new = StubEngine()
+        phrase_engines.append(new)
+        return new
+
+    sys.modules["pyttsx3"].init = init  # type: ignore[attr-defined]
     assert speak_test.main(["--all"]) == 0
-    said = _said(engine)
-    assert len(said) == 5
-    assert "This is Ava." in said[0]
-    assert said[0] == "This is Ava. Heinz ketchup. Stop. Stairs."
+    piper_said = _piper_texts(record)
+    system_said = [text for e in phrase_engines for text in _said(e)]
+    assert piper_said == [
+        "This is Alba. Heinz ketchup. Stop. Stairs.",
+        "This is Cori. Heinz ketchup. Stop. Stairs.",
+    ]
+    assert len(system_said) == 3
+    assert "This is Kristin." in system_said[0]
+
+
+def test_voice_paths_report_no_engine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With neither Piper nor pyttsx3, --voice exits 1 instead of crashing."""
+    monkeypatch.setitem(sys.modules, "pyttsx3", None)
+    monkeypatch.setitem(sys.modules, "piper", None)
+    assert speak_test.main(["--voice", "alba", "Heinz ketchup"]) == 1
 
 
 def test_unknown_voice_flag_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:

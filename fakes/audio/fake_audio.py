@@ -3,7 +3,7 @@
 Used by `python -m app --fake audio`. It subscribes to the same messages as
 audio/ (HazardEvent, TouchEvent, NameResult, SpeakRequest, VoiceChange) and
 prints what would be heard, with timing, so teammates can check requested answers and alarm order on
-a machine with no speaker, pyttsx3 or pygame. Touches stay silent, as in audio/
+a machine with no speaker, Piper, pyttsx3 or pygame. Touches stay silent, as in audio/
 (question-only speech). Like audio/, it publishes only SpeechStatus,
 VoiceStatus and ModuleStatus telemetry, always with mode "fake" so the dashboard
 never shows printed speech as real playback. Every voice preset is listed as
@@ -18,7 +18,7 @@ from collections.abc import Callable
 from typing import Any
 
 from audio.audio import AudioManager
-from audio.voices import PRESETS, startup_voice_key
+from audio.voices import PRESETS, piper_voice_id, startup_voice_key
 from contracts import HazardEvent, NameResult, SpeakRequest, TouchEvent, VoiceChange
 
 SECONDS_PER_CHAR = 0.06  # roughly the calm rate of 165 words a minute
@@ -31,10 +31,8 @@ class PrintSpeaker:
     mode = "fake"
 
     def installed_voices(self) -> list[tuple[str, str]]:
-        """List a fake premium voice for every preset."""
-        return [
-            (f"fake.premium.{p.locale}.{p.apple_name}", p.apple_name) for p in PRESETS
-        ]
+        """List every preset's Piper voice as installed."""
+        return [(piper_voice_id(p), p.voice_name) for p in PRESETS]
 
     def set_voice(self, voice_id: str | None) -> None:
         """Print the voice that later phrases would use."""

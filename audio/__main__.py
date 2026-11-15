@@ -13,7 +13,7 @@ import logging
 import time
 
 from audio.audio import AudioManager
-from audio.backends import Pyttsx3Speaker, load_alarm
+from audio.backends import HybridSpeaker, load_alarm
 from contracts import HazardEvent, NameResult, SpeakRequest, TouchEvent
 
 log = logging.getLogger("audio")
@@ -33,7 +33,7 @@ def main() -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
     )
-    manager = AudioManager(Pyttsx3Speaker, load_alarm())
+    manager = AudioManager(HybridSpeaker, load_alarm())
     try:
         steps: list[tuple[str, object, float]] = [
             (

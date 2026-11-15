@@ -2,6 +2,22 @@
 
 Date: 2026-11-14. Status: approved by the user in chat. Plan: `docs/superpowers/plans/2026-11-14-calmer-voices.md`.
 
+## Revision, 2026-11-14 (same day): Piper voices
+
+Task 1 could not run: Apple's Premium voices can only be downloaded through
+System Settings, which Claude may not change. The user then asked for voices
+downloaded from the internet that run offline, so the engine moved to the
+fallback approach below: **Piper** (`piper-tts==1.8.0`, GPL-3.0, bundles
+espeak-ng; adds `onnxruntime`). Presets are now `alba` (default, en-GB, medium),
+`kristin` (en-US, medium), `northern` "Northern English" (en-GB male, medium),
+`cori` (en-GB, high) and `lessac` (en-US, high), fetched by
+`python -m audio.fetch_voices` (about 420 MB, git-ignored). First audio on the
+demo Mac measured 20-100 ms for medium voices and 200-450 ms for high voices,
+so a medium voice is the default (SPEC 7: 1 s fingertip to speech). Hazard
+phrases are pre-rendered per voice. pyttsx3 stays as the fallback. The message
+shapes, dashboard picker and switching rules below are unchanged. Adding
+`piper-tts` changes the approved stack and needs all four teammates to agree.
+
 ## Intent
 
 The spoken voice in `audio/` sounds a little unsettling. The user named three things: it is robotic or synthetic, too fast or rushed, and flat or cold. Today `Pyttsx3Speaker` never picks a voice or a rate. On the macOS demo laptop that means Apple's compact Samantha at pyttsx3's default 200 words per minute. Better voices are already on the machine's operating system, but they are not installed or not chosen.

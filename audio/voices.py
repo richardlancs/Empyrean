@@ -1,8 +1,11 @@
-"""Voice presets and the rule that matches each one to an installed pyttsx3 voice.
+"""Voice presets and the rule that matches each one to an installed voice.
 
-Five calm English presets backed by Apple Premium or Enhanced voices. A preset
-that is not installed falls back to compact Samantha (en-US), then to the
-system default voice. Both are reported as quality "fallback".
+Five calm English presets backed by offline Piper neural voices, downloaded once
+into audio/voice_models/ by `python -m audio.fetch_voices`. Piper voices are
+listed with ids like "piper.premium.en-GB.Cori": high-tier models count as
+premium and medium-tier as enhanced. A preset whose model is missing falls back
+to pyttsx3's compact Samantha (en-US), then to the system default voice. Both
+are reported as quality "fallback".
 """
 
 from __future__ import annotations
@@ -10,6 +13,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 log = logging.getLogger("audio")
@@ -23,8 +27,9 @@ class VoicePreset:
 
     key: str
     label: str
-    apple_name: str  # name as pyttsx3 reports it, without " (Premium)"/" (Enhanced)"
+    voice_name: str  # name the speaker reports, without a trailing parenthetical
     locale: str  # "en-US"; also the hook for languages later
+    model: str = ""  # Piper model file stem, e.g. "en_GB-cori-high"
 
 
 @dataclass(frozen=True)
@@ -37,14 +42,26 @@ class ResolvedVoice:
     quality: Quality
 
 
+# Medium models start speaking in about 50-100 ms on the demo Mac, high models
+# in 200-450 ms. Dataset licences (Piper model cards): Cori public domain (LibriVox), Alba
+# CC BY 4.0, Northern English male CC BY-SA 4.0, Lessac Blizzard 2013 licence,
+# Kristin per its model card. Model files are never committed.
 PRESETS: tuple[VoicePreset, ...] = (
-    VoicePreset("ava", "Ava", "Ava", "en-US"),
-    VoicePreset("zoe", "Zoe", "Zoe", "en-US"),
-    VoicePreset("evan", "Evan", "Evan", "en-US"),
-    VoicePreset("jamie", "Jamie", "Jamie", "en-GB"),
-    VoicePreset("matilda", "Matilda", "Matilda", "en-AU"),
+    VoicePreset("alba", "Alba", "Alba", "en-GB", "en_GB-alba-medium"),
+    VoicePreset("kristin", "Kristin", "Kristin", "en-US", "en_US-kristin-medium"),
+    VoicePreset(
+        "northern",
+        "Northern English",
+        "Northern English",
+        "en-GB",
+        "en_GB-northern_english_male-medium",
+    ),
+    VoicePreset("cori", "Cori", "Cori", "en-GB", "en_GB-cori-high"),
+    VoicePreset("lessac", "Lessac", "Lessac", "en-US", "en_US-lessac-high"),
 )
-DEFAULT_VOICE_KEY = "ava"
+DEFAULT_VOICE_KEY = "alba"  # medium tier: first audio in about 60 ms on the demo Mac
+VOICE_MODEL_DIR = Path(__file__).resolve().parent / "voice_models"
+PIPER_ID_PREFIX = "piper."
 FALLBACK_NAME, FALLBACK_LOCALE = "Samantha", "en-US"
 
 _QUALITY_RANK = {"premium": 0, "enhanced": 1, "compact": 2}
@@ -87,7 +104,7 @@ def resolve_voice(key: str, installed: Sequence[tuple[str, str]]) -> ResolvedVoi
     """Match a preset key to the best installed voice, falling back to Samantha, then default."""
     preset = preset_for(key) or preset_for(DEFAULT_VOICE_KEY)
     assert preset is not None
-    voice_id = _best_match(preset.apple_name, preset.locale, installed)
+    voice_id = _best_match(preset.voice_name, preset.locale, installed)
     if voice_id is not None:
         return ResolvedVoice(
             preset.key, preset.label, voice_id, voice_quality(voice_id)
@@ -101,7 +118,7 @@ def installed_keys(installed: Sequence[tuple[str, str]]) -> list[str]:
     return [
         p.key
         for p in PRESETS
-        if _best_match(p.apple_name, p.locale, installed) is not None
+        if _best_match(p.voice_name, p.locale, installed) is not None
     ]
 
 
@@ -120,3 +137,15 @@ def startup_voice_key(env: Mapping[str, str]) -> str:
         )
         return DEFAULT_VOICE_KEY
     return key
+
+
+def piper_voice_id(preset: VoicePreset) -> str:
+    """Return the id a Piper-backed speaker lists for this preset's model."""
+    tier = preset.model.rsplit("-", 1)[-1]
+    quality = "premium" if tier == "high" else "enhanced"
+    return f"{PIPER_ID_PREFIX}{quality}.{preset.locale}.{preset.voice_name}"
+
+
+def piper_model_path(preset: VoicePreset) -> Path:
+    """Return where this preset's Piper .onnx model lives once downloaded."""
+    return VOICE_MODEL_DIR / f"{preset.model}.onnx"

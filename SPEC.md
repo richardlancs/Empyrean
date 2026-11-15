@@ -52,7 +52,7 @@ This is the whole stack. Do not substitute or add to it without all four people 
 | Hand tracking | MediaPipe Hands | `vision/` |
 | Brand naming and hazard check | A Grok model that accepts images, called over the Grok API with `httpx` | `namer/`, `hazard/` |
 | Database | Tiger Data (managed Postgres with time-series hypertables), `psycopg` 3 driver | `storage/` |
-| Speech | `pyttsx3`, offline text to speech | `audio/` |
+| Speech | `piper-tts` neural voices played through the `pygame` mixer, offline; `pyttsx3` as the fallback (proposed 2026-11-14, needs all four teammates' agreement) | `audio/` |
 | Alarm sound | `pygame` mixer playing a pre-made WAV file | `audio/` |
 | Web server | FastAPI on Uvicorn | `dashboard/` |
 | Dashboard page | Minimal `index.html` loading native ES modules and plain CSS from `dashboard/static/`, layered as described in `docs/dashboard-redesign/`. MJPEG for video, one WebSocket for data. No front-end framework or build step | `dashboard/` |
@@ -216,7 +216,7 @@ Rules:
 - The speech queue holds one item. A newer item replaces a waiting older one. Stale speech is worse than no speech.
 - Spoken hazard phrases: `stairs_down` is "Stop. Stairs.", `drop_off` is "Stop. Drop ahead.", `vehicle` is "Stop. Vehicle.", `obstacle` is "Stop. Obstacle."
 - Text to speech runs offline on the laptop so speech never waits on the network.
-- Speech uses one of five voice presets at `SPEECH_RATE_WPM`: `ava` (Ava, default), `zoe` (Zoe), `evan` (Evan), `jamie` (Jamie), `matilda` (Matilda), backed by Apple Premium or Enhanced voices downloaded once on the demo Mac. `AUDIO_VOICE` in `.env` picks the startup voice; an unknown value falls back to `ava`. A preset whose voice is not installed speaks with Samantha and reports `fallback`.
+- Speech uses one of five offline Piper neural voice presets at `SPEECH_RATE_WPM`: `alba` (Alba, default), `kristin` (Kristin), `northern` (Northern English), `cori` (Cori), `lessac` (Lessac). The model files are downloaded once per laptop with `python -m audio.fetch_voices` into the git-ignored `audio/voice_models/`; after that nothing touches the network. Piper high-tier models report quality `premium`, medium-tier `enhanced`. `AUDIO_VOICE` in `.env` picks the startup voice; an unknown value falls back to `alba`. A preset whose model is missing, or a laptop without Piper, speaks with pyttsx3 (Samantha where available) and reports `fallback`. Hazard phrases are pre-rendered in the active voice so they never wait on synthesis; an alarm stops Piper playback at once.
 - A `VoiceChange` is applied between phrases on the speech worker, never mid-phrase and never ahead of a hazard. Audio answers with `VoiceStatus`, then says "This is <label>." at priority 3.
 - The alarm beeps are a pre-made sound file, not generated at run time.
 
@@ -429,7 +429,7 @@ A request to switch the spoken voice. Audio answers with `VoiceStatus`; a `Voice
 | Field | Type | Meaning |
 |---|---|---|
 | `ts` | number | When the switch was requested |
-| `voice` | text | Preset key: `ava`, `zoe`, `evan`, `jamie` or `matilda` |
+| `voice` | text | Preset key: `alba`, `kristin`, `northern`, `cori` or `lessac` |
 | `request_id` | text or empty | Optional; echoed by the `VoiceStatus` that answers it |
 
 ### `VoiceStatus` (audio to dashboard)

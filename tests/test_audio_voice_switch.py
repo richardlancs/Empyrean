@@ -13,7 +13,8 @@ from typing import Any
 import pytest
 
 from audio import audio as audio_module
-from audio.audio import AudioManager
+from audio.audio import HAZARD_PRERENDER, AudioManager
+from audio.voices import PRESETS, piper_voice_id
 from contracts import (
     HazardEvent,
     ModuleStatus,
@@ -25,13 +26,8 @@ from contracts import (
     VoiceStatus,
 )
 
-PREMIUM = {
-    "ava": ("com.apple.voice.premium.en-US.Ava", "Ava"),
-    "zoe": ("com.apple.voice.premium.en-US.Zoe", "Zoe (Premium)"),
-    "evan": ("com.apple.voice.enhanced.en-US.Evan", "Evan"),
-    "jamie": ("com.apple.voice.premium.en-GB.Jamie", "Jamie"),
-    "matilda": ("com.apple.voice.premium.en-AU.Matilda", "Matilda"),
-}
+PREMIUM = {p.key: (piper_voice_id(p), p.voice_name) for p in PRESETS}
+KEYS = ["alba", "kristin", "northern", "cori", "lessac"]
 SAMANTHA = ("com.apple.voice.compact.en-US.Samantha", "Samantha")
 
 
@@ -147,17 +143,17 @@ def manager(
 def test_startup_publishes_active_voice_without_sample(
     manager: AudioManager, speaker: VoiceSpeaker, published: list[Any]
 ) -> None:
-    """At startup: one active VoiceStatus for ava, the voice set, nothing spoken."""
+    """At startup: one active VoiceStatus for alba, the voice set, nothing spoken."""
     time.sleep(0.05)
     [status] = statuses(published)
     assert status.state == "active"
-    assert status.active_voice == "ava" and status.label == "Ava"
-    assert status.quality == "premium"
-    assert list(status.voices) == ["ava", "zoe", "evan", "jamie", "matilda"]
-    assert status.voices["jamie"] == "Jamie"
-    assert status.installed == ["ava", "zoe", "evan", "jamie", "matilda"]
+    assert status.active_voice == "alba" and status.label == "Alba"
+    assert status.quality == "enhanced"  # alba is a medium Piper model
+    assert list(status.voices) == KEYS
+    assert status.voices["cori"] == "Cori"
+    assert status.installed == KEYS
     assert status.request_id is None
-    assert speaker.set_calls == [PREMIUM["ava"][0]]
+    assert speaker.set_calls == [PREMIUM["alba"][0]]
     assert speaker.started == []
     module = [m for m in published if isinstance(m, ModuleStatus)]
     assert module and module[0].status == "active"
@@ -168,12 +164,12 @@ def test_startup_voice_from_constructor(
 ) -> None:
     """The voice argument picks the startup preset."""
     mgr = AudioManager(
-        lambda: speaker, alarm, publish=published.append, voice="matilda"
+        lambda: speaker, alarm, publish=published.append, voice="lessac"
     )
     try:
         assert wait_for(lambda: len(statuses(published)) == 1)
-        assert statuses(published)[0].active_voice == "matilda"
-        assert speaker.set_calls == [PREMIUM["matilda"][0]]
+        assert statuses(published)[0].active_voice == "lessac"
+        assert speaker.set_calls == [PREMIUM["lessac"][0]]
     finally:
         mgr.stop()
 
@@ -182,18 +178,18 @@ def test_switch_confirms_then_says_sample(
     manager: AudioManager, speaker: VoiceSpeaker, published: list[Any]
 ) -> None:
     """A switch sets the voice, confirms with the request id, then says the sample line."""
-    manager.on_voice_change(VoiceChange(1.0, "jamie", "r1"))
-    assert wait_for(lambda: speaker.finished == ["This is Jamie."])
+    manager.on_voice_change(VoiceChange(1.0, "cori", "r1"))
+    assert wait_for(lambda: speaker.finished == ["This is Cori."])
     confirm = statuses(published)[-1]
     assert confirm.state == "active"
-    assert confirm.active_voice == "jamie" and confirm.label == "Jamie"
-    assert confirm.request_id == "r1" and confirm.requested_voice == "jamie"
-    assert speaker.set_calls[-1] == PREMIUM["jamie"][0]
-    assert speaker.voice_at_start == [PREMIUM["jamie"][0]]
+    assert confirm.active_voice == "cori" and confirm.label == "Cori"
+    assert confirm.request_id == "r1" and confirm.requested_voice == "cori"
+    assert speaker.set_calls[-1] == PREMIUM["cori"][0]
+    assert speaker.voice_at_start == [PREMIUM["cori"][0]]
     sample = [
         m
         for m in published
-        if isinstance(m, SpeechStatus) and m.text == "This is Jamie."
+        if isinstance(m, SpeechStatus) and m.text == "This is Cori."
     ]
     assert sample[0].kind == "answer" and sample[0].source == "audio"
 
@@ -207,17 +203,17 @@ def test_switch_waits_for_current_phrase(
         SpeakRequest(time.time(), "Your keys are on the table.", "normal", "namer")
     )
     assert wait_for(lambda: speaker.started == ["Your keys are on the table."])
-    manager.on_voice_change(VoiceChange(1.0, "zoe", "r1"))
+    manager.on_voice_change(VoiceChange(1.0, "kristin", "r1"))
     time.sleep(0.1)
-    assert speaker.set_calls == [PREMIUM["ava"][0]]
+    assert speaker.set_calls == [PREMIUM["alba"][0]]
     assert len(statuses(published)) == 1
     speaker.gate.set()
     assert wait_for(
-        lambda: speaker.finished == ["Your keys are on the table.", "This is Zoe."]
+        lambda: speaker.finished == ["Your keys are on the table.", "This is Kristin."]
     )
     assert speaker.cut_off == []
-    assert speaker.set_calls[-1] == PREMIUM["zoe"][0]
-    assert statuses(published)[-1].active_voice == "zoe"
+    assert speaker.set_calls[-1] == PREMIUM["kristin"][0]
+    assert statuses(published)[-1].active_voice == "kristin"
 
 
 def test_hazard_during_switch_outranks_sample(
@@ -227,16 +223,16 @@ def test_hazard_during_switch_outranks_sample(
     speaker.gate.clear()
     manager.on_speak(SpeakRequest(time.time(), "A long answer.", "normal", "namer"))
     assert wait_for(lambda: speaker.started == ["A long answer."])
-    manager.on_voice_change(VoiceChange(1.0, "evan", "r1"))
+    manager.on_voice_change(VoiceChange(1.0, "northern", "r1"))
     manager.on_hazard(HazardEvent(time.time(), "stairs_down", "grok", 0.9))
     assert alarm.plays == 1
     assert wait_for(lambda: len(speaker.started) == 2)
     assert speaker.started[1] == "Stop. Stairs."
-    assert speaker.voice_at_start[1] == PREMIUM["evan"][0]
+    assert speaker.voice_at_start[1] == PREMIUM["northern"][0]
     speaker.gate.set()
     assert wait_for(lambda: "Stop. Stairs." in speaker.finished)
     time.sleep(0.05)
-    assert "This is Evan." not in speaker.finished
+    assert "This is Northern English." not in speaker.finished
     assert speaker.cut_off == ["A long answer."]
 
 
@@ -245,13 +241,13 @@ def test_hazard_right_after_switch_cuts_sample(
 ) -> None:
     """A hazard while the sample line plays cuts it off; the phrase follows in the new voice."""
     speaker.gate.clear()
-    manager.on_voice_change(VoiceChange(1.0, "evan", "r1"))
-    assert wait_for(lambda: speaker.started == ["This is Evan."])
+    manager.on_voice_change(VoiceChange(1.0, "northern", "r1"))
+    assert wait_for(lambda: speaker.started == ["This is Northern English."])
     manager.on_hazard(HazardEvent(time.time(), "vehicle", "yolo", 0.9))
     assert alarm.plays == 1
     assert wait_for(lambda: speaker.started[-1:] == ["Stop. Vehicle."])
-    assert speaker.cut_off == ["This is Evan."]
-    assert speaker.voice_at_start[-1] == PREMIUM["evan"][0]
+    assert speaker.cut_off == ["This is Northern English."]
+    assert speaker.voice_at_start[-1] == PREMIUM["northern"][0]
 
 
 def test_newest_pending_switch_wins(
@@ -261,14 +257,14 @@ def test_newest_pending_switch_wins(
     speaker.gate.clear()
     manager.on_speak(SpeakRequest(time.time(), "Busy.", "normal", "namer"))
     assert wait_for(lambda: speaker.started == ["Busy."])
-    manager.on_voice_change(VoiceChange(1.0, "zoe", "r1"))
-    manager.on_voice_change(VoiceChange(1.1, "matilda", "r2"))
+    manager.on_voice_change(VoiceChange(1.0, "kristin", "r1"))
+    manager.on_voice_change(VoiceChange(1.1, "lessac", "r2"))
     speaker.gate.set()
-    assert wait_for(lambda: speaker.finished == ["Busy.", "This is Matilda."])
+    assert wait_for(lambda: speaker.finished == ["Busy.", "This is Lessac."])
     time.sleep(0.05)
     confirmed = [s for s in statuses(published) if s.request_id is not None]
-    assert [(s.active_voice, s.request_id) for s in confirmed] == [("matilda", "r2")]
-    assert PREMIUM["zoe"][0] not in speaker.set_calls
+    assert [(s.active_voice, s.request_id) for s in confirmed] == [("lessac", "r2")]
+    assert PREMIUM["kristin"][0] not in speaker.set_calls
 
 
 def test_unknown_voice_fails_without_change(
@@ -280,10 +276,10 @@ def test_unknown_voice_fails_without_change(
     failed = statuses(published)[-1]
     assert failed.state == "failed"
     assert failed.requested_voice == "bob" and failed.request_id == "r2"
-    assert failed.active_voice == "ava" and failed.label == "Ava"
+    assert failed.active_voice == "alba" and failed.label == "Alba"
     assert "Unknown voice" in failed.detail
     time.sleep(0.05)
-    assert speaker.set_calls == [PREMIUM["ava"][0]]
+    assert speaker.set_calls == [PREMIUM["alba"][0]]
     assert speaker.started == []
 
 
@@ -297,7 +293,7 @@ def test_missing_voice_reports_fallback(
         assert wait_for(lambda: len(statuses(published)) == 1)
         status = statuses(published)[0]
         assert status.quality == "fallback" and status.installed == []
-        assert status.active_voice == "ava"
+        assert status.active_voice == "alba"
         assert "Samantha" in status.detail
         assert speaker.set_calls == [SAMANTHA[0]]
         module = [m for m in published if isinstance(m, ModuleStatus)]
@@ -315,7 +311,7 @@ def test_voice_handler_never_waits_on_speech(
     speaker.gate.clear()
     manager.on_speak(SpeakRequest(time.time(), "Busy.", "normal", "namer"))
     assert wait_for(lambda: speaker.started == ["Busy."])
-    for key in ("zoe", "bob"):
+    for key in ("kristin", "bob"):
         start = time.monotonic()
         manager.on_voice_change(VoiceChange(time.time(), key, None))
         assert time.monotonic() - start < 0.05
@@ -341,9 +337,9 @@ def test_register_subscribes_voice_change_after_hazard(
     monkeypatch: pytest.MonkeyPatch, speaker: VoiceSpeaker
 ) -> None:
     """register(bus) keeps HazardEvent first and adds VoiceChange last; AUDIO_VOICE picks."""
-    monkeypatch.setattr(audio_module, "Pyttsx3Speaker", lambda: speaker)
+    monkeypatch.setattr(audio_module, "HybridSpeaker", lambda: speaker)
     monkeypatch.setattr(audio_module, "load_alarm", RecordingAlarm)
-    monkeypatch.setenv("AUDIO_VOICE", "Jamie")
+    monkeypatch.setenv("AUDIO_VOICE", "Cori")
     bus = RecordingBus()
     mgr = audio_module.register(bus)
     try:
@@ -355,7 +351,7 @@ def test_register_subscribes_voice_change_after_hazard(
             VoiceChange,
         ]
         assert wait_for(lambda: len(statuses(bus.published)) == 1)
-        assert statuses(bus.published)[0].active_voice == "jamie"
+        assert statuses(bus.published)[0].active_voice == "cori"
     finally:
         mgr.stop()
 
@@ -371,17 +367,82 @@ def test_fake_audio_register_switches_voice(capsys: pytest.CaptureFixture[str]) 
         assert bus.subscriptions[-1] is VoiceChange
         assert wait_for(lambda: len(statuses(bus.published)) == 1)
         first = statuses(bus.published)[0]
-        assert first.installed == ["ava", "zoe", "evan", "jamie", "matilda"]
-        assert first.quality == "premium"
-        mgr.on_voice_change(VoiceChange(1.0, "matilda", "r1"))
+        assert first.installed == KEYS
+        assert first.quality == "enhanced"
+        mgr.on_voice_change(VoiceChange(1.0, "lessac", "r1"))
         assert wait_for(lambda: len(statuses(bus.published)) == 2)
-        assert statuses(bus.published)[-1].active_voice == "matilda"
+        assert statuses(bus.published)[-1].active_voice == "lessac"
         out: list[str] = []
         assert wait_for(
             lambda: (
                 out.append(capsys.readouterr().out)
-                or "voice: fake.premium.en-AU.Matilda" in "".join(out)
+                or "voice: piper.premium.en-US.Lessac" in "".join(out)
             )
         )
+    finally:
+        mgr.stop()
+
+
+class PreparingSpeaker(VoiceSpeaker):
+    """Also records prepare() calls, with the voice active at each call."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.prepared: list[tuple[str | None, list[str]]] = []
+
+    def prepare(self, texts: list[str]) -> None:
+        """Record the phrases to pre-render; returns at once like the real speaker."""
+        with self.lock:
+            self.prepared.append((self.set_calls[-1] if self.set_calls else None, list(texts)))
+
+
+def test_prepare_hazard_phrases_after_startup_and_switch(
+    alarm: RecordingAlarm, published: list[Any]
+) -> None:
+    """Every applied voice is followed by prepare() with all hazard phrases."""
+    speaker = PreparingSpeaker()
+    mgr = AudioManager(lambda: speaker, alarm, publish=published.append)
+    try:
+        assert wait_for(lambda: len(speaker.prepared) == 1)
+        expected = [
+            "Stop. Stairs.",
+            "Stop. Drop ahead.",
+            "Stop. Vehicle.",
+            "Stop. Obstacle.",
+            "Stop.",
+        ]
+        assert HAZARD_PRERENDER == expected
+        assert speaker.prepared[0] == (PREMIUM["alba"][0], expected)
+        mgr.on_voice_change(VoiceChange(1.0, "cori", "r1"))
+        assert wait_for(lambda: len(speaker.prepared) == 2)
+        assert speaker.prepared[1] == (PREMIUM["cori"][0], expected)
+    finally:
+        mgr.stop()
+
+
+class FailingSwitchSpeaker(PreparingSpeaker):
+    """set_voice raises for one voice, like a Piper model that will not load."""
+
+    def set_voice(self, voice_id: str | None) -> None:
+        """Fail for Cori; record the rest."""
+        if voice_id == PREMIUM["cori"][0]:
+            raise RuntimeError("model will not load")
+        super().set_voice(voice_id)
+
+
+def test_failed_voice_load_reports_failed_and_skips_prepare(
+    alarm: RecordingAlarm, published: list[Any]
+) -> None:
+    """A set_voice error gives a failed VoiceStatus and no prepare for that voice."""
+    speaker = FailingSwitchSpeaker()
+    mgr = AudioManager(lambda: speaker, alarm, publish=published.append)
+    try:
+        assert wait_for(lambda: len(statuses(published)) == 1)
+        mgr.on_voice_change(VoiceChange(1.0, "cori", "r9"))
+        assert wait_for(lambda: len(statuses(published)) == 2)
+        failed = statuses(published)[-1]
+        assert failed.state == "failed" and failed.request_id == "r9"
+        assert failed.active_voice == "alba"
+        assert len(speaker.prepared) == 1
     finally:
         mgr.stop()

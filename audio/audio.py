@@ -24,7 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from audio.backends import LogSpeaker, Pyttsx3Speaker, load_alarm
+from audio.backends import HybridSpeaker, LogSpeaker, load_alarm
 from audio.voices import (
     DEFAULT_VOICE_KEY,
     FALLBACK_NAME,
@@ -57,6 +57,8 @@ HAZARD_PHRASES: dict[str, str] = {
     "obstacle": "Stop. Obstacle.",
 }
 FALLBACK_HAZARD_PHRASE = "Stop."
+# Rendered ahead after every voice change, so a hazard phrase starts at once.
+HAZARD_PRERENDER: list[str] = [*HAZARD_PHRASES.values(), FALLBACK_HAZARD_PHRASE]
 
 # Lower number wins, SPEC.md section 4.8.
 PRIORITY_ALARM = 1
@@ -94,6 +96,9 @@ class Speaker(Protocol):
 
     def set_voice(self, voice_id: str | None) -> None:
         """Use voice_id for later phrases; optional, read through getattr."""
+
+    def prepare(self, texts: list[str]) -> None:
+        """Pre-render texts in the background without blocking; optional, via getattr."""
 
 
 class Alarm(Protocol):
@@ -427,6 +432,12 @@ class AudioManager:
         set_voice = getattr(speaker, "set_voice", None)
         if set_voice is not None:
             set_voice(resolved.voice_id)
+        prepare = getattr(speaker, "prepare", None)
+        if prepare is not None:
+            try:  # returns at once: rendering happens on the speaker's own thread
+                prepare(list(HAZARD_PRERENDER))
+            except Exception:
+                log.exception("Pre-rendering the hazard phrases failed")
         with self._cond:
             self._active_voice = resolved
             self._installed = installed_keys(installed)
@@ -657,7 +668,7 @@ def _voice_detail(resolved: ResolvedVoice) -> str:
 def register(bus: Any) -> AudioManager:
     """Subscribe the audio manager to the bus, HazardEvent first, and return it."""
     manager = AudioManager(
-        Pyttsx3Speaker,
+        HybridSpeaker,
         load_alarm(),
         publish=bus.publish,
         voice=startup_voice_key(os.environ),

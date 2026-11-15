@@ -366,7 +366,7 @@ def test_register_subscribes_hazard_first(
     monkeypatch: pytest.MonkeyPatch, speaker: RecordingSpeaker
 ) -> None:
     """register(bus) subscribes the five input types, HazardEvent first, VoiceChange last."""
-    monkeypatch.setattr(audio_module, "Pyttsx3Speaker", lambda: speaker)
+    monkeypatch.setattr(audio_module, "HybridSpeaker", lambda: speaker)
     monkeypatch.setattr(audio_module, "load_alarm", RecordingAlarm)
     bus = RecordingBus()
     mgr = audio_module.register(bus)

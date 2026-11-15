@@ -2,3 +2,6 @@
 # Move these into the root requirements file once it exists.
 pyttsx3==2.99
 pygame==2.6.1
+# New to the stack: needs all four teammates' agreement (AGENTS.md rule 8).
+# Offline Piper neural voices; brings onnxruntime with it. Models: python -m audio.fetch_voices
+piper-tts==1.8.0
