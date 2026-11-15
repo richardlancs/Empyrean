@@ -238,7 +238,7 @@ def test_set_voice_loads_once_and_caches(
     fake_piper: Any, system: Any, models: Path, record: dict[str, Any]
 ) -> None:
     """Switching back to a loaded voice does not load its model again."""
-    speaker = backends.HybridSpeaker()
+    speaker = backends.HybridSpeaker(preload=False)
     speaker.set_voice(pid("alba"))
     speaker.set_voice(pid("cori"))
     speaker.set_voice(pid("alba"))
@@ -458,3 +458,53 @@ def test_trim_silence_cuts_piper_padding() -> None:
     assert trimmed[lead] == 5000
     quiet = np.zeros(50, np.int16)
     assert len(backends._trim_silence(np, quiet, rate)) == 50
+
+
+def test_prerender_waits_while_live_speech_synthesises() -> None:
+    """Pre-rendering pauses between sentences while live speech is synthesising."""
+    speaker = backends.HybridSpeaker.__new__(backends.HybridSpeaker)
+    speaker._synth_lock = threading.Lock()
+    speaker._live = threading.Event()
+    speaker._live_count = 0
+    speaker._live_lock = threading.Lock()
+    speaker._rate = 165
+    speaker._piper = types.SimpleNamespace(SynthesisConfig=lambda **kw: kw)
+    voice = types.SimpleNamespace(synthesize=lambda text, syn_config=None: iter(["s1", "s2"]))
+    speaker._mark_live(+1)
+    got: list[str] = []
+    worker = threading.Thread(
+        target=lambda: got.extend(speaker._synth_chunks(voice, "x", yield_to_live=True))
+    )
+    worker.start()
+    time.sleep(0.05)
+    assert got == []  # held back while live speech runs
+    speaker._mark_live(-1)
+    worker.join(1.0)
+    assert got == ["s1", "s2"]
+
+
+def test_new_prepare_cancels_the_old_one() -> None:
+    """A cancelled pre-render stops before its next sentence."""
+    speaker = backends.HybridSpeaker.__new__(backends.HybridSpeaker)
+    speaker._synth_lock = threading.Lock()
+    speaker._live = threading.Event()
+    speaker._rate = 165
+    speaker._piper = types.SimpleNamespace(SynthesisConfig=lambda **kw: kw)
+    voice = types.SimpleNamespace(synthesize=lambda text, syn_config=None: iter(["s1", "s2"]))
+    cancel = threading.Event()
+    cancel.set()
+    assert list(speaker._synth_chunks(voice, "x", cancel, yield_to_live=True)) == []
+
+
+def test_downloaded_models_preload_in_background(
+    fake_piper: Any, system: Any, models: Path, record: dict[str, Any]
+) -> None:
+    """Every downloaded model is loaded off the speech worker, once; a switch then loads nothing."""
+    speaker = backends.HybridSpeaker()
+    assert wait_for(lambda: len(record["loads"]) == 2)
+    speaker.set_voice(pid("cori"))
+    assert sorted(record["loads"]) == sorted(set(record["loads"]))
+    assert len(record["loads"]) == 2
+    backends.HybridSpeaker(preload=False)
+    time.sleep(0.05)
+    assert len(record["loads"]) == 2

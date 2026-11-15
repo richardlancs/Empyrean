@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from collections.abc import Sequence
 
 from audio.backends import HybridSpeaker
@@ -103,7 +104,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     try:
-        speaker = HybridSpeaker()
+        speaker = HybridSpeaker(preload=False)
     except Exception:
         LOGGER.exception(
             "No speech engine. Install audio/requirements.txt with Python 3.11 "
@@ -116,9 +117,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.list_voices:
             for preset in PRESETS:
                 resolved = resolve_voice(preset.key, voices)
-                print(
+                sys.stdout.write(
                     f"{preset.key}\t{preset.label}\t"
-                    f"{resolved.voice_id or '(system default)'}\t{resolved.quality}"
+                    f"{resolved.voice_id or '(system default)'}\t{resolved.quality}\n"
                 )
             if not (args.all or text):
                 return 0

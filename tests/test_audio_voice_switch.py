@@ -219,7 +219,11 @@ def test_switch_waits_for_current_phrase(
 def test_hazard_during_switch_outranks_sample(
     manager: AudioManager, speaker: VoiceSpeaker, alarm: RecordingAlarm
 ) -> None:
-    """A hazard during a pending switch beeps at once and is spoken in the new voice."""
+    """A hazard during a pending switch beeps at once and is spoken before the switch runs.
+
+    Applying a switch may load a voice model (about 1 s), so it never runs ahead
+    of a waiting hazard phrase; the phrase uses the voice already loaded.
+    """
     speaker.gate.clear()
     manager.on_speak(SpeakRequest(time.time(), "A long answer.", "normal", "namer"))
     assert wait_for(lambda: speaker.started == ["A long answer."])
@@ -228,12 +232,12 @@ def test_hazard_during_switch_outranks_sample(
     assert alarm.plays == 1
     assert wait_for(lambda: len(speaker.started) == 2)
     assert speaker.started[1] == "Stop. Stairs."
-    assert speaker.voice_at_start[1] == PREMIUM["northern"][0]
+    assert speaker.voice_at_start[1] == PREMIUM["alba"][0]
     speaker.gate.set()
     assert wait_for(lambda: "Stop. Stairs." in speaker.finished)
-    time.sleep(0.05)
-    assert "This is Northern English." not in speaker.finished
     assert speaker.cut_off == ["A long answer."]
+    # The switch is applied once the hazard phrase is done.
+    assert wait_for(lambda: speaker.set_calls[-1:] == [PREMIUM["northern"][0]])
 
 
 def test_hazard_right_after_switch_cuts_sample(

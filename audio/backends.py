@@ -180,8 +180,12 @@ class HybridSpeaker:
 
     mode = "real"  # drives a real speech engine; still does not prove anyone heard it
 
-    def __init__(self, rate: int = SPEECH_RATE_WPM) -> None:
-        """Start pyttsx3 and Piper where possible; raise if neither can speak."""
+    def __init__(self, rate: int = SPEECH_RATE_WPM, preload: bool = True) -> None:
+        """Start pyttsx3 and Piper where possible; raise if neither can speak.
+
+        preload loads every downloaded model in the background (the app wants
+        this; a one-shot command line does not).
+        """
         self._rate = rate
         self._system: Pyttsx3Speaker | None = None
         try:
@@ -210,6 +214,18 @@ class HybridSpeaker:
         # espeak-ng phonemisation inside Piper is not known to be thread-safe, so
         # the worker and prepare() take turns, one sentence at a time.
         self._synth_lock = threading.Lock()
+        # Live speech outranks pre-rendering: while it is set, prepare() pauses
+        # between sentences. A newer prepare() cancels the older one.
+        self._live = threading.Event()
+        self._live_count = 0
+        self._live_lock = threading.Lock()
+        self._prepare_cancel = threading.Event()
+        # Loading a model takes about 1 s. Every downloaded model is loaded once on
+        # a background thread at startup, so a later switch does not hold up the
+        # speech worker (and the hazard phrase behind it). Costs RAM per model.
+        self._load_lock = threading.Lock()
+        if preload and self._piper is not None:
+            threading.Thread(target=self._preload, name="audio-preload", daemon=True).start()
 
     def installed_voices(self) -> list[tuple[str, str]]:
         """Return Piper presets whose model file exists, then the pyttsx3 system voices."""
@@ -236,9 +252,7 @@ class HybridSpeaker:
             )
             if preset is None or self._piper is None:
                 raise ValueError(f"Piper voice {voice_id!r} is not available")
-            if preset.model not in self._loaded:
-                path = voices.piper_model_path(preset)
-                self._loaded[preset.model] = self._piper.PiperVoice.load(str(path))
+            self._load(preset)
             self._active = preset
             return
         self._active = None
@@ -256,16 +270,22 @@ class HybridSpeaker:
             return
         voice = self._loaded[preset.model]
         wanted = [t for t in dict.fromkeys(texts) if t]
+        self._prepare_cancel.set()  # stop an older prepare(), e.g. for the previous voice
+        cancel = threading.Event()
+        self._prepare_cancel = cancel
 
         def render() -> None:
-            """Fill the cache one phrase at a time; stop at the first failure."""
+            """Fill the cache one phrase at a time; stop at the first failure or on cancel."""
             for text in wanted:
                 key = (preset.model, text)
                 with self._cache_lock:
                     if key in self._sounds:
                         continue
                 try:
-                    sound = self._make_sound(list(self._synth_chunks(voice, text)))
+                    chunks = list(self._synth_chunks(voice, text, cancel, yield_to_live=True))
+                    if cancel.is_set():
+                        return
+                    sound = self._make_sound(chunks)
                 except Exception:
                     log.exception("Pre-rendering %r failed; it will be synthesised live", text)
                     return
@@ -301,16 +321,45 @@ class HybridSpeaker:
 
     # Internals.
 
+    def _load(self, preset: voices.VoicePreset) -> Any:
+        """Return this preset's PiperVoice, loading it once; waits if the preloader has it."""
+        with self._load_lock:
+            if preset.model not in self._loaded:
+                path = voices.piper_model_path(preset)
+                self._loaded[preset.model] = self._piper.PiperVoice.load(str(path))
+            return self._loaded[preset.model]
+
+    def _preload(self) -> None:
+        """Load every downloaded Piper model in the background, one at a time."""
+        for preset in voices.PRESETS:
+            if preset.model and voices.piper_model_path(preset).is_file():
+                try:
+                    self._load(preset)
+                except Exception:
+                    log.exception("Preloading voice %s failed", preset.label)
+
     def _synth_config(self) -> Any:
         """Build the SynthesisConfig that matches the calm speech rate."""
         return self._piper.SynthesisConfig(length_scale=PIPER_NATURAL_WPM / self._rate)
 
     def _synth_chunks(
-        self, voice: Any, text: str, cancel: threading.Event | None = None
+        self,
+        voice: Any,
+        text: str,
+        cancel: threading.Event | None = None,
+        yield_to_live: bool = False,
     ) -> Iterable[Any]:
-        """Yield Piper AudioChunks one sentence at a time, holding the synth lock per step."""
+        """Yield Piper AudioChunks one sentence at a time, holding the synth lock per step.
+
+        With yield_to_live (pre-rendering), wait before each sentence while live
+        speech is synthesising, so a live hazard phrase never queues behind it.
+        """
         stream = iter(voice.synthesize(text, syn_config=self._synth_config()))
         while cancel is None or not cancel.is_set():
+            while yield_to_live and self._live.is_set():
+                if cancel is not None and cancel.is_set():
+                    return
+                time.sleep(POLL_SECONDS)
             with self._synth_lock:
                 chunk = next(stream, None)
             if chunk is None:
@@ -350,6 +399,15 @@ class HybridSpeaker:
                 return
             time.sleep(POLL_SECONDS)
 
+    def _mark_live(self, delta: int) -> None:
+        """Count live syntheses; pre-rendering pauses while any is running."""
+        with self._live_lock:
+            self._live_count += delta
+            if self._live_count > 0:
+                self._live.set()
+            else:
+                self._live.clear()
+
     def _stream(self, voice: Any, text: str, should_stop: Callable[[], bool]) -> None:
         """Synthesise on a helper thread and play each sentence as soon as it is ready.
 
@@ -361,11 +419,14 @@ class HybridSpeaker:
 
         def produce() -> None:
             """Render sentences into the queue until done, failed or cancelled."""
+            self._mark_live(+1)
             try:
                 for chunk in self._synth_chunks(voice, text, cancel):
                     chunks.put(self._make_sound([chunk]))
             except Exception as exc:  # noqa: BLE001 - re-raised by say() on the worker
                 chunks.put(exc)
+            finally:
+                self._mark_live(-1)
             chunks.put(_DONE)
 
         threading.Thread(target=produce, name="audio-piper", daemon=True).start()

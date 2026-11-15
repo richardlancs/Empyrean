@@ -519,8 +519,9 @@ class AudioManager:
     def _next_item(self) -> _Item | _VoiceSwitch | None:
         """Block until a voice switch is pending or an item is due. None once stopped.
 
-        A pending switch is returned first, so it is applied before the next
-        phrase, including a hazard phrase still waiting out its beeps.
+        A waiting hazard phrase always goes first: a switch (which may load a
+        voice model) never runs ahead of it. Otherwise a pending switch is
+        returned before the next phrase, so that phrase uses the new voice.
         """
         with self._cond:
             state = self._state
@@ -531,7 +532,8 @@ class AudioManager:
                     self._cond.wait()
                 if state.closed:
                     return None
-                if state.pending_voice is not None:
+                hazard_waiting = state.slot is not None and state.slot.priority == PRIORITY_ALARM
+                if state.pending_voice is not None and not hazard_waiting:
                     key, request_id = state.pending_voice
                     state.pending_voice = None
                     return _VoiceSwitch(key, request_id)
