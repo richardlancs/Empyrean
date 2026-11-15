@@ -87,6 +87,7 @@ class DashboardState:
         self.detector_mode: Any = None  # DetectorModeService; None means no switching
         self.questions: Any = None  # QuestionService; None means no question panel
         self.voice: Any = None  # VoiceService; None means no voice picker
+        self.demo_alert: Any = None  # DemoAlertService; attached by the composition layer
 
     def add_listener(self, listener: Callable[[], None]) -> None:
         """Call listener (from the updating thread) after every change."""

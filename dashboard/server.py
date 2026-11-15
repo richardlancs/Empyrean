@@ -29,6 +29,7 @@ from dashboard.api.realtime import ClientHub, build_realtime_router
 from dashboard.api.routes import INDEX_PATH, build_router
 from dashboard.assets import ASSET_PREFIX, RevalidatedStaticFiles
 from dashboard.services.container import DashboardServices
+from dashboard.services.demo_alert import DemoAlertService
 from dashboard.services.detector_mode import DetectorModeService
 from dashboard.services.heartbeat import Heartbeat
 from dashboard.services.last_seen import LastSeenService
@@ -66,6 +67,7 @@ class Dashboard:
         detector_mode: DetectorModeService | None = None,
         questions: QuestionService | None = None,
         voice: VoiceService | None = None,
+        demo_alert: DemoAlertService | None = None,
     ) -> None:
         """Hold the services; call serve() to start the web page."""
         self.state = state
@@ -81,6 +83,8 @@ class Dashboard:
         self.state.questions = self.questions
         self.voice = voice if voice is not None else VoiceService(None)
         self.state.voice = self.voice
+        self.demo_alert = demo_alert if demo_alert is not None else DemoAlertService(None)
+        self.state.demo_alert = self.demo_alert
         self.heartbeat = Heartbeat(self.tick)
         self._server: Any = None
         self._thread: threading.Thread | None = None
@@ -90,7 +94,7 @@ class Dashboard:
         """The services the routes call into."""
         return DashboardServices(
             self.state, self.video, self.last_seen, self.thumbnails, self.detector_mode,
-            self.questions, self.voice,
+            self.questions, self.voice, self.demo_alert,
         )
 
     def tick(self) -> None:
@@ -167,6 +171,7 @@ def register(
         detector_mode=DetectorModeService(bus.publish),
         questions=_questions(bus.publish, state, last_seen),
         voice=VoiceService(bus.publish),
+        demo_alert=DemoAlertService(bus.publish),
     )
     bus_adapter.connect(bus, dashboard.services)
     if serve:
@@ -183,6 +188,7 @@ def create_app(
     detector_mode: DetectorModeService | None = None,
     questions: QuestionService | None = None,
     voice: VoiceService | None = None,
+    demo_alert: DemoAlertService | None = None,
 ) -> FastAPI:
     """Build the dashboard web app (new empty services for anything not given)."""
     state = state if state is not None else DashboardState()
@@ -194,9 +200,11 @@ def create_app(
     state.questions = questions
     voice = _first(voice, state.voice, lambda: VoiceService(None))
     state.voice = voice
+    demo_alert = _first(demo_alert, state.demo_alert, lambda: DemoAlertService(None))
+    state.demo_alert = demo_alert
     video = video if video is not None else VideoFeed()
     return _build_app(
-        DashboardServices(state, video, last_seen, thumbnails, detector_mode, questions, voice)
+        DashboardServices(state, video, last_seen, thumbnails, detector_mode, questions, voice, demo_alert)
     )
 
 

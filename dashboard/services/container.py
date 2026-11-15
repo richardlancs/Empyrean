@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from dashboard.services.demo_alert import DemoAlertService
 from dashboard.services.detector_mode import DetectorModeService
 from dashboard.services.last_seen import LastSeenService
 from dashboard.services.questions import QuestionService
@@ -25,3 +26,4 @@ class DashboardServices:
     questions: QuestionService
     # Last and defaulted, so older positional constructions still work.
     voice: VoiceService = field(default_factory=lambda: VoiceService(None))
+    demo_alert: DemoAlertService = field(default_factory=lambda: DemoAlertService(None))

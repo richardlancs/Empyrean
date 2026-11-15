@@ -28,7 +28,7 @@ function fullscreenApi(node) {
  * onStream(status) with "loading" | "loaded" | "error";
  * onOption(name, value) for boxes | hands | labels | fit;
  * onDetector(mode) when the Regular | Demo control is chosen.
- * onDemoAlert() requests the existing dashboard-only simulated warning.
+ * onDemoAlert() requests a stairs HazardEvent through the live alarm path.
  */
 export function createCameraPanel(root, { onStream, onOption, onDetector = () => {}, onDemoAlert = () => {} }) {
   const headingId = uniqueId("experience-camera-heading");
@@ -54,7 +54,7 @@ export function createCameraPanel(root, { onStream, onOption, onDetector = () =>
     type: "button",
     class: "experience-button experience-button-primary experience-button-demo-alert",
     text: "Demo alert",
-    title: "Show a simulated warning on this dashboard. No alarm sounds.",
+    title: "Play the stairs alarm and Stop. Stairs. through the speaker. Interrupts speech and logs a hazard.",
     "aria-describedby": demoStatusId,
   });
   const demoStatus = el("p", {
@@ -72,10 +72,10 @@ export function createCameraPanel(root, { onStream, onOption, onDetector = () =>
     demoButton.setAttribute("aria-disabled", "true");
     demoButton.setAttribute("aria-busy", "true");
     demoStatus.hidden = false;
-    setText(demoStatus, "Adding a demo alert…");
+    setText(demoStatus, "Requesting the stairs alarm…");
     try {
       await onDemoAlert();
-      if (!destroyed) setText(demoStatus, "Demo alert added. No alarm sounded and nothing was saved.");
+      if (!destroyed) setText(demoStatus, "Stairs alarm requested through the live hazard system.");
     } catch (error) {
       if (!destroyed) setText(demoStatus, error?.message || "Could not add the demo alert. Try again.");
     } finally {

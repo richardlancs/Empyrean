@@ -100,7 +100,7 @@ export function mountExperience(ctx) {
           render();
         },
         onDetector: (mode) => chooseDetector(mode),
-        onDemoAlert: () => ctx.request("/api/simulate-alert", { method: "POST" }),
+        onDemoAlert: () => ctx.request("/api/demo-alert", { method: "POST" }),
       })
     : null;
   // The language and voice pickers sit right under the Regular | Demo control in the camera card.

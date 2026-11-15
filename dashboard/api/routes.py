@@ -26,6 +26,7 @@ from dashboard.api.schemas import (
 )
 from dashboard.assets import page_html
 from dashboard.services.container import DashboardServices
+from dashboard.services.demo_alert import DemoAlertRejected
 from dashboard.services.detector_mode import ModeRejected
 from dashboard.services.last_seen import QueryRejected
 from dashboard.services.questions import QuestionRejected
@@ -86,6 +87,16 @@ def build_router(services: DashboardServices) -> APIRouter:
         """Add one simulated warning to the page only, and return the new state."""
         LOGGER.info("Simulated alert added to the dashboard (no bus message, no alarm)")
         return state.simulate_hazard()
+
+    @router.post("/api/demo-alert", status_code=202)
+    async def demo_alert() -> Any:
+        """Replay a stairs HazardEvent through audio, storage and the dashboard."""
+        try:
+            reply = services.demo_alert.request()
+        except DemoAlertRejected as exc:
+            return _error(exc.status_code, exc.message)
+        LOGGER.info("Demo stairs HazardEvent published; normal alarm and storage handlers will run")
+        return reply
 
     @router.post(
         "/api/last-seen",
