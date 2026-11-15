@@ -17,8 +17,12 @@ import {
   selectPip,
   selectSpeech,
   selectTouchCard,
+  selectVoice,
+  selectLanguage,
+  languageRequestVoice,
   videoUrl,
 } from "./selectors.js";
+import { createVoiceSwitch } from "./voice-switch.js";
 
 /** Re-render ages and freshness this often. Presentation only. */
 const TICK_MS = 1000;
@@ -77,6 +81,9 @@ export function mountExperience(ctx) {
   // This page's own detector request; the engine's DetectorStatus stays the truth.
   let detectorLocal = { sending: null, error: null, requestId: null, at: null };
   let detectorHandoff = null;
+  // This page's own voice request; audio's VoiceStatus stays the truth.
+  let voiceLocal = { sending: null, error: null, requestId: null, at: null };
+  let voiceHandoff = null;
 
   const touchCard = roots.touch ? createTouchCard(roots.touch) : null;
   const cameraPanel = roots.camera
@@ -95,6 +102,15 @@ export function mountExperience(ctx) {
         onDetector: (mode) => chooseDetector(mode),
       })
     : null;
+  // The language and voice pickers sit right under the Regular | Demo control in the camera card.
+  const voiceMount = document.createElement("div");
+  voiceMount.className = "experience-voice-mount";
+  const detectorMount = roots.camera?.querySelector(".experience-detector-mount") ?? null;
+  if (detectorMount) detectorMount.after(voiceMount);
+  const voiceSwitch = detectorMount ? createVoiceSwitch(voiceMount, {
+        onChoose: (key) => chooseVoice(key),
+        onChooseLanguage: (code) => chooseLanguage(code),
+      }) : null;
   const objectList = roots.objects
     ? createObjectList(roots.objects, {
         onSelect(id) {
@@ -146,6 +162,65 @@ export function mountExperience(ctx) {
           ? "The request did not reach the laptop."
           : error?.message || "The switch was refused.";
       detectorLocal = { sending: null, error: message, requestId: null, at: snapshot.state?.detector?.updated_ts ?? null };
+    }
+    render();
+  }
+
+  /**
+   * Ask audio for a voice. One request at a time; the picker keeps showing the
+   * confirmed voice until audio's VoiceStatus answers. Outcomes are read out by the
+   * picker's own status line.
+   */
+  function chooseVoice(key) {
+    const vm = selectVoice(snapshot, voiceLocal);
+    if (vm.locked || voiceLocal.sending || vm.value === key) return;
+    return requestVoice(key, null);
+  }
+
+  /**
+   * Ask audio for a language: the same request as the Voice select, for that
+   * language's first voice. Choosing the confirmed language sends nothing.
+   */
+  function chooseLanguage(code) {
+    const vm = selectLanguage(snapshot, voiceLocal);
+    if (vm.locked || voiceLocal.sending || vm.value === code) return;
+    const key = languageRequestVoice(snapshot, code);
+    if (!key) return;
+    return requestVoice(key, code);
+  }
+
+  /** POST one voice request; `language` is the code when the language picker asked. */
+  async function requestVoice(key, language) {
+    voiceLocal = { sending: key, error: null, requestId: null, at: null, language };
+    render();
+    try {
+      const reply = await ctx.request("/api/voice", { method: "POST", body: { voice: key } });
+      if (disposed) return;
+      if (reply?.state === "switching" && reply.request_id) {
+        // Stay locked until the shared state shows this request.
+        if (snapshot.state?.voice?.request_id === reply.request_id) {
+          voiceLocal = { sending: null, error: null, requestId: null, at: null };
+          render();
+          return;
+        }
+        voiceLocal = { ...voiceLocal, requestId: reply.request_id };
+        clearTimeout(voiceHandoff);
+        voiceHandoff = setTimeout(() => {
+          voiceHandoff = null;
+          voiceLocal = { sending: null, error: null, requestId: null, at: null };
+          render();
+        }, HANDOFF_MS);
+        return;
+      }
+      voiceLocal = { sending: null, error: null, requestId: null, at: null };
+    } catch (error) {
+      if (disposed) return;
+      const message = error?.status === 409
+        ? "Another voice switch is already in progress."
+        : error?.kind === "timeout" || error?.kind === "network"
+          ? "The request did not reach the laptop."
+          : error?.message || "The voice switch was refused.";
+      voiceLocal = { sending: null, error: message, requestId: null, at: snapshot.state?.voice?.updated_ts ?? null };
     }
     render();
   }
@@ -213,6 +288,7 @@ export function mountExperience(ctx) {
     const detectorVm = selectDetector(snapshot, detectorLocal);
     cameraPanel?.updateDetector(detectorVm);
     cameraPanel?.updatePip(selectPip(snapshot, cam, detectorVm, selectCurrentTouch(snapshot.state)));
+    voiceSwitch?.update(selectVoice(snapshot, voiceLocal), selectLanguage(snapshot, voiceLocal));
     objectList?.update(selectObjects(snapshot, prefs, nowMs));
     announceEvents(nowMs);
   }
@@ -230,6 +306,12 @@ export function mountExperience(ctx) {
       detectorHandoff = null;
       detectorLocal = { sending: null, error: null, requestId: null, at: null };
     }
+    const voiceRequestId = next.state?.voice?.request_id;
+    if (voiceLocal.requestId && (voiceRequestId === voiceLocal.requestId || !connected)) {
+      clearTimeout(voiceHandoff);
+      voiceHandoff = null;
+      voiceLocal = { sending: null, error: null, requestId: null, at: null };
+    }
     render();
   });
   const ticker = setInterval(render, TICK_MS);
@@ -240,6 +322,9 @@ export function mountExperience(ctx) {
     clearInterval(ticker);
     if (streamRetryTimer !== null) clearTimeout(streamRetryTimer);
     clearTimeout(detectorHandoff);
+    clearTimeout(voiceHandoff);
+    voiceSwitch?.destroy();
+    voiceMount.remove();
     touchCard?.destroy();
     cameraPanel?.destroy();
     objectList?.destroy();

@@ -20,6 +20,8 @@ from contracts.messages import (
     SpeechStatus,
     TouchEvent,
     TrackedObject,
+    VoiceChange,
+    VoiceStatus,
 )
 
 __all__ = [
@@ -42,4 +44,6 @@ __all__ = [
     "SpeechStatus",
     "TouchEvent",
     "TrackedObject",
+    "VoiceChange",
+    "VoiceStatus",
 ]

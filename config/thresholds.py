@@ -26,6 +26,7 @@ NAME_MIN_INTERVAL_SECONDS = 1.0  # namer
 NAME_TIMEOUT_SECONDS = 4.0  # namer
 NAME_MAX_CHARS = 40  # namer
 LATE_NAME_WINDOW_SECONDS = 1.5  # audio
+SPEECH_RATE_WPM = 165  # audio: calm speaking rate for every voice
 HAZARD_VEHICLE_MIN_AREA_FRACTION = 0.10  # hazard
 HAZARD_VEHICLE_GROWTH = 0.30  # hazard
 HAZARD_GROK_INTERVAL_SECONDS = 1.5  # hazard
@@ -40,6 +41,7 @@ CAMERA_STALE_SECONDS = 2.0  # dashboard: no frame for this long means stale
 LAST_SEEN_TIMEOUT_SECONDS = 8.0  # dashboard: longer than storage connect timeout
 THUMBNAIL_MAX_AGE_SECONDS = 30.0  # dashboard
 MODE_SWITCH_TIMEOUT_SECONDS = 30.0  # dashboard: no detector confirmation this long means failed
+VOICE_SWITCH_TIMEOUT_SECONDS = 10.0  # dashboard: no audio confirmation this long means failed
 
 __all__ = [
     "BOX_SHRINK_FRACTION",
@@ -74,8 +76,10 @@ __all__ = [
     "PROCESS_WIDTH",
     "QUESTION_MAX_FRAME_AGE_SECONDS",
     "QUESTION_TIMEOUT_SECONDS",
+    "SPEECH_RATE_WPM",
     "STABLE_FRAMES",
     "THUMBNAIL_MAX_AGE_SECONDS",
     "TOUCH_ENTER_FRAMES",
     "TOUCH_EXIT_FRAMES",
+    "VOICE_SWITCH_TIMEOUT_SECONDS",
 ]

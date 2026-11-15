@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from contracts import FrameResult, NameRequest, SceneQuestion
+from contracts import FrameResult, NameRequest, SceneQuestion, VoiceStatus
 from namer.namer import Namer, clean_name
 from namer.questions import SceneQuestions
 
@@ -18,4 +18,6 @@ def register(bus: Any) -> Namer:
     namer.questions = SceneQuestions(bus.publish)
     bus.subscribe(FrameResult, namer.questions.on_frame)
     bus.subscribe(SceneQuestion, namer.questions.on_question)
+    bus.subscribe(VoiceStatus, namer.on_voice_status)
+    bus.subscribe(VoiceStatus, namer.questions.on_voice_status)
     return namer

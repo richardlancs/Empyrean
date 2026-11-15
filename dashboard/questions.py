@@ -13,6 +13,8 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from contracts.languages import DEFAULT_LANGUAGE
+
 Intent = Literal["scene", "history"]
 
 HISTORY = re.compile(
@@ -24,6 +26,30 @@ SCENE_PENDING_ANSWER = "Checking the current camera view…"
 SCENE_BUSY_ANSWER = "Please wait for the current question to finish."
 SCENE_UNAVAILABLE_ANSWER = "I could not answer that right now. Please try again."
 HISTORY_UNAVAILABLE_ANSWER = "Touch history is unavailable right now."
+
+# Every sentence the dashboard itself may speak, per language (SPEC 4.8). Fixed
+# and offline; English is the constant above, byte for byte. Machine-drafted, so
+# a native speaker should review them before real use.
+SPOKEN_ANSWERS: dict[str, dict[str, str]] = {
+    SCENE_BUSY_ANSWER: {
+        "zh": "请等待当前问题回答完毕。",
+        "es": "Por favor, espera a que termine la pregunta actual.",
+        "fr": "Veuillez attendre la fin de la question en cours.",
+        "hi": "कृपया मौजूदा सवाल पूरा होने तक प्रतीक्षा करें।",
+    },
+    SCENE_UNAVAILABLE_ANSWER: {
+        "zh": "我现在无法回答。请再试一次。",
+        "es": "No pude responder a eso ahora. Inténtalo de nuevo.",
+        "fr": "Je n'ai pas pu répondre pour le moment. Veuillez réessayer.",
+        "hi": "मैं अभी इसका जवाब नहीं दे सका। कृपया फिर से कोशिश करें।",
+    },
+    HISTORY_UNAVAILABLE_ANSWER: {
+        "zh": "触摸记录现在无法使用。",
+        "es": "El historial de toques no está disponible ahora.",
+        "fr": "L'historique des contacts n'est pas disponible pour le moment.",
+        "hi": "छूने का इतिहास अभी उपलब्ध नहीं है।",
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -37,6 +63,13 @@ class ParsedQuestion:
 def normalize(text: str) -> str:
     """Lower-case, collapse spaces and drop surrounding punctuation."""
     return re.sub(r"\s+", " ", text.lower()).strip(" .?!")
+
+
+def spoken(answer: str, language: str) -> str:
+    """Return one of the dashboard's fixed answers in language (English if untranslated)."""
+    if language == DEFAULT_LANGUAGE:
+        return answer
+    return SPOKEN_ANSWERS.get(answer, {}).get(language, answer)
 
 
 def parse_question(text: str) -> ParsedQuestion:

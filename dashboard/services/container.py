@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from dashboard.services.detector_mode import DetectorModeService
 from dashboard.services.last_seen import LastSeenService
 from dashboard.services.questions import QuestionService
+from dashboard.services.voice_choice import VoiceService
 from dashboard.state import DashboardState
 from dashboard.thumbnails import ThumbnailCache
 from dashboard.video import VideoFeed
@@ -22,3 +23,5 @@ class DashboardServices:
     thumbnails: ThumbnailCache
     detector_mode: DetectorModeService
     questions: QuestionService
+    # Last and defaulted, so older positional constructions still work.
+    voice: VoiceService = field(default_factory=lambda: VoiceService(None))

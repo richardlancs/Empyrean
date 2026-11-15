@@ -2,12 +2,14 @@
 
 Run the demo:  .venv/bin/python -m fakes.storage.fake_store
 
-Consumes: TouchEvent, HazardEvent, LastSeenQuery (SPEC.md section 5).
+Consumes: TouchEvent, HazardEvent, LastSeenQuery, VoiceStatus (SPEC.md section 5).
 Publishes: SpeakRequest(priority="normal", source="storage") with the SPEC.md
 section 4.10 last-seen sentence, for example
 "Heinz ketchup, 4 minutes ago, next to mug and cereal box."
 A query with a request_id also gets a LastSeenResult (found or not_found; the
 fake is never unavailable). register() announces a ModuleStatus with mode "fake".
+Answers follow the language of audio's last VoiceStatus, captured when the
+query arrives, worded by the same tables as the real store.
 """
 
 from __future__ import annotations
@@ -24,7 +26,10 @@ from contracts import (
     ModuleStatus,
     SpeakRequest,
     TouchEvent,
+    VoiceStatus,
 )
+from contracts.languages import DEFAULT_LANGUAGE, known_language
+from storage.last_seen import format_answer
 
 NOT_SEEN = "I have not seen that."
 MAX_NEIGHBOURS = 3
@@ -50,8 +55,18 @@ def join_names(names: list[str]) -> str:
     return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
-def last_seen_sentence(event: TouchEvent | None, now: float) -> str:
+def last_seen_sentence(
+    event: TouchEvent | None, now: float, language: str = DEFAULT_LANGUAGE
+) -> str:
     """Build the spoken last-seen answer for one touch event, or the not-seen line."""
+    if language != DEFAULT_LANGUAGE:
+        row = None if event is None else {
+            "ts": min(event.ts, now),
+            "name": event.name,
+            "class_label": event.class_label,
+            "neighbours": [n for n in event.neighbours if n][:MAX_NEIGHBOURS],
+        }
+        return format_answer(row, now, language)
     if event is None:
         return NOT_SEEN
     label = event.name or event.class_label
@@ -71,6 +86,7 @@ class FakeStore:
         self._lock = threading.Lock()
         self.touch_events: list[TouchEvent] = []
         self.hazard_events: list[HazardEvent] = []
+        self.language = DEFAULT_LANGUAGE
 
     def on_touch_event(self, msg: TouchEvent) -> None:
         """Record a touch or release event."""
@@ -94,11 +110,19 @@ class FakeStore:
                 return event
         return None
 
+    def on_voice_status(self, msg: VoiceStatus) -> None:
+        """Remember the active voice's language."""
+        language = known_language(getattr(msg, "language", None))
+        with self._lock:
+            self.language = language
+
     def on_last_seen_query(self, msg: LastSeenQuery) -> None:
         """Answer a last-seen query with a SpeakRequest."""
+        with self._lock:
+            language = self.language
         now = time.time()
         match = self.find_last_seen(msg.text)
-        text = last_seen_sentence(match, now)
+        text = last_seen_sentence(match, now, language)
         self._publish(SpeakRequest(ts=now, text=text, priority="normal", source="storage"))
         request_id = getattr(msg, "request_id", None)
         if request_id is None:
@@ -125,6 +149,7 @@ def register(bus: Any) -> FakeStore:
     bus.subscribe(TouchEvent, store.on_touch_event)
     bus.subscribe(HazardEvent, store.on_hazard_event)
     bus.subscribe(LastSeenQuery, store.on_last_seen_query)
+    bus.subscribe(VoiceStatus, store.on_voice_status)
     bus.publish(
         ModuleStatus(
             ts=time.time(),
@@ -156,4 +181,9 @@ if __name__ == "__main__":
     for query in ["ketchup", "CUP", "book", "phone", "umbrella"]:
         print(f"query: {query!r}")
         store.on_last_seen_query(LastSeenQuery(ts=t, text=query))
+    for code in ("zh", "es", "fr", "hi"):
+        store.on_voice_status(VoiceStatus(ts=t, state="active", active_voice="", label="",
+                                          quality="compact", language=code))
+        print(f"query ({code}): 'ketchup'")
+        store.on_last_seen_query(LastSeenQuery(ts=t, text="ketchup"))
     print(f"stored {len(store.touch_events)} touch, {len(store.hazard_events)} hazard events")

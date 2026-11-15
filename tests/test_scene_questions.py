@@ -119,7 +119,7 @@ def test_question_timeout_is_spoken(monkeypatch) -> None:
     ready = threading.Event()
     answers = []
 
-    async def hang(self, client, frame, text) -> str:
+    async def hang(self, client, frame, text, language="en") -> str:
         await asyncio.Event().wait()
         return "unreachable"
 
@@ -179,3 +179,196 @@ def test_fake_pipeline_announces_touch_and_answers_independently() -> None:
         namer.stop()
         bus.stop()
         audio.stop()
+
+
+def _status(language: str):
+    from contracts import VoiceStatus
+
+    return VoiceStatus(time.time(), "active", "x", "X", "enhanced", language=language)
+
+
+def test_non_english_question_asks_grok_to_answer_in_that_language(monkeypatch) -> None:
+    """The instruction gains "Answer in <language>." only outside English."""
+    from namer.questions import INSTRUCTION, instruction_for
+
+    assert instruction_for("en") == INSTRUCTION
+    assert instruction_for("fr").endswith("Answer in French. Question: ")
+    monkeypatch.setenv("GROK_API_KEY", "test-only")
+    monkeypatch.setenv("GROK_MODEL", "test-model")
+    bodies = []
+    ready = threading.Event()
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json={"output_text": "Tes clés sont à droite."})
+
+    worker = SceneQuestions(
+        lambda msg: ready.set(),
+        lambda: httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    )
+    try:
+        worker.on_voice_status(_status("fr"))
+        worker.on_frame(
+            FrameResult(time.time(), 1, np.zeros((360, 640, 3), dtype=np.uint8))
+        )
+        worker.on_question(SceneQuestion(time.time(), "Where are my keys?"))
+        assert ready.wait(2)
+        text = bodies[0]["input"][0]["content"][1]["text"]
+        assert text == instruction_for("fr") + "Where are my keys?"
+    finally:
+        worker.stop()
+
+
+def test_fixed_answers_in_hindi_and_english() -> None:
+    """Namer's own answers come from the fixed table; English wording is unchanged."""
+    from namer.questions import FIXED_ANSWERS, fixed_answer
+
+    assert (
+        fixed_answer("busy", "en") == "Please wait for the current question to finish."
+    )
+    assert fixed_answer("no_view", "en") == "I do not have a current camera view."
+    assert fixed_answer("failed", "en") == (
+        "I could not answer that right now. Please try again."
+    )
+    assert fixed_answer("no_view", "hi") == "मेरे पास अभी कैमरे का दृश्य नहीं है।"
+    assert fixed_answer("failed", "xx") == fixed_answer("failed", "en")
+    assert set(FIXED_ANSWERS) == {"en", "zh", "es", "fr", "hi"}
+    assert all(set(t) == set(FIXED_ANSWERS["en"]) for t in FIXED_ANSWERS.values())
+
+    answers = []
+    ready = threading.Event()
+
+    def publish(msg) -> None:
+        answers.append(msg)
+        ready.set()
+
+    worker = SceneQuestions(publish)
+    try:
+        worker.on_voice_status(_status("hi"))
+        worker.on_question(SceneQuestion(time.time(), "Where are my keys?"))
+        assert ready.wait(2)
+        assert answers[0].text == fixed_answer("no_view", "hi")
+    finally:
+        worker.stop()
+
+
+def test_question_language_is_captured_when_asked(monkeypatch) -> None:
+    """A switch while a question is in flight does not change its answer language."""
+    import namer.questions as module
+
+    monkeypatch.setattr(module, "QUESTION_TIMEOUT_SECONDS", 0.2)
+    entered = threading.Event()
+    ready = threading.Event()
+    answers = []
+    seen_languages = []
+
+    async def hang(self, client, frame, text, language) -> str:
+        seen_languages.append(language)
+        entered.set()
+        await asyncio.Event().wait()
+        return "unreachable"
+
+    def publish(msg) -> None:
+        answers.append(msg)
+        ready.set()
+
+    monkeypatch.setattr(SceneQuestions, "_answer", hang)
+    worker = SceneQuestions(publish)
+    try:
+        worker.on_voice_status(_status("es"))
+        worker.on_frame(FrameResult(time.time(), 1, None))
+        worker.on_question(SceneQuestion(time.time(), "Where are my keys?"))
+        assert entered.wait(2)
+        worker.on_voice_status(_status("en"))
+        assert ready.wait(2)
+        assert seen_languages == ["es"]
+        # The voice is English now, so the failure is said in English.
+        assert answers[0].text == module.fixed_answer("failed", "en")
+    finally:
+        worker.stop()
+
+
+def test_late_answer_in_a_stale_language_is_replaced(monkeypatch) -> None:
+    """A Hindi answer arriving after a switch to English is not spoken; English failure is."""
+    import namer.questions as module
+
+    ready = threading.Event()
+    answers = []
+    worker: SceneQuestions
+
+    async def answer_after_switch(self, client, frame, text, language) -> str:
+        assert language == "hi"
+        worker.on_voice_status(_status("en"))  # the wearer switches mid-call
+        return "आपकी चाबियाँ बाईं ओर हैं।"
+
+    def publish(msg) -> None:
+        answers.append(msg)
+        ready.set()
+
+    monkeypatch.setattr(SceneQuestions, "_answer", answer_after_switch)
+    worker = SceneQuestions(publish)
+    try:
+        worker.on_voice_status(_status("hi"))
+        worker.on_frame(FrameResult(time.time(), 1, None))
+        worker.on_question(SceneQuestion(time.time(), "Where are my keys?"))
+        assert ready.wait(2)
+        assert [a.text for a in answers] == [module.fixed_answer("failed", "en")]
+    finally:
+        worker.stop()
+
+
+def test_answer_in_unchanged_language_is_spoken(monkeypatch) -> None:
+    """With no switch, Grok's answer in the captured language is spoken as is."""
+    ready = threading.Event()
+    answers = []
+
+    async def answer(self, client, frame, text, language) -> str:
+        return "आपकी चाबियाँ बाईं ओर हैं।"
+
+    def publish(msg) -> None:
+        answers.append(msg)
+        ready.set()
+
+    monkeypatch.setattr(SceneQuestions, "_answer", answer)
+    worker = SceneQuestions(publish)
+    try:
+        worker.on_voice_status(_status("hi"))
+        worker.on_frame(FrameResult(time.time(), 1, None))
+        worker.on_question(SceneQuestion(time.time(), "Where are my keys?"))
+        assert ready.wait(2)
+        assert [a.text for a in answers] == ["आपकी चाबियाँ बाईं ओर हैं।"]
+    finally:
+        worker.stop()
+
+
+def test_fake_namer_speaks_the_active_language() -> None:
+    """The fake namer translates its class label into spoken_name outside English."""
+    from contracts import NameRequest, SpeakRequest
+    from fakes.namer.fake_namer import FakeNamer
+
+    results = []
+    done = threading.Event()
+
+    def publish(msg) -> None:
+        results.append(msg)
+        if len(results) == 4:
+            done.set()
+
+    fake = FakeNamer(publish, seed=1, delay_range=(0.0, 0.01))
+    try:
+        fake.on_name_request(NameRequest(time.time(), 1, "bottle", b""))
+        fake.on_voice_status(_status("es"))
+        fake.on_name_request(NameRequest(time.time(), 1, "bottle", b""))
+        fake.on_name_request(NameRequest(time.time(), 2, "keyboard", b""))
+        fake.on_question(SceneQuestion(time.time(), "Where are my keys?"))
+        assert done.wait(2)
+    finally:
+        fake.stop()
+    names = [r for r in results if not isinstance(r, SpeakRequest)]
+    [answer] = [r for r in results if isinstance(r, SpeakRequest)]
+    assert [(r.name, r.spoken_name, r.language) for r in names] == [
+        ("Heinz ketchup", "", ""),
+        ("Heinz ketchup", "botella", "es"),
+        ("keyboard", "teclado", "es"),
+    ]
+    assert answer.text.startswith("Respuesta de demostración")

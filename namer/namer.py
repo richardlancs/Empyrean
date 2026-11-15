@@ -7,8 +7,10 @@ import heapq
 import itertools
 import logging
 import queue
+import re
 import threading
 import time
+import unicodedata
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -16,7 +18,13 @@ from dataclasses import dataclass, field
 import httpx
 
 import config
-from contracts import NameRequest, NameResult
+from contracts import NameRequest, NameResult, VoiceStatus
+from contracts.languages import (
+    DEFAULT_LANGUAGE,
+    LANGUAGE_NAMES_EN,
+    LANGUAGES,
+    known_language,
+)
 from namer.grok_client import name_crop
 from namer.questions import SceneQuestions
 
@@ -34,6 +42,96 @@ def clean_name(raw: str) -> str:
         text = text.strip().strip(_QUOTES).strip()
         text = text.removesuffix(".")
     return text[: config.NAME_MAX_CHARS].rstrip()
+
+
+# "Spanish: botella" -> label "Spanish". Only a label that names a language is dropped.
+_LABEL_PREFIX = re.compile(r"^([^:：]{1,40})[:：]\s*(.*)$")
+# Words a language label may be made of: the English names of the five
+# languages (with their prompt qualifiers), "Chinese"/"Mandarin", their own
+# names, and a few connectives Grok uses ("In Hindi:", "Spanish translation:").
+_LABEL_WORDS = frozenset(
+    {"in", "translation", "name", "chinese", "mandarin"}
+    | {word for name in LANGUAGE_NAMES_EN.values() for word in re.findall(r"[a-z]+", name.lower())}
+    | {word for name in LANGUAGES.values() for word in re.findall(r"\w+", name.lower())}
+)
+# "- x", "* x", "• x", "1. x", "1) x"
+_LIST_MARKER = re.compile(r"^(?:[-*•]|\d+[.)])\s+")
+# "Heinz ketchup / हाइंज़ केचप", "| ", " - "
+_SEPARATORS = (" / ", " | ", " - ")
+# "Heinz ketchup (हाइंज़ केचप)"
+_PARENTHESISED = re.compile(r"^(.*?)\s*[(（]([^()（）]+)[)）]\s*$")
+
+
+def _is_label(text: str) -> bool:
+    """True if text (the part before a colon) only names a language."""
+    words = re.findall(r"\w+", text.lower())
+    return bool(words) and all(word in _LABEL_WORDS for word in words)
+
+
+def _strip_label(line: str) -> str:
+    """Drop a leading "<language>:" label; a line that is only a label becomes empty."""
+    match = _LABEL_PREFIX.match(line.strip())
+    if match is None or not _is_label(match.group(1)):
+        return line.strip()
+    return match.group(2).strip()
+
+
+def _clean_line(line: str) -> str:
+    """Strip a list marker, bold markers and a language label from one reply line."""
+    text = line.replace("**", "").strip()
+    text = _LIST_MARKER.sub("", text).strip()
+    return _strip_label(text)
+
+
+def _is_latin(text: str) -> bool:
+    """True if every letter in text is Latin script (accents included)."""
+    return all(
+        unicodedata.name(ch, "").startswith("LATIN") for ch in text if ch.isalpha()
+    )
+
+
+def _split_mixed(line: str) -> tuple[str, str] | None:
+    """Split "Latin / non-Latin" (or " | ", " - ", parentheses) into (Latin, other)."""
+    pairs = [line.partition(sep)[::2] for sep in _SEPARATORS if sep in line]
+    match = _PARENTHESISED.match(line)
+    if match is not None:
+        pairs.append((match.group(1), match.group(2)))
+    for left, right in pairs:
+        left, right = _clean_line(left), _clean_line(right)
+        if not left or not right:
+            continue
+        if _is_latin(left) and not _is_latin(right):
+            return left, right
+        if _is_latin(right) and not _is_latin(left):
+            return right, left
+    return None
+
+
+def split_reply(raw: str, language: str) -> tuple[str, str]:
+    """Split Grok's reply into (English name, name in language).
+
+    English: the whole reply is cleaned exactly as before and the second part is
+    empty. Otherwise each line loses list markers, "**" and language labels, and
+    label-only lines are skipped. The first line is the English name and the
+    second, cut to NAME_MAX_CHARS, is the spoken name. The English name only
+    ever holds Latin-script text: a first line mixing a Latin and a non-Latin
+    part is split into the two, and a first line with no Latin part gives an
+    empty name (the class label is used) and becomes the spoken name when
+    there is no second line.
+    """
+    if language == DEFAULT_LANGUAGE:
+        return clean_name(raw), ""
+    lines = [text for text in (_clean_line(line) for line in raw.splitlines()) if text]
+    if not lines:
+        return "", ""
+    first = lines[0]
+    second = clean_name(lines[1]) if len(lines) > 1 else ""
+    if _is_latin(first):
+        return clean_name(first), second
+    mixed = _split_mixed(first)
+    if mixed is not None:
+        return clean_name(mixed[0]), second or clean_name(mixed[1])
+    return "", second or clean_name(first)
 
 
 def _default_client() -> httpx.AsyncClient:
@@ -101,6 +199,7 @@ class _Job:
     sort_key: tuple[int, int]
     request: NameRequest = field(compare=False)
     received: float = field(compare=False)  # time.monotonic() when the request arrived
+    language: str = field(compare=False, default=DEFAULT_LANGUAGE)  # at request time
 
 
 class Namer:
@@ -116,7 +215,12 @@ class Namer:
         self.questions: SceneQuestions | None = None
         self._publish = publish
         self._client_factory = client_factory
-        self._inbox: queue.SimpleQueue[tuple[NameRequest, float]] = queue.SimpleQueue()
+        self._inbox: queue.SimpleQueue[tuple[NameRequest, float, str]] = (
+            queue.SimpleQueue()
+        )
+        # Active spoken language from audio's VoiceStatus; English until the first one.
+        self._language = DEFAULT_LANGUAGE
+        self._language_lock = threading.Lock()
         # The last 200 Grok calls, appended on the worker thread. Read with list().
         self.timings: deque[NameTiming] = deque(maxlen=200)
         self._stopping = threading.Event()
@@ -129,7 +233,8 @@ class Namer:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._wake: asyncio.Event | None = None
         self._heap: list[_Job] = []
-        self._cache: dict[int, str] = {}
+        # object_id -> (English name, spoken name, its language)
+        self._cache: dict[int, tuple[str, str, str]] = {}
         self._waiting: dict[
             int, int
         ] = {}  # object_id -> requests waiting on its answer
@@ -149,8 +254,22 @@ class Namer:
         if self._stopping.is_set():
             log.debug("namer stopped; dropping request for object %s", msg.object_id)
             return
-        self._inbox.put((msg, time.monotonic()))
+        with self._language_lock:
+            language = self._language
+        self._inbox.put((msg, time.monotonic(), language))
         self._poke()
+
+    def on_voice_status(self, msg: VoiceStatus) -> None:
+        """Bus handler: remember the active spoken language and return."""
+        language = known_language(getattr(msg, "language", None))
+        with self._language_lock:
+            self._language = language
+
+    @property
+    def language(self) -> str:
+        """The active spoken language new requests are captured with."""
+        with self._language_lock:
+            return self._language
 
     def stop(self, timeout: float | None = None) -> None:
         """Finish queued and in-flight requests, then stop the worker thread."""
@@ -229,30 +348,36 @@ class Namer:
         """Move everything from the thread-safe inbox into the priority queue."""
         while True:
             try:
-                msg, received = self._inbox.get_nowait()
+                msg, received, language = self._inbox.get_nowait()
             except queue.Empty:
                 return
-            self._admit(msg, received)
+            self._admit(msg, received, language)
 
-    def _admit(self, msg: NameRequest, received: float) -> None:
-        """Answer from cache, join a pending request, or queue a new Grok call."""
+    def _admit(self, msg: NameRequest, received: float, language: str) -> None:
+        """Answer from cache, join a pending request, or queue a new Grok call.
+
+        A cached spoken name is reused only for a request in that same language.
+        """
         cached = self._cache.get(msg.object_id)
         if cached is not None:
-            self._emit(msg.object_id, cached, True)
+            name, spoken, spoken_language = cached
+            if spoken_language != language:
+                spoken, spoken_language = "", ""
+            self._emit(msg.object_id, name, True, spoken, spoken_language)
         elif msg.object_id in self._waiting:
             self._waiting[msg.object_id] += 1
         else:
             self._waiting[msg.object_id] = 1
-            self._push(msg, received)
+            self._push(msg, received, language)
 
-    def _push(self, request: NameRequest, received: float) -> None:
+    def _push(self, request: NameRequest, received: float, language: str) -> None:
         """Queue one Grok call, keyed by crop pixel area so the largest goes first.
 
         Runs on the worker thread, never in the bus handler, so reading the JPEG
         header stays off the frame path.
         """
         key = (-jpeg_area(request.crop_jpeg), next(self._seq))
-        heapq.heappush(self._heap, _Job(key, request, received))
+        heapq.heappush(self._heap, _Job(key, request, received, language))
         if self._wake is not None:
             self._wake.set()
 
@@ -269,10 +394,10 @@ class Namer:
         started = time.monotonic()
         try:
             raw = await asyncio.wait_for(
-                name_crop(client, req.crop_jpeg, req.class_label),
+                name_crop(client, req.crop_jpeg, req.class_label, job.language),
                 config.NAME_TIMEOUT_SECONDS,
             )
-            name = clean_name(raw)
+            name, spoken = split_reply(raw, job.language)
             if not name:
                 raise ValueError("Grok returned an empty name")
         except Exception as exc:  # noqa: BLE001 - any failure publishes ok=False
@@ -284,8 +409,9 @@ class Namer:
             if self._failing:
                 log.info("Grok naming recovered")
                 self._failing = False
-            self._cache[req.object_id] = name
-            self._finish(req.object_id, name, True)
+            spoken_language = job.language if spoken else ""
+            self._cache[req.object_id] = (name, spoken, spoken_language)
+            self._finish(req.object_id, name, True, spoken, spoken_language)
         finally:
             slots.release()
 
@@ -318,16 +444,27 @@ class Namer:
             exc,
         )
 
-    def _finish(self, object_id: int, name: str, ok: bool) -> None:
+    def _finish(
+        self, object_id: int, name: str, ok: bool, spoken: str = "", language: str = ""
+    ) -> None:
         """Publish the outcome once for every request waiting on this object."""
         for _ in range(self._waiting.pop(object_id, 1)):
-            self._emit(object_id, name, ok)
+            self._emit(object_id, name, ok, spoken, language)
 
-    def _emit(self, object_id: int, name: str, ok: bool) -> None:
+    def _emit(
+        self, object_id: int, name: str, ok: bool, spoken: str = "", language: str = ""
+    ) -> None:
         """Publish one NameResult without letting a subscriber error kill the worker."""
         try:
             self._publish(
-                NameResult(ts=time.time(), object_id=object_id, name=name, ok=ok)
+                NameResult(
+                    ts=time.time(),
+                    object_id=object_id,
+                    name=name,
+                    ok=ok,
+                    spoken_name=spoken,
+                    language=language,
+                )
             )
         except Exception:
             log.exception("publishing NameResult for object %s failed", object_id)
